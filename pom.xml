@@ -44,10 +44,90 @@
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
     <jacoco.coverage.ratio>1.00</jacoco.coverage.ratio>
     <jacoco.missed.count>0</jacoco.missed.count>
+
+    <junit.version>4.12</junit.version>
+    <jmock.version>2.6.0</jmock.version>
+
+    <k3po.version>3.0.0-alpha-83</k3po.version>
+    <k3po.nukleus.ext.version>0.11</k3po.nukleus.ext.version>
+
+    <nukleus.plugin.version>0.12</nukleus.plugin.version>
+    <nukleus.version>develop-SNAPSHOT</nukleus.version>
+
+    <nukleus.auth.jwt.spec.version>develop-SNAPSHOT</nukleus.auth.jwt.spec.version>
+    <reaktor.version>develop-SNAPSHOT</reaktor.version>
   </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>nukleus</artifactId>
+      <version>${nukleus.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>nukleus-auth-jwt.spec</artifactId>
+      <version>${nukleus.auth.jwt.spec.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>reaktor</artifactId>
+      <version>${reaktor.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>reaktor</artifactId>
+      <type>test-jar</type>
+      <version>${reaktor.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.junit</artifactId>
+      <version>${k3po.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.lang</artifactId>
+      <version>${k3po.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jmock</groupId>
+      <artifactId>jmock-junit4</artifactId>
+      <version>${jmock.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.reaktivity</groupId>
+        <artifactId>nukleus-maven-plugin</artifactId>
+        <version>${nukleus.plugin.version}</version>
+        <configuration>
+          <scopeNames>core</scopeNames>
+          <packageName>org.reaktivity.nukleus.auth.jwt.internal.types</packageName>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -130,12 +210,40 @@
         </configuration>
       </plugin>
       <plugin>
+        <groupId>org.kaazing</groupId>
+        <artifactId>k3po-maven-plugin</artifactId>
+        <version>${k3po.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>start</goal>
+              <goal>stop</goal>
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.reaktivity</groupId>
+            <artifactId>k3po-nukleus-ext</artifactId>
+            <version>${k3po.nukleus.ext.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <version>2.19.1</version>
         <configuration>
           <argLine>@{argLine}</argLine>
         </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

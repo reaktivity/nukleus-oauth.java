@@ -38,6 +38,9 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     private LongSupplier supplyStreamId;
     private ToLongFunction<String> supplyRealmId;
 
+    // TODO: inject from reactor
+    private LongSupplier supplyCurrentTimeMillis = () -> System.currentTimeMillis();
+
     public ProxyStreamFactoryBuilder(
             AuthJwtConfiguration config)
     {
@@ -94,7 +97,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     public StreamFactory build()
     {
         Path keyFile = config.directory().resolve(config.keyFileName());
-        JwtValidator validator = new JwtValidator(keyFile);
+        JwtValidator validator = new JwtValidator(keyFile, supplyCurrentTimeMillis);
 
         return new ProxyStreamFactory(
                 router,

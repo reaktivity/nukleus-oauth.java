@@ -23,18 +23,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.LongSupplier;
 
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
 import org.jose4j.jws.JsonWebSignature;
+import org.jose4j.jwt.JwtClaims;
+import org.jose4j.jwt.MalformedClaimException;
+import org.jose4j.jwt.NumericDate;
+import org.jose4j.jwt.consumer.InvalidJwtException;
 import org.jose4j.lang.JoseException;
 
 public class JwtValidator
 {
     private JsonWebSignature jws = new JsonWebSignature();
     private final Map<String, JsonWebKey> keysByKid;
+    private final LongSupplier supplyCurrentTimeMillis;
 
-    public JwtValidator(Path keyFile)
+    public JwtValidator(Path keyFile, LongSupplier supplyCurrentTimeMillis)
     {
         Map<String, JsonWebKey> keysByKid = null;
         try
@@ -47,11 +53,13 @@ public class JwtValidator
             rethrowUnchecked(e);
         }
         this.keysByKid = keysByKid;
+        this.supplyCurrentTimeMillis = supplyCurrentTimeMillis;
     }
 
-    public JwtValidator(String jwkSet)
+    public JwtValidator(String jwkSet, LongSupplier supplyCurrentTimeMillis)
     {
         this.keysByKid = toKeyMap(jwkSet);
+        this.supplyCurrentTimeMillis = supplyCurrentTimeMillis;
     }
 
     private Map<String, JsonWebKey> toKeyMap(String keysAsJwkSet)
@@ -105,18 +113,29 @@ public class JwtValidator
                 if (key.getAlgorithm().equals(jws.getAlgorithmHeaderValue()))
                 {
                     jws.setKey(key.getKey());
-                    if (jws.verifySignature())
+                    if (withinDuration(jws) && jws.verifySignature())
                     {
                         realm = kid;
                     }
                 }
             }
         }
-        catch (JoseException e)
+        catch (JoseException | MalformedClaimException | InvalidJwtException e)
         {
             // TODO: diagnostics?
         }
         return realm;
+    }
+
+    private boolean withinDuration(JsonWebSignature jws) throws MalformedClaimException, InvalidJwtException, JoseException
+    {
+        JwtClaims claims = JwtClaims.parse(jws.getPayload());
+        long now = supplyCurrentTimeMillis.getAsLong();
+        NumericDate exp = claims.getExpirationTime();
+        NumericDate nbf = claims.getNotBefore();
+
+        return (exp == null || now <= exp.getValueInMillis()) &&
+               (nbf == null || now < nbf.getValueInMillis());
     }
 
 }

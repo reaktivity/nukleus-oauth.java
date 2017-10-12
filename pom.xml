@@ -55,6 +55,7 @@
     <nukleus.version>develop-SNAPSHOT</nukleus.version>
 
     <nukleus.auth.jwt.spec.version>develop-SNAPSHOT</nukleus.auth.jwt.spec.version>
+    <nukleus.http.spec.version>0.38</nukleus.http.spec.version>
     <reaktor.version>develop-SNAPSHOT</reaktor.version>
   </properties>
 
@@ -70,6 +71,21 @@
       <artifactId>nukleus-auth-jwt.spec</artifactId>
       <version>${nukleus.auth.jwt.spec.version}</version>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>nukleus-http.spec</artifactId>
+      <version>${nukleus.http.spec.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bitbucket.b_c</groupId>
+      <artifactId>jose4j</artifactId>
+      <version>0.6.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+      <version>1.7.21</version>
     </dependency>
     <dependency>
       <groupId>org.reaktivity</groupId>
@@ -117,7 +133,7 @@
         <artifactId>nukleus-maven-plugin</artifactId>
         <version>${nukleus.plugin.version}</version>
         <configuration>
-          <scopeNames>core</scopeNames>
+          <scopeNames>core http</scopeNames>
           <packageName>org.reaktivity.nukleus.auth.jwt.internal.types</packageName>
         </configuration>
         <executions>
@@ -147,7 +163,7 @@
         </configuration>
         <executions>
           <execution>
-            <phase>validate</phase>
+            <phase>pre-integration-test</phase>
             <goals>
               <goal>check</goal>
             </goals>
@@ -198,6 +214,25 @@
               <goal>prepare-agent</goal>
               <goal>check</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <id>unit-tests</id>
+            <phase>process-test-resources</phase>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <configuration>
+              <includeArtifactIds>nukleus-auth-jwt.spec</includeArtifactIds>
+              <outputDirectory>target/nukleus-itests/auth-jwt</outputDirectory>
+              <includes>**/*.jwk</includes>
+            </configuration>
           </execution>
         </executions>
       </plugin>

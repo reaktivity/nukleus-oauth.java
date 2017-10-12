@@ -13,11 +13,11 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.http_cache.internal;
+package org.reaktivity.auth.jwt.internal;
 
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
-import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
+import org.reaktivity.auth.jwt.internal.stream.ProxyStreamFactoryBuilder;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
@@ -25,10 +25,7 @@ import org.reaktivity.nukleus.NukleusFactorySpi;
 
 public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
 {
-    private static final String PROPERTY_JWT_KEYS = "jwt.keys";
 
-    private static final String DEFAULT_JWT_KEYS = "keys.jwk";
-    
     @Override
     public String name()
     {
@@ -40,14 +37,11 @@ public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
         Configuration config,
         NukleusBuilder builder)
     {
-        AuthJwtConfiguration httpCacheConfig = new HttpCacheConfiguration(config);
+        AuthJwtConfiguration jwtConfig = new AuthJwtConfiguration(config);
         final ProxyStreamFactoryBuilder proxyFactoryBuilder = new ProxyStreamFactoryBuilder(
-                httpCacheConfig,
-                scheduler::schedule);
-        final ServerStreamFactoryBuilder serverFactoryBuilder = new ServerStreamFactoryBuilder();
+                jwtConfig);
 
         return builder.streamFactory(PROXY, proxyFactoryBuilder)
-                      .streamFactory(SERVER, serverFactoryBuilder)
                       .build();
     }
 

@@ -135,7 +135,7 @@ public class JwtValidator
         NumericDate nbf = claims.getNotBefore();
 
         return (exp == null || now <= exp.getValueInMillis()) &&
-               (nbf == null || now < nbf.getValueInMillis());
+               (nbf == null || now >= nbf.getValueInMillis());
     }
 
 }

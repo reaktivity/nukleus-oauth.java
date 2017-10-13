@@ -154,6 +154,23 @@ public class JwtValidatorTest
     }
 
     @Test
+    public void shouldNotValidateUnreadyES256SignedJwt() throws Exception
+    {
+        JwtValidator validator = new JwtValidator("{\"keys\": [ {" +
+             "\"kid\":\"key1\"," +
+              "\"kty\":\"EC\"," +
+              "\"crv\":\"P-256\"," +
+              "\"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\"," +
+              "\"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\"," +
+              "\"alg\":\"ES256\"" +
+             "} ] }",
+             supplyCurrentTimeMillis);
+
+        String realm = validator.validateAndGetRealm(generateUnreadyES256SignedJsonWebToken());
+        assertNull(realm);
+    }
+
+    @Test
     public void shouldValidateValidES256SignedJwt() throws Exception
     {
         JwtValidator validator = new JwtValidator("{\"keys\": [ {" +
@@ -239,6 +256,29 @@ public class JwtValidatorTest
         System.out.println("exp: " + expiredTime);
         System.out.println("Current time millis: " + System.currentTimeMillis());
         claims.setExpirationTime(NumericDate.fromMilliseconds(expiredTime));
+        JsonWebSignature jws = new JsonWebSignature();
+        jws.setPayload(claims.toJson());
+        jws.setKey(key.getPrivateKey());
+        jws.setKeyIdHeaderValue("key1");
+        jws.setAlgorithmHeaderValue("ES256");
+        String jwt = jws.getCompactSerialization();
+        jws.setKey(key.getKey());
+        System.out.println(jws.toString() + jws.getPayload());
+        System.out.println("ES256 JWT: " + jwt);
+        return jwt;
+    }
+
+    private String generateUnreadyES256SignedJsonWebToken() throws JoseException
+    {
+        // Example key from RFC-7515 Appendix A.3
+        EllipticCurveJsonWebKey key = (EllipticCurveJsonWebKey) JsonWebKey.Factory.newJwk(EXAMPLE_EC256_KEY);
+
+        JwtClaims claims = new JwtClaims();
+        claims.setIssuer("test issuer");
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(2027, 3, 30, 0, 0, 0);
+        long notBeforeTime = calendar.getTimeInMillis();
+        claims.setNotBefore(NumericDate.fromMilliseconds(notBeforeTime));
         JsonWebSignature jws = new JsonWebSignature();
         jws.setPayload(claims.toJson());
         jws.setKey(key.getPrivateKey());

@@ -1,4 +1,6 @@
-# nukleus-auth-jwt.java
+# nukleus-auth-jwt.java 
+
+JWT (JSON Web Token) authorization nukleus. 
 
 ## Configuration
 

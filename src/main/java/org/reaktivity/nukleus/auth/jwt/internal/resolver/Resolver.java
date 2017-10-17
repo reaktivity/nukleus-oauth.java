@@ -52,6 +52,7 @@ public class Resolver
         {
             ResolvedFW resolved = resolvedRW.wrap(replyBuffer, 0,  replyBuffer.capacity())
                     .correlationId(resolve.correlationId())
+                    .authorization(authorization)
                     .build();
             reply.accept(ResolvedFW.TYPE_ID, resolved.buffer(), resolved.offset(), resolved.limit() - resolved.offset());
         }

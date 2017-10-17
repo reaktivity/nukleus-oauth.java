@@ -21,10 +21,12 @@ import java.util.Map;
 public class Realms
 {
     private static final Long NO_AUTHORIZATION = 0L;
-    private static final int MAX_ROLES = Long.SIZE - Short.SIZE;
+    private static final int MAX_SCOPES = Short.SIZE;
+    private static final int MAX_ROLES = Long.SIZE - MAX_SCOPES;
+    private static final long SCOPE_MASK = 0xFFFF_FFFF_FFFF_FFFFL << MAX_ROLES;
 
     private final Map<Object, Long> scopesByRealm = new HashMap<>();
-    private final String[] realmsByScope = new String[Short.SIZE];
+    private final String[] realmsByScope = new String[MAX_SCOPES];
     private short nextScopeIndex = 0;
 
     public void add(String realm)
@@ -46,11 +48,15 @@ public class Realms
 
     public boolean unresolve(long authorization)
     {
-        int scope = (int) (authorization >> 48 & 0xFFFF);
-        String realm = realmsByScope[scope-1];
+        if (Long.bitCount(authorization & SCOPE_MASK) > 1)
+        {
+            return false;
+        }
+        int index = Short.SIZE - Long.numberOfLeadingZeros(authorization) - 1;
+        String realm = realmsByScope[index];
         if (realm != null)
         {
-            realmsByScope[scope-1] = null;
+            realmsByScope[index] = null;
             scopesByRealm.remove(realm);
         }
         return realm != null;

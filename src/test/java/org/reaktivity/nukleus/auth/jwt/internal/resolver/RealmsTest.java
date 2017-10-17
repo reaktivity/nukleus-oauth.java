@@ -66,10 +66,15 @@ public class RealmsTest
     public void shouldUnresolveKnownRealms() throws Exception
     {
         Realms realms = new Realms();
-        realms.add("realm one");
-        realms.add("realm two");
-        assertTrue(realms.unresolve(0x0001_000000000000L));
-        assertTrue(realms.unresolve(0x0002_000000000000L));
+        for (int i=0; i < Short.SIZE; i++)
+        {
+            realms.add("realm" + i);
+        }
+        for (int i=0; i < Short.SIZE; i++)
+        {
+            assertTrue(realms.unresolve(realms.resolve("realm" + i)));
+
+        }
     }
 
     @Test
@@ -78,6 +83,15 @@ public class RealmsTest
         Realms realms = new Realms();
         realms.add("realm one");
         assertFalse(realms.unresolve(0x0002_000000000000L));
+    }
+
+    @Test
+    public void shouldNotUnresolveInvalidRealm() throws Exception
+    {
+        Realms realms = new Realms();
+        realms.add("realm one");
+        realms.add("realm two");
+        assertFalse(realms.unresolve(0x0003_000000000000L));
     }
 
 }

@@ -13,12 +13,30 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal.util;
+package org.reaktivity.nukleus.auth.jwt.internal.util;
 
 import org.agrona.DirectBuffer;
+import org.reaktivity.nukleus.auth.jwt.internal.types.Flyweight;
 
 public final class BufferUtil
 {
+    public static boolean equals(
+        Flyweight flyweight,
+        byte[] value)
+    {
+        return equals(flyweight.buffer(), flyweight.offset(), flyweight.limit(), value);
+    }
+
+    public static boolean equals(
+        DirectBuffer buffer,
+        int offset,
+        int limit,
+        byte[] value)
+    {
+        return (limit - offset == value.length &&
+                0 == limitOfBytes(buffer, offset, limit, value));
+    }
+
     public static int limitOfBytes(
         DirectBuffer buffer,
         int offset,

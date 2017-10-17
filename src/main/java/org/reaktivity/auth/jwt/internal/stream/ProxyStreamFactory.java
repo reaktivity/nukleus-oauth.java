@@ -24,8 +24,6 @@ import java.util.function.ToLongFunction;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.reaktivity.auth.jwt.internal.util.BufferUtil;
-import org.reaktivity.auth.jwt.internal.util.JwtValidator;
 import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.String16FW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
@@ -36,6 +34,8 @@ import org.reaktivity.nukleus.auth.jwt.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.HttpBeginExFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.WindowFW;
+import org.reaktivity.nukleus.auth.jwt.internal.util.BufferUtil;
+import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteManager;
@@ -44,7 +44,7 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 public class ProxyStreamFactory implements StreamFactory
 {
     private static final byte[] BEARER_PREFIX = "Bearer ".getBytes(US_ASCII);
-    private static final String AUTHORIZATION = "authorization";
+    private static final byte[] AUTHORIZATION = "authorization".getBytes(US_ASCII);
     private final BeginFW beginRO = new BeginFW();
     private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
     private final DataFW dataRO = new DataFW();
@@ -149,7 +149,7 @@ public class ProxyStreamFactory implements StreamFactory
         final HttpBeginExFW beginEx = begin.extension().get(httpBeginExRO::wrap);
         beginEx.headers().forEach(h ->
         {
-            if (h.name().equals(AUTHORIZATION))
+            if (BufferUtil.equals(h.name(), AUTHORIZATION))
             {
                 String16FW authorizationHeader = h.value();
                 final DirectBuffer buffer = authorizationHeader.buffer();

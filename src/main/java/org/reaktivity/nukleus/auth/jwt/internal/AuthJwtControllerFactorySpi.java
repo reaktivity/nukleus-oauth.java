@@ -13,24 +13,33 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal;
+package org.reaktivity.nukleus.auth.jwt.internal;
 
 import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.nukleus.ControllerBuilder;
+import org.reaktivity.nukleus.ControllerFactorySpi;
 
-public class AuthJwtConfiguration extends Configuration
+public final class AuthJwtControllerFactorySpi implements ControllerFactorySpi<AuthJwtController>
 {
-    public static final String PROPERTY_JWT_KEYS = "auth.jwt.keys";
-
-    public static final String DEFAULT_JWT_KEYS = "keys.jwk";
-
-    public AuthJwtConfiguration(
-        Configuration config)
+    @Override
+    public String name()
     {
-        super(config);
+        return "auth-jwt";
     }
 
-    public String keyFileName()
+    @Override
+    public Class<AuthJwtController> kind()
     {
-        return getProperty(PROPERTY_JWT_KEYS, DEFAULT_JWT_KEYS);
+        return AuthJwtController.class;
+    }
+
+    @Override
+    public AuthJwtController create(
+        Configuration config,
+        ControllerBuilder<AuthJwtController> builder)
+    {
+        return builder.setName(name())
+                .setFactory(AuthJwtController::new)
+                .build();
     }
 }

@@ -15,14 +15,12 @@
  */
 package org.reaktivity.auth.jwt.internal.stream;
 
-import java.nio.file.Path;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
-import org.reaktivity.auth.jwt.internal.AuthJwtConfiguration;
-import org.reaktivity.auth.jwt.internal.util.JwtValidator;
+import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -30,21 +28,17 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
 {
-
-    private final AuthJwtConfiguration config;
+    private final JwtValidator validator;
 
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
     private LongSupplier supplyStreamId;
     private ToLongFunction<String> supplyRealmId;
 
-    // TODO: inject from reactor
-    private LongSupplier supplyCurrentTimeMillis = () -> System.currentTimeMillis();
-
     public ProxyStreamFactoryBuilder(
-            AuthJwtConfiguration config)
+            JwtValidator validator)
     {
-        this.config = config;
+        this.validator = validator;
     }
 
     @Override
@@ -96,9 +90,6 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     @Override
     public StreamFactory build()
     {
-        Path keyFile = config.directory().resolve(config.keyFileName());
-        JwtValidator validator = new JwtValidator(keyFile, supplyCurrentTimeMillis);
-
         return new ProxyStreamFactory(
                 router,
                 writeBuffer,

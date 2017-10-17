@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal.util;
+package org.reaktivity.nukleus.auth.jwt.internal.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.agrona.LangUtil.rethrowUnchecked;
@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 import org.jose4j.jwk.JsonWebKey;
@@ -95,9 +96,9 @@ public class JwtValidator
         return keysByKid;
     }
 
-    public int realmCount()
+    public void forEachRealm(Consumer<String> consumer)
     {
-        return keysByKid.size();
+        keysByKid.forEach((k, v) -> consumer.accept(k));
     }
 
     public String validateAndGetRealm(String token)

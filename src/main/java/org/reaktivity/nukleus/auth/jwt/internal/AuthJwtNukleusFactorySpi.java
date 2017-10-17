@@ -13,18 +13,28 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal;
+package org.reaktivity.nukleus.auth.jwt.internal;
 
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
+
+import java.nio.file.Path;
+import java.util.function.LongSupplier;
 
 import org.reaktivity.auth.jwt.internal.stream.ProxyStreamFactoryBuilder;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
+import org.reaktivity.nukleus.auth.jwt.internal.resolver.Realms;
+import org.reaktivity.nukleus.auth.jwt.internal.resolver.Resolver;
+import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.ResolveFW;
+import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.UnresolveFW;
+import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 
 public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
 {
+    // TODO: inject from reactor
+    private LongSupplier supplyCurrentTimeMillis = () -> System.currentTimeMillis();
 
     @Override
     public String name()
@@ -38,10 +48,18 @@ public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
         NukleusBuilder builder)
     {
         AuthJwtConfiguration jwtConfig = new AuthJwtConfiguration(config);
-        final ProxyStreamFactoryBuilder proxyFactoryBuilder = new ProxyStreamFactoryBuilder(
-                jwtConfig);
+        Path keyFile = config.directory().resolve("auth-jwt").resolve(jwtConfig.keyFileName());
+
+        JwtValidator validator = new JwtValidator(keyFile, supplyCurrentTimeMillis);
+        Realms realms = new Realms();
+        validator.forEachRealm(r -> realms.add(r));
+        Resolver resolver = new Resolver(realms);
+
+        final ProxyStreamFactoryBuilder proxyFactoryBuilder = new ProxyStreamFactoryBuilder(validator);
 
         return builder.streamFactory(PROXY, proxyFactoryBuilder)
+                      .commandHandler(ResolveFW.TYPE_ID, resolver::resolve)
+                      .commandHandler(UnresolveFW.TYPE_ID, resolver::unresolve)
                       .build();
     }
 

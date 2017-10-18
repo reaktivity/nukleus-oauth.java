@@ -16,15 +16,15 @@
 package org.reaktivity.nukleus.auth.jwt.internal.util;
 
 import org.agrona.DirectBuffer;
-import org.reaktivity.nukleus.auth.jwt.internal.types.Flyweight;
+import org.reaktivity.nukleus.auth.jwt.internal.types.StringFW;
 
 public final class BufferUtil
 {
     public static boolean equals(
-        Flyweight flyweight,
+        StringFW flyweight,
         byte[] value)
     {
-        return equals(flyweight.buffer(), flyweight.offset(), flyweight.limit(), value);
+        return equals(flyweight.buffer(), flyweight.offset() + 1, flyweight.limit(), value);
     }
 
     public static boolean equals(
@@ -34,7 +34,7 @@ public final class BufferUtil
         byte[] value)
     {
         return (limit - offset == value.length &&
-                0 == limitOfBytes(buffer, offset, limit, value));
+                limit == limitOfBytes(buffer, offset, limit, value));
     }
 
     public static int limitOfBytes(

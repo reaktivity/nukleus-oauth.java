@@ -63,7 +63,7 @@ public class RealmsTest
     }
 
     @Test
-    public void shouldUnresolveKnownRealms() throws Exception
+    public void shouldUnresolveAllKnownRealms() throws Exception
     {
         Realms realms = new Realms();
         for (int i=0; i < Short.SIZE; i++)

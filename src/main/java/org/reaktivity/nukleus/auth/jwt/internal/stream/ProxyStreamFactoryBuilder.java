@@ -13,13 +13,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal.stream;
+package org.reaktivity.nukleus.auth.jwt.internal.stream;
 
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteManager;
@@ -29,16 +30,28 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
 {
     private final JwtValidator validator;
+    private final ToLongFunction<String> supplyRealmId;
 
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
     private LongSupplier supplyStreamId;
-    private ToLongFunction<String> supplyRealmId;
+    private LongSupplier supplyCorrelationId;
+
+    static class Correlation
+    {
+        String acceptName;
+        long acceptCorrelationId;
+    }
+
+    private final Long2ObjectHashMap<Correlation> correlations;
 
     public ProxyStreamFactoryBuilder(
-            JwtValidator validator)
+            JwtValidator validator,
+            ToLongFunction<String> supplyRealmId)
     {
         this.validator = validator;
+        this.supplyRealmId = supplyRealmId;
+        this.correlations = new Long2ObjectHashMap<>();
     }
 
     @Override
@@ -69,6 +82,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     public ProxyStreamFactoryBuilder setCorrelationIdSupplier(
         LongSupplier supplyCorrelationId)
     {
+        this.supplyCorrelationId = supplyCorrelationId;
         return this;
     }
 
@@ -80,20 +94,14 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public StreamFactoryBuilder setRealmIdSupplier(
-        ToLongFunction<String> supplyRealmId)
-    {
-        this.supplyRealmId = supplyRealmId;
-        return this;
-    }
-
-    @Override
     public StreamFactory build()
     {
         return new ProxyStreamFactory(
                 router,
                 writeBuffer,
                 supplyStreamId,
+                supplyCorrelationId,
+                correlations,
                 supplyRealmId,
                 validator);
     }

@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal.stream;
+package org.reaktivity.nukleus.auth.jwt.internal.stream;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
@@ -24,6 +24,7 @@ import java.util.function.ToLongFunction;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.reaktivity.nukleus.auth.jwt.internal.stream.ProxyStreamFactoryBuilder.Correlation;
 import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.String16FW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
@@ -55,36 +56,32 @@ public class ProxyStreamFactory implements StreamFactory
     private final ResetFW resetRO = new ResetFW();
     private final AbortFW abortRO = new AbortFW();
 
-    private final String16FW string16RO = new String16FW();
-
     private final RouteManager router;
 
     private final LongSupplier supplyStreamId;
+    private final LongSupplier supplyCorrelationId;
     private final ToLongFunction<String> supplyRealmId;
 
     private final Long2ObjectHashMap<Correlation> correlations;
     private final Writer writer;
     private final JwtValidator validator;
 
-    private static class Correlation
-    {
-        String acceptName;
-        long acceptRef;
-    }
-
     public ProxyStreamFactory(
         RouteManager router,
         MutableDirectBuffer writeBuffer,
         LongSupplier supplyStreamId,
+        LongSupplier supplyCorrelationId,
+        Long2ObjectHashMap<Correlation> correlations,
         ToLongFunction<String> supplyRealmId,
         JwtValidator validator)
     {
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
         this.supplyStreamId = requireNonNull(supplyStreamId);
+        this.supplyCorrelationId = requireNonNull(supplyCorrelationId);
+        this.correlations = correlations;
         this.supplyRealmId = supplyRealmId;
         this.validator = validator;
-        correlations = new Long2ObjectHashMap<>();
     }
 
     @Override
@@ -158,7 +155,7 @@ public class ProxyStreamFactory implements StreamFactory
                         limit, BEARER_PREFIX);
                 if (offset > 0)
                 {
-                    String token = string16RO.wrap(buffer, offset, limit).asString();
+                    String token = buffer.getStringWithoutLengthUtf8(offset, limit - offset);
                     String realm = validator.validateAndGetRealm(token);
                     if (realm != null)
                     {
@@ -167,7 +164,7 @@ public class ProxyStreamFactory implements StreamFactory
                 }
             }
         });
-        return authorization[0];
+         return authorization[0];
     }
 
     private MessageConsumer newConnectReplyStream(
@@ -188,35 +185,26 @@ public class ProxyStreamFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
-    final class ProxyAcceptStream
+    abstract class ProxyStream
     {
-        private final MessageConsumer acceptThrottle;
-        private final long acceptStreamId;
-        private final long authorization;
+        private final MessageConsumer sourceThrottle;
+        private final long sourceStreamId;
 
-        private MessageConsumer connect;
-        private final String connectName;
-        private final long connectRef;
-        private long connectStreamId;
+        MessageConsumer target;
+        long targetStreamId;
 
         private MessageConsumer streamState;
 
-        private ProxyAcceptStream(
-                MessageConsumer acceptThrottle,
-                long acceptStreamId,
-                long authorization,
-                String connectName,
-                long connectRef)
+        private ProxyStream(
+                MessageConsumer sourceThrottle,
+                long sourceStreamId)
         {
-            this.acceptThrottle = acceptThrottle;
-            this.acceptStreamId = acceptStreamId;
-            this.authorization = authorization;
-            this.connectName = connectName;
-            this.connectRef = connectRef;
+            this.sourceThrottle = sourceThrottle;
+            this.sourceStreamId = sourceStreamId;
             this.streamState = this::beforeBegin;
         }
 
-        private void handleStream(
+        void handleStream(
                 int msgTypeId,
                 DirectBuffer buffer,
                 int index,
@@ -238,27 +226,18 @@ public class ProxyStreamFactory implements StreamFactory
             }
             else
             {
-                writer.doReset(acceptThrottle, acceptStreamId);
+                writer.doReset(sourceThrottle, sourceStreamId);
             }
         }
 
         private void handleBegin(BeginFW begin)
         {
-            Correlation correlation = new Correlation();
-            correlation.acceptName = begin.source().asString();
-            correlation.acceptRef = begin.sourceRef();
-            long correlationId = begin.correlationId();
-            correlations.put(correlationId, correlation);
-
-            this.connect = router.supplyTarget(connectName);
-            this.connectStreamId = supplyStreamId.getAsLong();
-
-            writer.doBegin(connect, connectStreamId, connectRef, correlationId,
-                    authorization, begin.extension());
-
-            router.setThrottle(connectName, connectStreamId, this::handleConnectThrottle);
+            doHandleBegin(begin);
             this.streamState = this::afterBegin;
         }
+
+        abstract void doHandleBegin(
+            BeginFW begin);
 
         private void afterBegin(
                 int msgTypeId,
@@ -281,7 +260,7 @@ public class ProxyStreamFactory implements StreamFactory
                 handleAbort(abort);
                 break;
             default:
-                writer.doReset(acceptThrottle, acceptStreamId);
+                writer.doReset(sourceThrottle, sourceStreamId);
                 break;
             }
         }
@@ -290,23 +269,23 @@ public class ProxyStreamFactory implements StreamFactory
                 DataFW data)
         {
             final OctetsFW payload = data.payload();
-            writer.doData(connect, connectStreamId, payload.buffer(), payload.offset(), payload.sizeof(),
+            writer.doData(target, targetStreamId, payload.buffer(), payload.offset(), payload.sizeof(),
                     data.extension());
         }
 
         private void handleEnd(
                 EndFW end)
         {
-            writer.doEnd(connect, connectStreamId, end.extension());
+            writer.doEnd(target, targetStreamId, end.extension());
         }
 
         private void handleAbort(
                 AbortFW abort)
         {
-            writer.doAbort(connect, connectStreamId);
+            writer.doAbort(target, targetStreamId);
         }
 
-        private void handleConnectThrottle(
+        private void handleTargetThrottle(
                 int msgTypeId,
                 DirectBuffer buffer,
                 int index,
@@ -319,8 +298,8 @@ public class ProxyStreamFactory implements StreamFactory
                     handleConnectWindow(window);
                     break;
                 case ResetFW.TYPE_ID:
-                    final ResetFW reset = resetRO.wrap(buffer, index, index + length);
-                    handleConnectReset(reset);
+                    resetRO.wrap(buffer, index, index + length);
+                    resetSource();
                     break;
                 default:
                     // ignore
@@ -334,64 +313,68 @@ public class ProxyStreamFactory implements StreamFactory
             final int bytes = windowRO.update();
             final int frames = windowRO.frames();
 
-            writer.doWindow(acceptThrottle, acceptStreamId, bytes, frames);
+            writer.doWindow(sourceThrottle, sourceStreamId, bytes, frames);
         }
 
-        private void handleConnectReset(
-            ResetFW reset)
+        void resetSource()
         {
-            writer.doReset(acceptThrottle, acceptStreamId);
+            writer.doReset(sourceThrottle, sourceStreamId);
         }
 
     }
 
-    private final class ProxyConnectReplyStream
+    private final class ProxyAcceptStream extends ProxyStream
     {
-        private MessageConsumer streamState;
+        private final long authorization;
 
-        private final MessageConsumer connectReplyThrottle;
-        private final long connectReplyStreamId;
+        private final String connectName;
+        private final long connectRef;
 
-        private MessageConsumer acceptReply;
+        private ProxyAcceptStream(
+                MessageConsumer acceptThrottle,
+                long acceptStreamId,
+                long authorization,
+                String connectName,
+                long connectRef)
+        {
+            super(acceptThrottle, acceptStreamId);
+            this.authorization = authorization;
+            this.connectName = connectName;
+            this.connectRef = connectRef;
+        }
 
-        private long acceptReplyStreamId;
+        @Override
+        void doHandleBegin(
+            BeginFW begin)
+        {
+            Correlation correlation = new Correlation();
+            correlation.acceptName = begin.source().asString();
+            correlation.acceptCorrelationId = begin.correlationId();
+            long newCorrelationId = ProxyStreamFactory.this.supplyCorrelationId.getAsLong();
+            correlations.put(newCorrelationId, correlation);
 
+            target = router.supplyTarget(connectName);
+            targetStreamId = supplyStreamId.getAsLong();
+
+            writer.doBegin(target, targetStreamId, connectRef, newCorrelationId,
+                    authorization, begin.extension());
+
+            router.setThrottle(connectName, targetStreamId, super::handleTargetThrottle);
+        }
+
+    }
+
+    private final class ProxyConnectReplyStream extends ProxyStream
+    {
         private ProxyConnectReplyStream(
                 MessageConsumer connectReplyThrottle,
                 long connectReplyId)
         {
-            this.connectReplyThrottle = connectReplyThrottle;
-            this.connectReplyStreamId = connectReplyId;
-            this.streamState = this::beforeBegin;
+            super(connectReplyThrottle, connectReplyId);
         }
 
-        private void handleStream(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
-        {
-            streamState.accept(msgTypeId, buffer, index, length);
-        }
-
-        private void beforeBegin(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
-        {
-            if (msgTypeId == BeginFW.TYPE_ID)
-            {
-                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                handleBegin(begin);
-            }
-            else
-            {
-                writer.doReset(connectReplyThrottle, connectReplyStreamId);
-            }
-        }
-
-        private void handleBegin(
+        @Override
+        void doHandleBegin(
                 BeginFW begin)
         {
             final long connectCorrelationId = begin.correlationId();
@@ -400,14 +383,16 @@ public class ProxyStreamFactory implements StreamFactory
 
             if (correlation != null)
             {
-                this.acceptReply = router.supplyTarget(correlation.acceptName);
-                this.acceptReplyStreamId = supplyStreamId.getAsLong();
-                writer.doBegin(acceptReply, acceptReplyStreamId, correlation.acceptRef,
-                        begin.correlationId(), begin.authorization(), begin.extension());
+                final String acceptName = correlation.acceptName;
+                target = router.supplyTarget(acceptName);
+                targetStreamId = supplyStreamId.getAsLong();
+                writer.doBegin(target, targetStreamId, 0L,
+                        correlation.acceptCorrelationId, begin.authorization(), begin.extension());
+                router.setThrottle(acceptName, targetStreamId, super::handleTargetThrottle);
             }
             else
             {
-                writer.doReset(connectReplyThrottle, connectReplyStreamId);
+                resetSource();
             }
         }
     }

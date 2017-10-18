@@ -17,10 +17,14 @@ package org.reaktivity.nukleus.auth.jwt.internal.util;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Queue;
 import java.util.function.LongSupplier;
 
 import org.jose4j.jwk.EllipticCurveJsonWebKey;
@@ -115,6 +119,30 @@ public class JwtValidatorTest
                 supplyCurrentTimeMillis);
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void constructorShouldRejectKeyWithDuplicateKid() throws Exception
+    {
+        new JwtValidator("{\"keys\": [ " +
+             "{" +
+                "\"kid\":\"key1\"," +
+                 "\"kty\":\"EC\"," +
+                 "\"crv\":\"P-256\"," +
+                 "\"x\":\"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4\", " +
+                 "\"y\":\"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM\", " +
+                 "\"alg\":\"ES256\"" +
+             "}" +
+             "{" +
+                 "\"kid\":\"key1\"," +
+                 "\"kty\":\"EC\"," +
+                  "\"crv\":\"P-256\"," +
+                  "\"x\":\"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4\", " +
+                  "\"y\":\"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM\", " +
+                  "\"alg\":\"ES256\"" +
+              "}" +
+                "] }",
+                supplyCurrentTimeMillis);
+    }
+
     @Test
     public void constructorShouldAcceptValidJWKSet() throws Exception
     {
@@ -171,6 +199,40 @@ public class JwtValidatorTest
     }
 
     @Test
+    public void shouldNotValidateES256SignedJwtWithUnkownKid() throws Exception
+    {
+        JwtValidator validator = new JwtValidator("{\"keys\": [ {" +
+             "\"kid\":\"oops\"," +
+              "\"kty\":\"EC\"," +
+              "\"crv\":\"P-256\"," +
+              "\"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\"," +
+              "\"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\"," +
+              "\"alg\":\"ES256\"" +
+             "} ] }",
+             supplyCurrentTimeMillis);
+
+        String realm = validator.validateAndGetRealm(generateES256SignedJsonWebToken());
+        assertNull(realm);
+    }
+
+    @Test
+    public void shouldNotValidateES256SignedJwtWitoutKid() throws Exception
+    {
+        JwtValidator validator = new JwtValidator("{\"keys\": [ {" +
+             "\"kid\":\"key1\"," +
+              "\"kty\":\"EC\"," +
+              "\"crv\":\"P-256\"," +
+              "\"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\"," +
+              "\"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\"," +
+              "\"alg\":\"ES256\"" +
+             "} ] }",
+             supplyCurrentTimeMillis);
+
+        String realm = validator.validateAndGetRealm(generateES256SignedJsonWebTokenWithoutKid());
+        assertNull(realm);
+    }
+
+    @Test
     public void shouldValidateValidES256SignedJwt() throws Exception
     {
         JwtValidator validator = new JwtValidator("{\"keys\": [ {" +
@@ -206,6 +268,32 @@ public class JwtValidatorTest
         assertEquals("key2", realm);
     }
 
+    @Test
+    public void shouldReportAllKidsAsRealms() throws Exception
+    {
+        JwtValidator validator = new JwtValidator("{\"keys\": [ " +
+                "{" +
+                   "\"kid\":\"key1\"," +
+                    "\"kty\":\"EC\"," +
+                    "\"crv\":\"P-256\"," +
+                    "\"x\":\"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4\", " +
+                    "\"y\":\"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM\", " +
+                    "\"alg\":\"ES256\"" +
+                "}" +
+                "{" +
+                    "\"kid\":\"key2\"," +
+                    "\"kty\":\"EC\"," +
+                     "\"crv\":\"P-256\"," +
+                     "\"x\":\"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4\", " +
+                     "\"y\":\"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM\", " +
+                     "\"alg\":\"ES256\"" +
+                 "}" +
+                   "] }",
+                   supplyCurrentTimeMillis);
+        final Queue<String> expectedRealms = new ArrayDeque<String>(Arrays.asList("key1", "key2"));
+        validator.forEachRealm(s -> assertTrue(s.equals(expectedRealms.poll())));
+    }
+
     private String generateES256SignedJsonWebToken() throws JoseException
     {
         // Example key from RFC-7515 Appendix A.3
@@ -220,8 +308,8 @@ public class JwtValidatorTest
         jws.setAlgorithmHeaderValue("ES256");
         String jwt = jws.getCompactSerialization();
         jws.setKey(key.getKey());
-        System.out.println(jws.toString() + jws.getPayload());
-        System.out.println("ES256 JWT: " + jwt);
+        // System.out.println(jws.toString() + jws.getPayload());
+        // System.out.println("ES256 JWT: " + jwt);
         return jwt;
     }
 
@@ -238,8 +326,8 @@ public class JwtValidatorTest
         jws.setAlgorithmHeaderValue("RS256");
         String jwt = jws.getCompactSerialization();
         jws.setKey(key.getKey());
-        System.out.println(jws.toString() + jws.getPayload());
-        System.out.println("RS256 JWT: " + jwt);
+        // System.out.println(jws.toString() + jws.getPayload());
+        // System.out.println("RS256 JWT: " + jwt);
         return jwt;
     }
 
@@ -263,8 +351,8 @@ public class JwtValidatorTest
         jws.setAlgorithmHeaderValue("ES256");
         String jwt = jws.getCompactSerialization();
         jws.setKey(key.getKey());
-        System.out.println(jws.toString() + jws.getPayload());
-        System.out.println("ES256 JWT: " + jwt);
+        // System.out.println(jws.toString() + jws.getPayload());
+        // System.out.println("ES256 JWT: " + jwt);
         return jwt;
     }
 
@@ -283,6 +371,24 @@ public class JwtValidatorTest
         jws.setPayload(claims.toJson());
         jws.setKey(key.getPrivateKey());
         jws.setKeyIdHeaderValue("key1");
+        jws.setAlgorithmHeaderValue("ES256");
+        String jwt = jws.getCompactSerialization();
+        jws.setKey(key.getKey());
+        // System.out.println(jws.toString() + jws.getPayload());
+        // System.out.println("ES256 JWT: " + jwt);
+        return jwt;
+    }
+
+    private String generateES256SignedJsonWebTokenWithoutKid() throws JoseException
+    {
+        // Example key from RFC-7515 Appendix A.3
+        EllipticCurveJsonWebKey key = (EllipticCurveJsonWebKey) JsonWebKey.Factory.newJwk(EXAMPLE_EC256_KEY);
+
+        JwtClaims claims = new JwtClaims();
+        claims.setIssuer("test issuer");
+        JsonWebSignature jws = new JsonWebSignature();
+        jws.setPayload(claims.toJson());
+        jws.setKey(key.getPrivateKey());
         jws.setAlgorithmHeaderValue("ES256");
         String jwt = jws.getCompactSerialization();
         jws.setKey(key.getKey());

@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.auth.jwt.internal.stream;
+package org.reaktivity.nukleus.auth.jwt.internal.stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -32,7 +32,7 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 public class Writer
 {
 
-    private static final DirectBuffer SOURCE_NAME_BUFFER = new UnsafeBuffer("http-cache".getBytes(UTF_8));
+    private static final DirectBuffer SOURCE_NAME_BUFFER = new UnsafeBuffer("auth-jwt".getBytes(UTF_8));
 
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final DataFW.Builder dataRW = new DataFW.Builder();
@@ -58,6 +58,7 @@ public class Writer
     {
         BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                .streamId(targetStreamId)
+                               .authorization(authorization)
                                .source(SOURCE_NAME_BUFFER, 0, SOURCE_NAME_BUFFER.capacity())
                                .sourceRef(targetRef)
                                .correlationId(correlationId)

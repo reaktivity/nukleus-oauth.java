@@ -21,44 +21,43 @@ import java.util.Map;
 public class Realms
 {
     private static final Long NO_AUTHORIZATION = 0L;
-    private static final int MAX_SCOPES = Short.SIZE;
-    private static final int MAX_ROLES = Long.SIZE - MAX_SCOPES;
-    private static final long SCOPE_MASK = 0xFFFF_FFFF_FFFF_FFFFL << MAX_ROLES;
 
-    private final Map<Object, Long> scopesByRealm = new HashMap<>();
-    private final String[] realmsByScope = new String[MAX_SCOPES];
-    private short nextScopeIndex = 0;
+    // To optimize authorization checks we use a single distinct bit per realm
+    private static final int MAX_REALMS = Short.SIZE;
+
+    private static final long SCOPE_MASK = 0xFFFF_000000000000L;
+
+    private final Map<String, Long> realmsIdsByName = new HashMap<>(MAX_REALMS);
+
+    private int nextRealmBitShift = 48;
 
     public void add(String realm)
     {
-        if (nextScopeIndex == Short.SIZE)
+        if (realmsIdsByName.size() == MAX_REALMS)
         {
             throw new IllegalStateException("Too many realms");
         }
-        realmsByScope[nextScopeIndex] = realm;
-        scopesByRealm.put(realm, 1L << (nextScopeIndex + MAX_ROLES));
-        nextScopeIndex++;
+        realmsIdsByName.put(realm, 1L << nextRealmBitShift++);
     }
 
     public long resolve(
         String realm)
     {
-        return scopesByRealm.getOrDefault(realm, NO_AUTHORIZATION);
+        return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
     }
 
     public boolean unresolve(long authorization)
     {
-        if (Long.bitCount(authorization & SCOPE_MASK) > 1)
+        long scope = authorization & SCOPE_MASK;
+        boolean result;
+        if (Long.bitCount(scope) > 1)
         {
-            return false;
+            result = false;
         }
-        int index = Short.SIZE - Long.numberOfLeadingZeros(authorization) - 1;
-        String realm = realmsByScope[index];
-        if (realm != null)
+        else
         {
-            realmsByScope[index] = null;
-            scopesByRealm.remove(realm);
+            result = realmsIdsByName.entrySet().removeIf(e -> (e.getValue() == scope));
         }
-        return realm != null;
+        return result;
     }
 }

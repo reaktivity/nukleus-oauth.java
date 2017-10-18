@@ -20,13 +20,13 @@ import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 import java.nio.file.Path;
 import java.util.function.LongSupplier;
 
-import org.reaktivity.auth.jwt.internal.stream.ProxyStreamFactoryBuilder;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.nukleus.auth.jwt.internal.resolver.Realms;
 import org.reaktivity.nukleus.auth.jwt.internal.resolver.Resolver;
+import org.reaktivity.nukleus.auth.jwt.internal.stream.ProxyStreamFactoryBuilder;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.ResolveFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.UnresolveFW;
 import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
@@ -55,7 +55,8 @@ public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
         validator.forEachRealm(r -> realms.add(r));
         Resolver resolver = new Resolver(realms);
 
-        final ProxyStreamFactoryBuilder proxyFactoryBuilder = new ProxyStreamFactoryBuilder(validator);
+        final ProxyStreamFactoryBuilder proxyFactoryBuilder = new ProxyStreamFactoryBuilder(validator,
+                realms::resolve);
 
         return builder.streamFactory(PROXY, proxyFactoryBuilder)
                       .commandHandler(ResolveFW.TYPE_ID, resolver::resolve)

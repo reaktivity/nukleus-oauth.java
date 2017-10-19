@@ -19,7 +19,7 @@ import static java.nio.ByteBuffer.allocateDirect;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.util.List;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.ToIntFunction;
@@ -95,11 +95,14 @@ public class AuthJwtController implements Controller
 
     public CompletableFuture<Long> resolve(
         String realm,
-        List<String> roles)
+        String... roles)
     {
+        long correlationId = controllerSpi.nextCorrelationId();
+
         ResolveFW resolveRO = resolveRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+                .correlationId(correlationId)
                 .realm(realm)
-                .roles(b -> roles.forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
+                .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
                 .build();
         return controllerSpi.doCommand(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
     }
@@ -107,7 +110,10 @@ public class AuthJwtController implements Controller
     public CompletableFuture<Void> unresolve(
         long authorization)
     {
+        long correlationId = controllerSpi.nextCorrelationId();
+
         UnresolveFW unresolveRO = unresolveRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+                                             .correlationId(correlationId)
                                              .authorization(authorization)
                                              .build();
         return controllerSpi.doCommand(unresolveRO.typeId(), unresolveRO.buffer(), unresolveRO.offset(), unresolveRO.sizeof());

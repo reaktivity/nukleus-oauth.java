@@ -87,6 +87,13 @@ public class BufferUtilTest
     }
 
     @Test
+    public void shouldReportUnequalWhenBothOfEqualLength()
+    {
+        DirectBuffer buffer = new UnsafeBuffer("a nice".getBytes(US_ASCII));
+        assertFalse(BufferUtil.equals(buffer, 0, 6, "a nick".getBytes()));
+    }
+
+    @Test
     public void shouldLocateLimitWhenValueAtEndBuffer()
     {
         DirectBuffer buffer = new UnsafeBuffer("a nice warm cookie cutter".getBytes(US_ASCII));

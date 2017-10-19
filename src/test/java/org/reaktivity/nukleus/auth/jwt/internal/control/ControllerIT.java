@@ -16,15 +16,20 @@
 package org.reaktivity.nukleus.auth.jwt.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertEquals;
 import static org.junit.rules.RuleChain.outerRule;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
+import org.junit.rules.ExpectedException;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
@@ -35,6 +40,8 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class ControllerIT
 {
     private final K3poRule k3po = new K3poRule()
+        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/auth/jwt/control/resolve")
+        .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/auth/jwt/control/unresolve")
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/auth/jwt/control/route")
         .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/auth/jwt/control/unroute");
 
@@ -42,13 +49,93 @@ public class ControllerIT
 
     private final ReaktorRule controller = new ReaktorRule()
         .directory("target/nukleus-itests")
-        .commandBufferCapacity(1024)
-        .responseBufferCapacity(1024)
+        .commandBufferCapacity(4096)
+        .responseBufferCapacity(4096)
         .counterValuesBufferCapacity(1024)
         .controller(AuthJwtController.class::isAssignableFrom);
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(controller);
+
+    @Rule
+    public final ExpectedException thrown = ExpectedException.none();
+
+    @Test
+    @Specification({
+        "${resolve}/fails.too.many.roles/nukleus"
+    })
+    public void shouldFailToResolveWithTooManyRoles() throws Exception
+    {
+        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
+                .or(is(instanceOf(ExecutionException.class))));
+        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
+
+        k3po.start();
+
+        controller.controller(AuthJwtController.class)
+          .resolve("realm",
+                  "role1", "role2", "role3", "role4", "role5", "role6", "role7", "role8", "role9", "role10",
+                  "role11", "role12", "role13", "role14", "role15", "role16", "role17", "role18", "role19", "role20",
+                  "role21", "role22", "role23", "role24", "role25", "role26", "role27", "role28", "role29", "role30",
+                  "role31", "role32", "role33", "role34", "role35", "role36", "role37", "role38", "role39", "role40",
+                  "role41", "role42", "role43", "role44", "role45", "role46", "role47", "role48", "role49TooMany")
+          .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/multiple.realms/nukleus"
+    })
+    public void shouldResolveMultipleRealms() throws Exception
+    {
+        k3po.start();
+
+        long authorization1 = controller.controller(AuthJwtController.class)
+          .resolve("key1")
+          .get();
+        assertEquals(0x0001_000000000000L, authorization1);
+
+        long authorization2 = controller.controller(AuthJwtController.class)
+                .resolve("key2")
+                .get();
+        assertEquals(0x0002_000000000000L, authorization2);
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/one.realm/nukleus"
+    })
+    public void shouldResolveOneRealm() throws Exception
+    {
+        k3po.start();
+
+        long authorization1 = controller.controller(AuthJwtController.class)
+          .resolve("key1")
+          .get();
+        assertEquals(0x0001_000000000000L, authorization1);
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles/nukleus"
+    })
+    public void shouldResolveWithRoles() throws Exception
+    {
+        k3po.start();
+
+        long authorization = controller.controller(AuthJwtController.class)
+          .resolve("key1", "role1", "role2")
+          .get();
+        assertEquals(0x0001_00000000000cL, authorization);
+
+        k3po.finish();
+    }
 
     @Test
     @Specification({
@@ -57,8 +144,6 @@ public class ControllerIT
     public void shouldRouteProxy() throws Exception
     {
         long targetRef = new Random().nextLong();
-        Map<String, String> headers = new LinkedHashMap<>();
-        headers.put(":authority", "localhost:8080");
 
         k3po.start();
 
@@ -71,14 +156,143 @@ public class ControllerIT
 
     @Test
     @Specification({
+        "${unresolve}/fails.unknown.realm/nukleus"
+    })
+    public void shouldFailToUnresolveUnkownRealm() throws Exception
+    {
+        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
+                .or(is(instanceOf(ExecutionException.class))));
+        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
+
+        k3po.start();
+
+        long authorizationWithUnknownRealm = 0x1000_000000000000L;
+        controller.controller(AuthJwtController.class)
+          .unresolve(authorizationWithUnknownRealm)
+          .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${unresolve}/fails.unknown.role/nukleus"
+    })
+    public void shouldFailToUnresolveUnkownRole() throws Exception
+    {
+        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
+                .or(is(instanceOf(ExecutionException.class))));
+        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
+
+        k3po.start();
+
+        long authorizationWithUnknownRoleBits = 0x0001_ffff0000ffffL;
+        controller.controller(AuthJwtController.class)
+          .unresolve(authorizationWithUnknownRoleBits)
+          .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/multiple.realms/nukleus",
+        "${unresolve}/multiple.realms/nukleus"
+    })
+    public void shouldUnresolveMultipleRealms() throws Exception
+    {
+        k3po.start();
+
+        long authorization1 = controller.controller(AuthJwtController.class)
+          .resolve("key1")
+          .get();
+        assertEquals(0x0001_000000000000L, authorization1);
+
+        long authorization2 = controller.controller(AuthJwtController.class)
+                .resolve("key2")
+                .get();
+        assertEquals(0x0002_000000000000L, authorization2);
+
+        controller.controller(AuthJwtController.class)
+            .unresolve(authorization1)
+            .get();
+
+        controller.controller(AuthJwtController.class)
+            .unresolve(authorization2)
+            .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/one.realm/nukleus",
+        "${unresolve}/one.realm/nukleus"
+    })
+    public void shouldUnresolveOneRealm() throws Exception
+    {
+        k3po.start();
+
+        long authorization = controller.controller(AuthJwtController.class)
+          .resolve("key1")
+          .get();
+        assertEquals(0x0001_000000000000L, authorization);
+
+        controller.controller(AuthJwtController.class)
+        .unresolve(authorization)
+        .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles/nukleus",
+        "${unresolve}/with.roles/nukleus"
+    })
+    public void shouldUnresolveWithRoles() throws Exception
+    {
+        k3po.start();
+
+        long authorization = controller.controller(AuthJwtController.class)
+                .resolve("key1", "role1", "role2")
+                .get();
+        assertEquals(0x0001_00000000000cL, authorization);
+
+        controller.controller(AuthJwtController.class)
+           .unresolve(authorization)
+           .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${unroute}/proxy/fails.unknown.route/nukleus"
+    })
+    public void shouldFailToUnrouteProxyWithUnknownAcceptRouteRef() throws Exception
+    {
+        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
+                      .or(is(instanceOf(ExecutionException.class))));
+        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
+        k3po.start();
+        long sourceRef = new Random().nextLong();
+        long targetRef = new Random().nextLong();
+        controller.controller(AuthJwtController.class)
+           .unrouteProxy("source", sourceRef, "target", targetRef, 0L)
+           .get();
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/proxy/nukleus",
         "${unroute}/proxy/nukleus"
     })
     public void shouldUnrouteProxy() throws Exception
     {
         long targetRef = new Random().nextLong();
-        Map<String, String> headers = new LinkedHashMap<>();
-        headers.put(":authority", "localhost:8080");
 
         k3po.start();
 
@@ -89,8 +303,8 @@ public class ControllerIT
         k3po.notifyBarrier("ROUTED_PROXY");
 
         controller.controller(AuthJwtController.class)
-                  .unrouteProxy("source", sourceRef, "target", targetRef, 0L)
-                  .get();
+            .unrouteProxy("source", sourceRef, "target", targetRef, 0L)
+            .get();
 
         k3po.finish();
     }

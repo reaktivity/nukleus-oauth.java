@@ -42,8 +42,8 @@ public class ControlIT
             .nukleus("auth-jwt"::equals)
             .directory("target/nukleus-itests")
             .configure("auth.jwt.keys", "keys/keys.jwk")
-            .commandBufferCapacity(1024)
-            .responseBufferCapacity(1024)
+            .commandBufferCapacity(4096)
+            .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(1024);
 
     @Rule
@@ -142,6 +142,15 @@ public class ControlIT
         "${unresolve}/with.roles/controller"
     })
     public void shouldUnresolveWithRoles() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${unroute}/proxy/fails.unknown.route/controller"
+    })
+    public void shouldFailToUnrouteProxyWithUnknownAcceptRouteRef() throws Exception
     {
         k3po.finish();
     }

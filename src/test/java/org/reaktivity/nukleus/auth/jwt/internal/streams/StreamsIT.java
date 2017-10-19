@@ -38,8 +38,8 @@ public class StreamsIT
 
     private final ReaktorRule reaktor = new ReaktorRule()
             .directory("target/nukleus-itests")
-            .commandBufferCapacity(1024)
-            .responseBufferCapacity(1024)
+            .commandBufferCapacity(4096)
+            .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(1024)
             .nukleus("auth-jwt"::equals)
             .configure("auth.jwt.keys", "keys/keys.jwk")
@@ -47,6 +47,17 @@ public class StreamsIT
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/proxy.accept.aborts/accept/client",
+        "${streams}/proxy.accept.aborts/connect/server"
+        })
+    public void shouldAbortClientConnectWhenAcceptAborts() throws Exception
+    {
+        k3po.finish();
+    }
 
     @Test
     @Specification({
@@ -66,6 +77,28 @@ public class StreamsIT
         "${streams}/proxy.connect.is.reset/connect/server"
         })
     public void shouldResetAcceptWhenConnectIsReset() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/proxy.connect.reply.aborts/accept/client",
+        "${streams}/proxy.connect.reply.aborts/connect/server"
+        })
+    public void shouldAbortAcceptReplyWhenConnectReplyAborts() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/request.and.response.with.fragmented.data/accept/client",
+        "${streams}/request.and.response.with.fragmented.data/connect/server"
+        })
+    public void shouldPropagateWindows() throws Exception
     {
         k3po.finish();
     }

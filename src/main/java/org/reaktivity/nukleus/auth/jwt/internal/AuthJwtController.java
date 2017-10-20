@@ -104,7 +104,7 @@ public class AuthJwtController implements Controller
                 .realm(realm)
                 .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
                 .build();
-        return controllerSpi.doCommand(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
+        return controllerSpi.doResolve(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
     }
 
     public CompletableFuture<Void> unresolve(
@@ -116,7 +116,7 @@ public class AuthJwtController implements Controller
                                              .correlationId(correlationId)
                                              .authorization(authorization)
                                              .build();
-        return controllerSpi.doCommand(unresolveRO.typeId(), unresolveRO.buffer(), unresolveRO.offset(), unresolveRO.sizeof());
+        return controllerSpi.doUnresolve(unresolveRO.typeId(), unresolveRO.buffer(), unresolveRO.offset(), unresolveRO.sizeof());
     }
 
     public CompletableFuture<Long> routeProxy(

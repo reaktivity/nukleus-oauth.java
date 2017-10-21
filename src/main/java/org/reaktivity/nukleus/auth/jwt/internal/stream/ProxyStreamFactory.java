@@ -132,8 +132,20 @@ public class ProxyStreamFactory implements StreamFactory
         {
             final long networkId = begin.streamId();
 
-            newStream = new ProxyAcceptStream(networkThrottle, networkId,
-                    authorization, route.target().asString(), route.targetRef())::handleStream;
+            Correlation correlation = new Correlation();
+            correlation.acceptName = begin.source().asString();
+            correlation.acceptCorrelationId = begin.correlationId();
+            long newCorrelationId = ProxyStreamFactory.this.supplyCorrelationId.getAsLong();
+            correlations.put(newCorrelationId, correlation);
+            String targetName = route.target().asString();
+            MessageConsumer target = router.supplyTarget(targetName);
+            long targetStreamId = supplyStreamId.getAsLong();
+
+            writer.doBegin(target, targetStreamId, route.targetRef(), newCorrelationId,
+                    authorization, begin.extension());
+            ProxyStream stream = new ProxyStream(networkThrottle, networkId, target, targetStreamId);
+            router.setThrottle(targetName, targetStreamId, stream::handleTargetThrottle);
+            newStream = stream::handleStream;
         }
 
         return newStream;
@@ -173,7 +185,28 @@ public class ProxyStreamFactory implements StreamFactory
     {
         final long throttleId = begin.streamId();
 
-        return new ProxyConnectReplyStream(throttle, throttleId)::handleStream;
+
+        final long connectCorrelationId = begin.correlationId();
+        Correlation correlation = correlations.remove(connectCorrelationId);
+        MessageConsumer newStream = null;
+
+        if (correlation != null)
+        {
+            final String source = correlation.acceptName;
+            MessageConsumer target = router.supplyTarget(source);
+            long targetStreamId = supplyStreamId.getAsLong();
+            writer.doBegin(target, targetStreamId, 0L,
+                    correlation.acceptCorrelationId, begin.authorization(), begin.extension());
+            ProxyStream stream = new ProxyStream(throttle, throttleId, target, targetStreamId);
+            router.setThrottle(source, targetStreamId, stream::handleTargetThrottle);
+            newStream = stream::handleStream;
+        }
+        else
+        {
+            writer.doReset(throttle, throttleId);
+        }
+
+        return newStream;
     }
 
     private RouteFW wrapRoute(
@@ -185,22 +218,25 @@ public class ProxyStreamFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
-    abstract class ProxyStream
+    final class ProxyStream
     {
         private final MessageConsumer sourceThrottle;
         private final long sourceStreamId;
-
-        MessageConsumer target;
-        long targetStreamId;
+        private final MessageConsumer target;
+        private final long targetStreamId;
 
         private MessageConsumer streamState;
 
         private ProxyStream(
                 MessageConsumer sourceThrottle,
-                long sourceStreamId)
+                long sourceStreamId,
+                MessageConsumer target,
+                long targetStreamId)
         {
             this.sourceThrottle = sourceThrottle;
             this.sourceStreamId = sourceStreamId;
+            this.target = target;
+            this.targetStreamId = targetStreamId;
             this.streamState = this::beforeBegin;
         }
 
@@ -221,23 +257,13 @@ public class ProxyStreamFactory implements StreamFactory
         {
             if (msgTypeId == BeginFW.TYPE_ID)
             {
-                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-                handleBegin(begin);
+                this.streamState = this::afterBegin;
             }
             else
             {
                 writer.doReset(sourceThrottle, sourceStreamId);
             }
         }
-
-        private void handleBegin(BeginFW begin)
-        {
-            doHandleBegin(begin);
-            this.streamState = this::afterBegin;
-        }
-
-        abstract void doHandleBegin(
-            BeginFW begin);
 
         private void afterBegin(
                 int msgTypeId,
@@ -321,80 +347,6 @@ public class ProxyStreamFactory implements StreamFactory
             writer.doReset(sourceThrottle, sourceStreamId);
         }
 
-    }
-
-    private final class ProxyAcceptStream extends ProxyStream
-    {
-        private final long authorization;
-
-        private final String connectName;
-        private final long connectRef;
-
-        private ProxyAcceptStream(
-                MessageConsumer acceptThrottle,
-                long acceptStreamId,
-                long authorization,
-                String connectName,
-                long connectRef)
-        {
-            super(acceptThrottle, acceptStreamId);
-            this.authorization = authorization;
-            this.connectName = connectName;
-            this.connectRef = connectRef;
-        }
-
-        @Override
-        void doHandleBegin(
-            BeginFW begin)
-        {
-            Correlation correlation = new Correlation();
-            correlation.acceptName = begin.source().asString();
-            correlation.acceptCorrelationId = begin.correlationId();
-            long newCorrelationId = ProxyStreamFactory.this.supplyCorrelationId.getAsLong();
-            correlations.put(newCorrelationId, correlation);
-
-            target = router.supplyTarget(connectName);
-            targetStreamId = supplyStreamId.getAsLong();
-
-            writer.doBegin(target, targetStreamId, connectRef, newCorrelationId,
-                    authorization, begin.extension());
-
-            router.setThrottle(connectName, targetStreamId, super::handleTargetThrottle);
-        }
-
-    }
-
-    private final class ProxyConnectReplyStream extends ProxyStream
-    {
-        private ProxyConnectReplyStream(
-                MessageConsumer connectReplyThrottle,
-                long connectReplyId)
-        {
-            super(connectReplyThrottle, connectReplyId);
-        }
-
-        @Override
-        void doHandleBegin(
-                BeginFW begin)
-        {
-            final long connectCorrelationId = begin.correlationId();
-
-            Correlation correlation = correlations.remove(connectCorrelationId);
-
-            if (correlation != null)
-            {
-                final String acceptName = correlation.acceptName;
-                target = router.supplyTarget(acceptName);
-                targetStreamId = supplyStreamId.getAsLong();
-                writer.doBegin(target, targetStreamId, 0L,
-                        correlation.acceptCorrelationId, begin.authorization(), begin.extension());
-                router.setThrottle(acceptName, targetStreamId, super::handleTargetThrottle);
-            }
-            else
-            {
-                resetSource();
-            }
-        }
     }
 
 }

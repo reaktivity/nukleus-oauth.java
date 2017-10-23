@@ -55,7 +55,7 @@
 
     <nukleus.auth.jwt.spec.version>develop-SNAPSHOT</nukleus.auth.jwt.spec.version>
     <nukleus.http.spec.version>0.38</nukleus.http.spec.version>
-    <reaktor.version>develop-SNAPSHOT</reaktor.version>
+    <reaktor.version>0.31</reaktor.version>
   </properties>
 
   <dependencies>

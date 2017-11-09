@@ -34,6 +34,7 @@ import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
 import org.jose4j.jwt.NumericDate;
 import org.jose4j.lang.JoseException;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class JwtValidatorTest
@@ -91,6 +92,37 @@ public class JwtValidatorTest
     public void constructorShouldRejectKeyFileWithInvalidJSONFormat() throws Exception
     {
         new JwtValidator("{\"keys\":  [ {\"kid\":\"key1\",\"", supplyCurrentTimeMillis);
+    }
+
+    @Test(expected = JoseException.class)
+    public void constructorShouldRejectKeyFileWithMissingCloseQuoteOnPropertyValue() throws Exception
+    {
+        new JwtValidator("{\"keys\"" +
+            "[" +
+             "{\"kid\":\"key1\"," +
+               "\"kty\":\"EC\"," +
+               "\"crv\":\"P-256\"," +
+               "\"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU," + // missing " at end of property value
+               "\"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\"" +
+               "\"alg\":\"ES256\"}" +
+           "]" +
+         "}", supplyCurrentTimeMillis);
+    }
+
+    @Test(expected = JoseException.class)
+    @Ignore("jose4j library is not catching this")
+    public void constructorShouldRejectKeyFileWithMissingComma() throws Exception
+    {
+        new JwtValidator("{\"keys\"" +
+            "[" +
+             "{\"kid\":\"key1\"," +
+               "\"kty\":\"EC\"," +
+               "\"crv\":\"P-256\"," +
+               "\"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\"" + // missing comma at end of line
+               "\"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\"" +
+               "\"alg\":\"ES256\"}" +
+           "]" +
+         "}", supplyCurrentTimeMillis);
     }
 
     @Test(expected = IllegalArgumentException.class)

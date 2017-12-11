@@ -80,6 +80,8 @@ public class Writer
 
         DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(targetStreamId)
+                            .groupId(0)
+                            .claimed(0)
                             .payload(p -> p.set(payload, offset, length))
                             .extension(e -> e.set(extension))
                             .build();
@@ -114,13 +116,15 @@ public class Writer
     public void doWindow(
         final MessageConsumer throttle,
         final long throttleStreamId,
-        final int writableBytes,
-        final int writableFrames)
+        final int credit,
+        final int padding,
+        final long groupId)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(throttleStreamId)
-                .update(writableBytes)
-                .frames(writableFrames)
+                .credit(credit)
+                .padding(padding)
+                .groupId(groupId)
                 .build();
 
         throttle.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());

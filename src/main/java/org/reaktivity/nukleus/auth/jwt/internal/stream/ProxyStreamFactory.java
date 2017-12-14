@@ -336,10 +336,11 @@ public class ProxyStreamFactory implements StreamFactory
         private void handleConnectWindow(
             WindowFW window)
         {
-            final int bytes = windowRO.update();
-            final int frames = windowRO.frames();
+            final int credit = windowRO.credit();
+            final int padding = windowRO.padding();
+            final long groupId = windowRO.groupId();
 
-            writer.doWindow(sourceThrottle, sourceStreamId, bytes, frames);
+            writer.doWindow(sourceThrottle, sourceStreamId, credit, padding, groupId);
         }
 
         void resetSource()

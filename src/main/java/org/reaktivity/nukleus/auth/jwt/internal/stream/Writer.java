@@ -72,6 +72,7 @@ public class Writer
     public void doData(
         MessageConsumer target,
         long targetStreamId,
+        long groupId,
         int padding,
         DirectBuffer payload,
         int offset,
@@ -81,7 +82,7 @@ public class Writer
 
         DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(targetStreamId)
-                            .groupId(0)
+                            .groupId(groupId)
                             .padding(padding)
                             .payload(p -> p.set(payload, offset, length))
                             .extension(e -> e.set(extension))

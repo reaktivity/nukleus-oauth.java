@@ -295,8 +295,8 @@ public class ProxyStreamFactory implements StreamFactory
                 DataFW data)
         {
             final OctetsFW payload = data.payload();
-            writer.doData(target, targetStreamId, data.padding(), payload.buffer(), payload.offset(), payload.sizeof(),
-                    data.extension());
+            writer.doData(target, targetStreamId, data.groupId(), data.padding(),
+                    payload.buffer(), payload.offset(), payload.sizeof(), data.extension());
         }
 
         private void handleEnd(

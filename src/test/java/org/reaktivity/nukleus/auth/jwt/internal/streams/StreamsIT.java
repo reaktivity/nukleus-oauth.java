@@ -34,7 +34,7 @@ public class StreamsIT
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/auth/jwt/control/route/proxy")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/auth/jwt/streams/proxy");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(15, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
             .directory("target/nukleus-itests")

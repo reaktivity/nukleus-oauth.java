@@ -53,7 +53,7 @@
     <nukleus.plugin.version>0.24</nukleus.plugin.version>
     <nukleus.version>0.15</nukleus.version>
 
-    <nukleus.auth.jwt.spec.version>develop-SNAPSHOT</nukleus.auth.jwt.spec.version>
+    <nukleus.auth.jwt.spec.version>0.5</nukleus.auth.jwt.spec.version>
     <reaktor.version>0.35</reaktor.version>
   </properties>
 

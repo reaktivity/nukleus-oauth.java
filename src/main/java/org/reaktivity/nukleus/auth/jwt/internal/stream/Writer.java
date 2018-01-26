@@ -74,9 +74,7 @@ public class Writer
         long targetStreamId,
         long groupId,
         int padding,
-        DirectBuffer payload,
-        int offset,
-        int length,
+        OctetsFW payload,
         OctetsFW extension)
     {
 
@@ -84,7 +82,7 @@ public class Writer
                             .streamId(targetStreamId)
                             .groupId(groupId)
                             .padding(padding)
-                            .payload(p -> p.set(payload, offset, length))
+                            .payload(payload)
                             .extension(e -> e.set(extension))
                             .build();
 

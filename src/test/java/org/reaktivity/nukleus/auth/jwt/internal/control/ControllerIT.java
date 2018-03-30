@@ -52,7 +52,7 @@ public class ControllerIT
         .commandBufferCapacity(4096)
         .responseBufferCapacity(4096)
         .counterValuesBufferCapacity(1024)
-        .controller(AuthJwtController.class::isAssignableFrom);
+        .controller("auth-jwt"::equals);
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(controller);

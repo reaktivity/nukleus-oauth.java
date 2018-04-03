@@ -24,6 +24,7 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
+import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.test.ReaktorRule;
@@ -34,7 +35,8 @@ public class ControlIT
         .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/auth/jwt/control/resolve")
         .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/auth/jwt/control/unresolve")
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/auth/jwt/control/route")
-        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/auth/jwt/control/unroute");
+        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/auth/jwt/control/unroute")
+        .addScriptRoot("freeze", "org/reaktivity/specification/nukleus/control/freeze");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
@@ -165,5 +167,17 @@ public class ControlIT
         k3po.finish();
     }
 
-
+    @Test
+    @Specification({
+        "${freeze}/controller",
+    })
+    @ScriptProperty({
+        "nameF00C \"auth-jwt\"",
+        "commandCapacityF00C 4096",
+        "responseCapacityF00C 4096"
+    })
+    public void shouldFreeze() throws Exception
+    {
+        k3po.finish();
+    }
 }

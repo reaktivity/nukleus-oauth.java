@@ -28,6 +28,7 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerSpi;
+import org.reaktivity.nukleus.auth.jwt.internal.types.control.FreezeFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.Role;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.UnrouteFW;
@@ -45,11 +46,13 @@ public class AuthJwtController implements Controller
     private final UnresolveFW.Builder unresolveRW = new UnresolveFW.Builder();
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final UnrouteFW.Builder unrouteRW = new UnrouteFW.Builder();
+    private final FreezeFW.Builder freezeRW = new FreezeFW.Builder();
 
     private final ControllerSpi controllerSpi;
     private final AtomicBuffer atomicBuffer;
 
-    public AuthJwtController(ControllerSpi controllerSpi)
+    public AuthJwtController(
+        ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
         this.atomicBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
@@ -137,6 +140,17 @@ public class AuthJwtController implements Controller
         long authorization)
     {
         return unroute(Role.PROXY, source, sourceRef, target, targetRef, authorization);
+    }
+
+    public CompletableFuture<Void> freeze()
+    {
+        long correlationId = controllerSpi.nextCorrelationId();
+
+        FreezeFW freeze = freezeRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+                                  .correlationId(correlationId)
+                                  .build();
+
+        return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
     }
 
     public long count(String name)

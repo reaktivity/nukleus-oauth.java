@@ -176,7 +176,13 @@ public class ProxyStreamFactory implements StreamFactory
                 }
             }
         });
-         return authorization[0];
+
+        if (authorization[0] == 0L)
+        {
+            authorization[0] = begin.authorization();
+        }
+
+        return authorization[0];
     }
 
     private MessageConsumer newConnectReplyStream(
@@ -295,7 +301,8 @@ public class ProxyStreamFactory implements StreamFactory
                 DataFW data)
         {
             final OctetsFW payload = data.payload();
-            writer.doData(target, targetStreamId, data.groupId(), data.padding(), payload, data.extension());
+            writer.doData(target, targetStreamId, data.authorization(), data.groupId(), data.padding(),
+                    payload, data.extension());
         }
 
         private void handleEnd(

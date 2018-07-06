@@ -72,14 +72,15 @@ public class Writer
     public void doData(
         MessageConsumer target,
         long targetStreamId,
+        long authorization,
         long groupId,
         int padding,
         OctetsFW payload,
         OctetsFW extension)
     {
-
         DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(targetStreamId)
+                            .authorization(authorization)
                             .groupId(groupId)
                             .padding(padding)
                             .payload(payload)

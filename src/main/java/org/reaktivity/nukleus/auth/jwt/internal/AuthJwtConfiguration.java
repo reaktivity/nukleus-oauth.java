@@ -19,18 +19,26 @@ import org.reaktivity.nukleus.Configuration;
 
 public class AuthJwtConfiguration extends Configuration
 {
-    public static final String PROPERTY_JWT_KEYS = "auth.jwt.keys";
+    public static final PropertyDef<String> AUTH_JWT_KEYS;;
 
-    public static final String DEFAULT_JWT_KEYS = "keys.jwk";
+    private static final ConfigurationDef AUTH_JWT_CONFIG;
+
+    static
+    {
+        // TODO: rename scope to "nukleus.auth_jwt"
+        final ConfigurationDef config = new ConfigurationDef("auth.jwt");
+        AUTH_JWT_KEYS = config.property("keys", "keys.jwk");
+        AUTH_JWT_CONFIG = config;
+    }
 
     public AuthJwtConfiguration(
         Configuration config)
     {
-        super(config);
+        super(AUTH_JWT_CONFIG, config);
     }
 
     public String keyFileName()
     {
-        return getProperty(PROPERTY_JWT_KEYS, DEFAULT_JWT_KEYS);
+        return AUTH_JWT_KEYS.get(this);
     }
 }

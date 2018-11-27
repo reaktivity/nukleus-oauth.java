@@ -18,7 +18,6 @@ package org.reaktivity.nukleus.auth.jwt.internal;
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.nio.file.Path;
-import java.util.function.LongSupplier;
 
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
@@ -33,9 +32,6 @@ import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 
 public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
 {
-    // TODO: inject from reactor
-    private LongSupplier supplyCurrentTimeMillis = () -> System.currentTimeMillis();
-
     @Override
     public String name()
     {
@@ -48,9 +44,9 @@ public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
         NukleusBuilder builder)
     {
         AuthJwtConfiguration jwtConfig = new AuthJwtConfiguration(config);
-        Path keyFile = config.directory().resolve("auth-jwt").resolve(jwtConfig.keyFileName());
 
-        JwtValidator validator = new JwtValidator(keyFile, supplyCurrentTimeMillis);
+        Path keyFile = config.directory().resolve(name()).resolve(jwtConfig.keyFileName());
+        JwtValidator validator = new JwtValidator(keyFile, System::currentTimeMillis);
         Realms realms = new Realms();
         validator.forEachRealm(r -> realms.add(r));
         Resolver resolver = new Resolver(realms);
@@ -58,7 +54,8 @@ public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
         final ProxyStreamFactoryBuilder proxyFactoryBuilder = new ProxyStreamFactoryBuilder(validator,
                 realms::resolve);
 
-        return builder.streamFactory(PROXY, proxyFactoryBuilder)
+        return builder.configure(jwtConfig)
+                      .streamFactory(PROXY, proxyFactoryBuilder)
                       .commandHandler(ResolveFW.TYPE_ID, resolver::resolve)
                       .commandHandler(UnresolveFW.TYPE_ID, resolver::unresolve)
                       .build();

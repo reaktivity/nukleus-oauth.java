@@ -31,7 +31,6 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 
 public class Writer
 {
-
     private static final DirectBuffer SOURCE_NAME_BUFFER = new UnsafeBuffer("auth-jwt".getBytes(UTF_8));
 
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
@@ -50,14 +49,16 @@ public class Writer
 
     public void doBegin(
         MessageConsumer target,
-        long targetStreamId,
+        long targetId,
         long targetRef,
         long correlationId,
+        long traceId,
         long authorization,
         OctetsFW extension)
     {
         BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                               .streamId(targetStreamId)
+                               .streamId(targetId)
+                               .trace(traceId)
                                .authorization(authorization)
                                .source(SOURCE_NAME_BUFFER, 0, SOURCE_NAME_BUFFER.capacity())
                                .sourceRef(targetRef)
@@ -71,7 +72,8 @@ public class Writer
 
     public void doData(
         MessageConsumer target,
-        long targetStreamId,
+        long targetId,
+        long traceId,
         long authorization,
         long groupId,
         int padding,
@@ -79,7 +81,8 @@ public class Writer
         OctetsFW extension)
     {
         DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                            .streamId(targetStreamId)
+                            .streamId(targetId)
+                            .trace(traceId)
                             .authorization(authorization)
                             .groupId(groupId)
                             .padding(padding)
@@ -92,11 +95,13 @@ public class Writer
 
     public void doEnd(
         MessageConsumer target,
-        long targetStreamId,
+        long targetId,
+        long traceId,
         OctetsFW extension)
     {
         EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                         .streamId(targetStreamId)
+                         .streamId(targetId)
+                         .trace(traceId)
                          .extension(e -> e.set(extension))
                          .build();
 
@@ -104,42 +109,48 @@ public class Writer
     }
 
     public void doAbort(
-            MessageConsumer target,
-            long targetStreamId)
+        MessageConsumer target,
+        long targetId,
+        long traceId)
     {
         AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .streamId(targetStreamId)
+                .streamId(targetId)
+                .trace(traceId)
                 .build();
 
         target.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
     }
 
     public void doWindow(
-        final MessageConsumer throttle,
-        final long throttleStreamId,
+        final MessageConsumer source,
+        final long sourceId,
+        final long traceId,
         final int credit,
         final int padding,
         final long groupId)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .streamId(throttleStreamId)
+                .streamId(sourceId)
+                .trace(traceId)
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
                 .build();
 
-        throttle.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        source.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
     public void doReset(
-        final MessageConsumer throttle,
-        final long throttleStreamId)
+        final MessageConsumer source,
+        final long sourceId,
+        final long traceId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .streamId(throttleStreamId)
+                                     .streamId(sourceId)
+                                     .trace(traceId)
                                      .build();
 
-        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        source.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
 }

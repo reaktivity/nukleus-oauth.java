@@ -46,11 +46,14 @@ public class ProxyStreamFactory implements StreamFactory
 {
     private static final byte[] BEARER_PREFIX = "Bearer ".getBytes(US_ASCII);
     private static final byte[] AUTHORIZATION = "authorization".getBytes(US_ASCII);
+
+    private final RouteFW routeRO = new RouteFW();
+
     private final BeginFW beginRO = new BeginFW();
-    private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
-    private final RouteFW routeRO = new RouteFW();
+
+    private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -86,11 +89,11 @@ public class ProxyStreamFactory implements StreamFactory
 
     @Override
     public MessageConsumer newStream(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length,
-            MessageConsumer throttle)
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length,
+        MessageConsumer source)
     {
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
         final long sourceRef = begin.sourceRef();
@@ -99,19 +102,19 @@ public class ProxyStreamFactory implements StreamFactory
 
         if (sourceRef == 0L)
         {
-            newStream = newConnectReplyStream(begin, throttle);
+            newStream = newConnectReplyStream(begin, source);
         }
         else
         {
-            newStream = newAcceptStream(begin, throttle);
+            newStream = newAcceptStream(begin, source);
         }
 
         return newStream;
     }
 
     private MessageConsumer newAcceptStream(
-            final BeginFW begin,
-            final MessageConsumer networkThrottle)
+        final BeginFW begin,
+        final MessageConsumer source)
     {
         final long sourceRef = begin.sourceRef();
         final String acceptName = begin.source().asString();
@@ -130,31 +133,77 @@ public class ProxyStreamFactory implements StreamFactory
 
         if (route != null)
         {
-            final long networkId = begin.streamId();
+            final String sourceName = begin.source().asString();
+            final long sourceId = begin.streamId();
+            final long sourceCorrelationId = begin.correlationId();
+            final long traceId = begin.trace();
+            final OctetsFW extension = begin.extension();
 
-            Correlation correlation = new Correlation();
-            correlation.acceptName = begin.source().asString();
-            correlation.acceptCorrelationId = begin.correlationId();
-            long newCorrelationId = ProxyStreamFactory.this.supplyCorrelationId.getAsLong();
-            correlations.put(newCorrelationId, correlation);
+            Correlation targetCorrelation = new Correlation();
+            targetCorrelation.acceptName = sourceName;
+            targetCorrelation.acceptCorrelationId = sourceCorrelationId;
+            long targetCorrelationId = supplyCorrelationId.getAsLong();
+            correlations.put(targetCorrelationId, targetCorrelation);
+
             String targetName = route.target().asString();
             MessageConsumer target = router.supplyTarget(targetName);
-            long targetStreamId = supplyStreamId.getAsLong();
+            long targetRef = route.targetRef();
+            long targetId = supplyStreamId.getAsLong();
 
-            writer.doBegin(target, targetStreamId, route.targetRef(), newCorrelationId,
-                    authorization, begin.extension());
-            ProxyStream stream = new ProxyStream(networkThrottle, networkId, target, targetStreamId);
-            router.setThrottle(targetName, targetStreamId, stream::handleTargetThrottle);
-            newStream = stream::handleStream;
+            writer.doBegin(target, targetId, targetRef, targetCorrelationId, traceId, authorization, extension);
+            ProxyStream stream = new ProxyStream(source, sourceId, target, targetId);
+            router.setThrottle(targetName, targetId, stream::onThrottleMessage);
+
+            newStream = stream::onStreamMessage;
         }
 
         return newStream;
     }
 
+    private MessageConsumer newConnectReplyStream(
+        final BeginFW begin,
+        final MessageConsumer source)
+    {
+        final long correlationId = begin.correlationId();
+        Correlation correlation = correlations.remove(correlationId);
+
+        MessageConsumer newStream = null;
+
+        if (correlation != null)
+        {
+            final long sourceId = begin.streamId();
+            final long traceId = begin.trace();
+            final long authorization = begin.authorization();
+            final OctetsFW extension = begin.extension();
+
+            String targetName = correlation.acceptName;
+            MessageConsumer target = router.supplyTarget(targetName);
+            long targetId = supplyStreamId.getAsLong();
+
+            writer.doBegin(target, targetId, 0L, correlation.acceptCorrelationId, traceId, authorization, extension);
+            ProxyStream stream = new ProxyStream(source, sourceId, target, targetId);
+            router.setThrottle(targetName, targetId, stream::onThrottleMessage);
+
+            newStream = stream::onStreamMessage;
+        }
+
+        return newStream;
+    }
+
+    private RouteFW wrapRoute(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        return routeRO.wrap(buffer, index, index + length);
+    }
+
     private long authorize(
         BeginFW begin)
     {
-        long[] authorization = {0L};
+        final long[] authorization = {0L};
+
         final HttpBeginExFW beginEx = begin.extension().get(httpBeginExRO::wrap);
         beginEx.headers().forEach(h ->
         {
@@ -185,46 +234,7 @@ public class ProxyStreamFactory implements StreamFactory
         return authorization[0];
     }
 
-    private MessageConsumer newConnectReplyStream(
-            final BeginFW begin,
-            final MessageConsumer throttle)
-    {
-        final long throttleId = begin.streamId();
-
-
-        final long connectCorrelationId = begin.correlationId();
-        Correlation correlation = correlations.remove(connectCorrelationId);
-        MessageConsumer newStream = null;
-
-        if (correlation != null)
-        {
-            final String source = correlation.acceptName;
-            MessageConsumer target = router.supplyTarget(source);
-            long targetStreamId = supplyStreamId.getAsLong();
-            writer.doBegin(target, targetStreamId, 0L,
-                    correlation.acceptCorrelationId, begin.authorization(), begin.extension());
-            ProxyStream stream = new ProxyStream(throttle, throttleId, target, targetStreamId);
-            router.setThrottle(source, targetStreamId, stream::handleTargetThrottle);
-            newStream = stream::handleStream;
-        }
-        else
-        {
-            writer.doReset(throttle, throttleId);
-        }
-
-        return newStream;
-    }
-
-    private RouteFW wrapRoute(
-            int msgTypeId,
-            DirectBuffer buffer,
-            int index,
-            int length)
-    {
-        return routeRO.wrap(buffer, index, index + length);
-    }
-
-    final class ProxyStream
+    private final class ProxyStream
     {
         private final MessageConsumer sourceThrottle;
         private final long sourceStreamId;
@@ -234,32 +244,32 @@ public class ProxyStreamFactory implements StreamFactory
         private MessageConsumer streamState;
 
         private ProxyStream(
-                MessageConsumer sourceThrottle,
-                long sourceStreamId,
-                MessageConsumer target,
-                long targetStreamId)
+            MessageConsumer source,
+            long sourceId,
+            MessageConsumer target,
+            long targetId)
         {
-            this.sourceThrottle = sourceThrottle;
-            this.sourceStreamId = sourceStreamId;
+            this.sourceThrottle = source;
+            this.sourceStreamId = sourceId;
             this.target = target;
-            this.targetStreamId = targetStreamId;
+            this.targetStreamId = targetId;
             this.streamState = this::beforeBegin;
         }
 
-        void handleStream(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
+        private void onStreamMessage(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
         {
             streamState.accept(msgTypeId, buffer, index, length);
         }
 
         private void beforeBegin(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
         {
             if (msgTypeId == BeginFW.TYPE_ID)
             {
@@ -267,93 +277,105 @@ public class ProxyStreamFactory implements StreamFactory
             }
             else
             {
-                writer.doReset(sourceThrottle, sourceStreamId);
+                writer.doReset(sourceThrottle, sourceStreamId, 0L);
             }
         }
 
         private void afterBegin(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
         {
             switch (msgTypeId)
             {
             case DataFW.TYPE_ID:
                 final DataFW data = dataRO.wrap(buffer, index, index + length);
-                handleData(data);
+                onData(data);
                 break;
             case EndFW.TYPE_ID:
                 final EndFW end = endRO.wrap(buffer, index, index + length);
-                handleEnd(end);
+                onEnd(end);
                 break;
             case AbortFW.TYPE_ID:
                 final AbortFW abort = abortRO.wrap(buffer, index, index + length);
-                handleAbort(abort);
+                onAbort(abort);
                 break;
             default:
-                writer.doReset(sourceThrottle, sourceStreamId);
+                writer.doReset(sourceThrottle, sourceStreamId, 0L);
                 break;
             }
         }
 
-        private void handleData(
-                DataFW data)
-        {
-            final OctetsFW payload = data.payload();
-            writer.doData(target, targetStreamId, data.authorization(), data.groupId(), data.padding(),
-                    payload, data.extension());
-        }
-
-        private void handleEnd(
-                EndFW end)
-        {
-            writer.doEnd(target, targetStreamId, end.extension());
-        }
-
-        private void handleAbort(
-                AbortFW abort)
-        {
-            writer.doAbort(target, targetStreamId);
-        }
-
-        private void handleTargetThrottle(
-                int msgTypeId,
-                DirectBuffer buffer,
-                int index,
-                int length)
+        private void onThrottleMessage(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
         {
             switch (msgTypeId)
             {
-                case WindowFW.TYPE_ID:
-                    final WindowFW window = windowRO.wrap(buffer, index, index + length);
-                    handleConnectWindow(window);
-                    break;
-                case ResetFW.TYPE_ID:
-                    resetRO.wrap(buffer, index, index + length);
-                    resetSource();
-                    break;
-                default:
-                    // ignore
-                    break;
+            case WindowFW.TYPE_ID:
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                onWindow(window);
+                break;
+            case ResetFW.TYPE_ID:
+                final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                onReset(reset);
+                break;
+            default:
+                // ignore
+                break;
             }
         }
 
-        private void handleConnectWindow(
+        private void onData(
+            DataFW data)
+        {
+            final long traceId = data.trace();
+            final long authorization = data.authorization();
+            final int padding = data.padding();
+            final long groupId = data.groupId();
+            final OctetsFW payload = data.payload();
+            final OctetsFW extension = data.extension();
+
+            writer.doData(target, targetStreamId, traceId, authorization, groupId, padding, payload, extension);
+        }
+
+        private void onEnd(
+            EndFW end)
+        {
+            final long traceId = end.trace();
+            final OctetsFW extension = end.extension();
+
+            writer.doEnd(target, targetStreamId, traceId, extension);
+        }
+
+        private void onAbort(
+            AbortFW abort)
+        {
+            final long traceId = abort.trace();
+
+            writer.doAbort(target, targetStreamId, traceId);
+        }
+
+        private void onWindow(
             WindowFW window)
         {
-            final int credit = windowRO.credit();
-            final int padding = windowRO.padding();
-            final long groupId = windowRO.groupId();
+            final int credit = window.credit();
+            final long traceId = window.trace();
+            final int padding = window.padding();
+            final long groupId = window.groupId();
 
-            writer.doWindow(sourceThrottle, sourceStreamId, credit, padding, groupId);
+            writer.doWindow(sourceThrottle, sourceStreamId, traceId, credit, padding, groupId);
         }
 
-        void resetSource()
+        private void onReset(
+            ResetFW reset)
         {
-            writer.doReset(sourceThrottle, sourceStreamId);
+            final long traceId = reset.trace();
+
+            writer.doReset(sourceThrottle, sourceStreamId, traceId);
         }
-
     }
-
 }

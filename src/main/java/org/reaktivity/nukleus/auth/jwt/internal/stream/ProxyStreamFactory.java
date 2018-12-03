@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 
 import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
 import java.util.function.ToLongFunction;
 
 import org.agrona.DirectBuffer;
@@ -61,7 +62,8 @@ public class ProxyStreamFactory implements StreamFactory
 
     private final RouteManager router;
 
-    private final LongSupplier supplyStreamId;
+    private final LongSupplier supplyInitialId;
+    private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyCorrelationId;
     private final ToLongFunction<String> supplyRealmId;
 
@@ -72,7 +74,8 @@ public class ProxyStreamFactory implements StreamFactory
     public ProxyStreamFactory(
         RouteManager router,
         MutableDirectBuffer writeBuffer,
-        LongSupplier supplyStreamId,
+        LongSupplier supplyInitialId,
+        LongUnaryOperator supplyReplyId,
         LongSupplier supplyCorrelationId,
         Long2ObjectHashMap<Correlation> correlations,
         ToLongFunction<String> supplyRealmId,
@@ -80,7 +83,8 @@ public class ProxyStreamFactory implements StreamFactory
     {
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
-        this.supplyStreamId = requireNonNull(supplyStreamId);
+        this.supplyInitialId = requireNonNull(supplyInitialId);
+        this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyCorrelationId = requireNonNull(supplyCorrelationId);
         this.correlations = correlations;
         this.supplyRealmId = supplyRealmId;
@@ -140,6 +144,7 @@ public class ProxyStreamFactory implements StreamFactory
             final OctetsFW extension = begin.extension();
 
             Correlation targetCorrelation = new Correlation();
+            targetCorrelation.acceptId = sourceId;
             targetCorrelation.acceptName = sourceName;
             targetCorrelation.acceptCorrelationId = sourceCorrelationId;
             long targetCorrelationId = supplyCorrelationId.getAsLong();
@@ -148,7 +153,7 @@ public class ProxyStreamFactory implements StreamFactory
             String targetName = route.target().asString();
             MessageConsumer target = router.supplyTarget(targetName);
             long targetRef = route.targetRef();
-            long targetId = supplyStreamId.getAsLong();
+            long targetId = supplyInitialId.getAsLong();
 
             writer.doBegin(target, targetId, targetRef, targetCorrelationId, traceId, authorization, extension);
             ProxyStream stream = new ProxyStream(source, sourceId, target, targetId);
@@ -178,7 +183,7 @@ public class ProxyStreamFactory implements StreamFactory
 
             String targetName = correlation.acceptName;
             MessageConsumer target = router.supplyTarget(targetName);
-            long targetId = supplyStreamId.getAsLong();
+            long targetId = supplyReplyId.applyAsLong(correlation.acceptId);
 
             writer.doBegin(target, targetId, 0L, correlation.acceptCorrelationId, traceId, authorization, extension);
             ProxyStream stream = new ProxyStream(source, sourceId, target, targetId);

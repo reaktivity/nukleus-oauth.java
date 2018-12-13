@@ -137,6 +137,7 @@ public class ProxyStreamFactory implements StreamFactory
 
         if (route != null)
         {
+            final long sourceRouteId = begin.routeId();
             final String sourceName = begin.source().asString();
             final long sourceId = begin.streamId();
             final long sourceCorrelationId = begin.correlationId();
@@ -144,6 +145,7 @@ public class ProxyStreamFactory implements StreamFactory
             final OctetsFW extension = begin.extension();
 
             Correlation targetCorrelation = new Correlation();
+            targetCorrelation.acceptRouteId = sourceRouteId;
             targetCorrelation.acceptId = sourceId;
             targetCorrelation.acceptName = sourceName;
             targetCorrelation.acceptCorrelationId = sourceCorrelationId;
@@ -153,10 +155,11 @@ public class ProxyStreamFactory implements StreamFactory
             String targetName = route.target().asString();
             MessageConsumer target = router.supplyTarget(targetName);
             long targetRef = route.targetRef();
+            long targetRouteId = route.correlationId();
             long targetId = supplyInitialId.getAsLong();
 
-            writer.doBegin(target, targetId, targetRef, targetCorrelationId, traceId, authorization, extension);
-            ProxyStream stream = new ProxyStream(source, sourceId, target, targetId);
+            writer.doBegin(target, targetRouteId, targetId, targetRef, targetCorrelationId, traceId, authorization, extension);
+            ProxyStream stream = new ProxyStream(source, sourceRouteId, sourceId, target, targetRouteId, targetId);
             router.setThrottle(targetName, targetId, stream::onThrottleMessage);
 
             newStream = stream::onStreamMessage;
@@ -176,17 +179,20 @@ public class ProxyStreamFactory implements StreamFactory
 
         if (correlation != null)
         {
+            final long sourceRouteId = begin.routeId();
             final long sourceId = begin.streamId();
             final long traceId = begin.trace();
             final long authorization = begin.authorization();
             final OctetsFW extension = begin.extension();
 
+            long targetRouteId = correlation.acceptRouteId;
             String targetName = correlation.acceptName;
             MessageConsumer target = router.supplyTarget(targetName);
             long targetId = supplyReplyId.applyAsLong(correlation.acceptId);
 
-            writer.doBegin(target, targetId, 0L, correlation.acceptCorrelationId, traceId, authorization, extension);
-            ProxyStream stream = new ProxyStream(source, sourceId, target, targetId);
+            writer.doBegin(target, targetRouteId, targetId, 0L, correlation.acceptCorrelationId,
+                    traceId, authorization, extension);
+            ProxyStream stream = new ProxyStream(source, sourceRouteId, sourceId, target, targetRouteId, targetId);
             router.setThrottle(targetName, targetId, stream::onThrottleMessage);
 
             newStream = stream::onStreamMessage;
@@ -242,21 +248,27 @@ public class ProxyStreamFactory implements StreamFactory
     private final class ProxyStream
     {
         private final MessageConsumer sourceThrottle;
+        private final long sourceRouteId;
         private final long sourceStreamId;
         private final MessageConsumer target;
+        private final long targetRouteId;
         private final long targetStreamId;
 
         private MessageConsumer streamState;
 
         private ProxyStream(
             MessageConsumer source,
+            long sourceRouteId,
             long sourceId,
             MessageConsumer target,
+            long targetRouteId,
             long targetId)
         {
             this.sourceThrottle = source;
+            this.sourceRouteId = sourceRouteId;
             this.sourceStreamId = sourceId;
             this.target = target;
+            this.targetRouteId = targetRouteId;
             this.targetStreamId = targetId;
             this.streamState = this::beforeBegin;
         }
@@ -282,7 +294,7 @@ public class ProxyStreamFactory implements StreamFactory
             }
             else
             {
-                writer.doReset(sourceThrottle, sourceStreamId, 0L);
+                writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, 0L);
             }
         }
 
@@ -307,7 +319,7 @@ public class ProxyStreamFactory implements StreamFactory
                 onAbort(abort);
                 break;
             default:
-                writer.doReset(sourceThrottle, sourceStreamId, 0L);
+                writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, 0L);
                 break;
             }
         }
@@ -344,7 +356,7 @@ public class ProxyStreamFactory implements StreamFactory
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
-            writer.doData(target, targetStreamId, traceId, authorization, groupId, padding, payload, extension);
+            writer.doData(target, targetRouteId, targetStreamId, traceId, authorization, groupId, padding, payload, extension);
         }
 
         private void onEnd(
@@ -353,7 +365,7 @@ public class ProxyStreamFactory implements StreamFactory
             final long traceId = end.trace();
             final OctetsFW extension = end.extension();
 
-            writer.doEnd(target, targetStreamId, traceId, extension);
+            writer.doEnd(target, targetRouteId, targetStreamId, traceId, extension);
         }
 
         private void onAbort(
@@ -361,7 +373,7 @@ public class ProxyStreamFactory implements StreamFactory
         {
             final long traceId = abort.trace();
 
-            writer.doAbort(target, targetStreamId, traceId);
+            writer.doAbort(target, targetRouteId, targetStreamId, traceId);
         }
 
         private void onWindow(
@@ -372,7 +384,7 @@ public class ProxyStreamFactory implements StreamFactory
             final int padding = window.padding();
             final long groupId = window.groupId();
 
-            writer.doWindow(sourceThrottle, sourceStreamId, traceId, credit, padding, groupId);
+            writer.doWindow(sourceThrottle, sourceRouteId, sourceStreamId, traceId, credit, padding, groupId);
         }
 
         private void onReset(
@@ -380,7 +392,7 @@ public class ProxyStreamFactory implements StreamFactory
         {
             final long traceId = reset.trace();
 
-            writer.doReset(sourceThrottle, sourceStreamId, traceId);
+            writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, traceId);
         }
     }
 }

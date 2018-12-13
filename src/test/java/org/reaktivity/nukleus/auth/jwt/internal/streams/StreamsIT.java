@@ -40,7 +40,7 @@ public class StreamsIT
             .directory("target/nukleus-itests")
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
-            .counterValuesBufferCapacity(1024)
+            .counterValuesBufferCapacity(4096)
             .nukleus("auth-jwt"::equals)
             .configure("auth.jwt.keys", "keys/keys.jwk")
             .clean();

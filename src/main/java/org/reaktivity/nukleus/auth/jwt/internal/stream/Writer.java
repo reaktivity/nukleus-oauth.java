@@ -48,31 +48,33 @@ public class Writer
     }
 
     public void doBegin(
-        MessageConsumer target,
-        long targetId,
+        MessageConsumer receiver,
+        long routeId,
+        long streamId,
         long targetRef,
         long correlationId,
         long traceId,
         long authorization,
         OctetsFW extension)
     {
-        BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                               .streamId(targetId)
-                               .trace(traceId)
-                               .authorization(authorization)
-                               .source(SOURCE_NAME_BUFFER, 0, SOURCE_NAME_BUFFER.capacity())
-                               .sourceRef(targetRef)
-                               .correlationId(correlationId)
-                               .extension(e -> e.set(extension))
-                               .build();
+        final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .trace(traceId)
+                .authorization(authorization)
+                .source(SOURCE_NAME_BUFFER, 0, SOURCE_NAME_BUFFER.capacity())
+                .sourceRef(targetRef)
+                .correlationId(correlationId)
+                .extension(e -> e.set(extension))
+                .build();
 
-        target.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
-
+        receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
     }
 
     public void doData(
-        MessageConsumer target,
-        long targetId,
+        MessageConsumer receiver,
+        long routeId,
+        long streamId,
         long traceId,
         long authorization,
         long groupId,
@@ -80,77 +82,85 @@ public class Writer
         OctetsFW payload,
         OctetsFW extension)
     {
-        DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                            .streamId(targetId)
-                            .trace(traceId)
-                            .authorization(authorization)
-                            .groupId(groupId)
-                            .padding(padding)
-                            .payload(payload)
-                            .extension(e -> e.set(extension))
-                            .build();
+        final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .trace(traceId)
+                .authorization(authorization)
+                .groupId(groupId)
+                .padding(padding)
+                .payload(payload)
+                .extension(e -> e.set(extension))
+                .build();
 
-        target.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+        receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
     }
 
     public void doEnd(
-        MessageConsumer target,
-        long targetId,
+        MessageConsumer receiver,
+        long routeId,
+        long streamId,
         long traceId,
         OctetsFW extension)
     {
-        EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                         .streamId(targetId)
-                         .trace(traceId)
-                         .extension(e -> e.set(extension))
-                         .build();
+        final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .trace(traceId)
+                .extension(e -> e.set(extension))
+                .build();
 
-        target.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+        receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
     }
 
     public void doAbort(
-        MessageConsumer target,
-        long targetId,
+        MessageConsumer receiver,
+        long routeId,
+        long streamId,
         long traceId)
     {
-        AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .streamId(targetId)
+        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
                 .trace(traceId)
                 .build();
 
-        target.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+        receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
     }
 
     public void doWindow(
-        final MessageConsumer source,
-        final long sourceId,
+        final MessageConsumer sender,
+        final long routeId,
+        final long streamId,
         final long traceId,
         final int credit,
         final int padding,
         final long groupId)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .streamId(sourceId)
+                .routeId(routeId)
+                .streamId(streamId)
                 .trace(traceId)
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
                 .build();
 
-        source.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
     public void doReset(
-        final MessageConsumer source,
-        final long sourceId,
+        final MessageConsumer sender,
+        final long routeId,
+        final long streamId,
         final long traceId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .streamId(sourceId)
-                                     .trace(traceId)
-                                     .build();
+                .routeId(routeId)
+                .streamId(streamId)
+                .trace(traceId)
+                .build();
 
-        source.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
-
 }

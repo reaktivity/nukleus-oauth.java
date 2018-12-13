@@ -53,7 +53,7 @@ public class ControllerIT
         .directory("target/nukleus-itests")
         .commandBufferCapacity(4096)
         .responseBufferCapacity(4096)
-        .counterValuesBufferCapacity(1024)
+        .counterValuesBufferCapacity(4096)
         .controller("auth-jwt"::equals);
 
     @Rule

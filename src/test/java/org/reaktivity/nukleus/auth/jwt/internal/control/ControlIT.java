@@ -41,12 +41,12 @@ public class ControlIT
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
-            .nukleus("auth-jwt"::equals)
             .directory("target/nukleus-itests")
-            .configure("auth.jwt.keys", "keys/keys.jwk")
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
-            .counterValuesBufferCapacity(1024);
+            .counterValuesBufferCapacity(4096)
+            .nukleus("auth-jwt"::equals)
+            .configure("auth.jwt.keys", "keys/keys.jwk");
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);

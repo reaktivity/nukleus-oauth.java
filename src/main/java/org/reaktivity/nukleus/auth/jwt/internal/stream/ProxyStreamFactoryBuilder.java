@@ -40,6 +40,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     private LongSupplier supplyInitialId;
     private LongUnaryOperator supplyReplyId;
     private LongSupplier supplyCorrelationId;
+    private LongSupplier supplyTrace;
 
     static class Correlation
     {
@@ -61,10 +62,17 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setRouteManager(
+public ProxyStreamFactoryBuilder setRouteManager(
         RouteManager router)
+{
+    this.router = router;
+    return this;
+}
+
+    @Override
+    public StreamFactoryBuilder setTraceSupplier(LongSupplier supplyTrace)
     {
-        this.router = router;
+        this.supplyTrace = supplyTrace;
         return this;
     }
 
@@ -128,6 +136,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
                 router,
                 writeBuffer,
                 supplyInitialId,
+                supplyTrace,
                 supplyReplyId,
                 supplyCorrelationId,
                 correlations,

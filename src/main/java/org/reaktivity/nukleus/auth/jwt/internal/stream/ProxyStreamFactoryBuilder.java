@@ -62,12 +62,12 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-public ProxyStreamFactoryBuilder setRouteManager(
-        RouteManager router)
-{
-    this.router = router;
-    return this;
-}
+    public ProxyStreamFactoryBuilder setRouteManager(
+            RouteManager router)
+    {
+        this.router = router;
+        return this;
+    }
 
     @Override
     public StreamFactoryBuilder setTraceSupplier(LongSupplier supplyTrace)

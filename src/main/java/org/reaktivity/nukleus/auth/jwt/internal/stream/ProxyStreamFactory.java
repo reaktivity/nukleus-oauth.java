@@ -63,6 +63,7 @@ public class ProxyStreamFactory implements StreamFactory
     private final RouteManager router;
 
     private final LongSupplier supplyInitialId;
+    private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyCorrelationId;
     private final ToLongFunction<String> supplyRealmId;
@@ -75,6 +76,7 @@ public class ProxyStreamFactory implements StreamFactory
         RouteManager router,
         MutableDirectBuffer writeBuffer,
         LongSupplier supplyInitialId,
+        LongSupplier supplyTrace,
         LongUnaryOperator supplyReplyId,
         LongSupplier supplyCorrelationId,
         Long2ObjectHashMap<Correlation> correlations,
@@ -85,6 +87,7 @@ public class ProxyStreamFactory implements StreamFactory
         this.writer = new Writer(writeBuffer);
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
+        this.supplyTrace = requireNonNull(supplyTrace);
         this.supplyCorrelationId = requireNonNull(supplyCorrelationId);
         this.correlations = correlations;
         this.supplyRealmId = supplyRealmId;
@@ -294,7 +297,7 @@ public class ProxyStreamFactory implements StreamFactory
             }
             else
             {
-                writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, 0L);
+                writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, supplyTrace.getAsLong());
             }
         }
 
@@ -319,7 +322,7 @@ public class ProxyStreamFactory implements StreamFactory
                 onAbort(abort);
                 break;
             default:
-                writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, 0L);
+                writer.doReset(sourceThrottle, sourceRouteId, sourceStreamId, supplyTrace.getAsLong());
                 break;
             }
         }

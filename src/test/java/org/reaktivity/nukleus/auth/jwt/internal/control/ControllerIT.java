@@ -145,12 +145,10 @@ public class ControllerIT
     })
     public void shouldRouteProxy() throws Exception
     {
-        long targetRef = new Random().nextLong();
-
         k3po.start();
 
         reaktor.controller(AuthJwtController.class)
-            .routeProxy("source", 0L, "target", targetRef, 0L)
+            .routeProxy("auth-jwt#0", "target#0", 0L)
             .get();
 
         k3po.finish();
@@ -272,16 +270,15 @@ public class ControllerIT
     @Specification({
         "${unroute}/proxy/fails.unknown.route/nukleus"
     })
-    public void shouldFailToUnrouteProxyWithUnknownAcceptRouteRef() throws Exception
+    public void shouldFailToUnrouteProxyWithUnknownRoute() throws Exception
     {
         thrown.expect(either(is(instanceOf(IllegalStateException.class)))
                       .or(is(instanceOf(ExecutionException.class))));
         thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
         k3po.start();
-        long sourceRef = new Random().nextLong();
-        long targetRef = new Random().nextLong();
+        long routeId = new Random().nextLong();
         reaktor.controller(AuthJwtController.class)
-           .unrouteProxy("source", sourceRef, "target", targetRef, 0L)
+           .unroute(routeId)
            .get();
 
         k3po.finish();
@@ -294,18 +291,16 @@ public class ControllerIT
     })
     public void shouldUnrouteProxy() throws Exception
     {
-        long targetRef = new Random().nextLong();
-
         k3po.start();
 
-        long sourceRef = reaktor.controller(AuthJwtController.class)
-              .routeProxy("source", 0L, "target", targetRef, 0L)
+        long routeId = reaktor.controller(AuthJwtController.class)
+              .routeProxy("auth-jwt#0", "target#0", 0L)
               .get();
 
         k3po.notifyBarrier("ROUTED_PROXY");
 
         reaktor.controller(AuthJwtController.class)
-               .unrouteProxy("source", sourceRef, "target", targetRef, 0L)
+               .unroute(routeId)
                .get();
 
         k3po.finish();

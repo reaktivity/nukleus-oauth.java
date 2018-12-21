@@ -15,11 +15,7 @@
  */
 package org.reaktivity.nukleus.auth.jwt.internal.stream;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.BeginFW;
@@ -31,8 +27,6 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 
 public class Writer
 {
-    private static final DirectBuffer SOURCE_NAME_BUFFER = new UnsafeBuffer("auth-jwt".getBytes(UTF_8));
-
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final DataFW.Builder dataRW = new DataFW.Builder();
     private final EndFW.Builder endRW = new EndFW.Builder();
@@ -51,7 +45,6 @@ public class Writer
         MessageConsumer receiver,
         long routeId,
         long streamId,
-        long targetRef,
         long correlationId,
         long traceId,
         long authorization,
@@ -62,8 +55,6 @@ public class Writer
                 .streamId(streamId)
                 .trace(traceId)
                 .authorization(authorization)
-                .source(SOURCE_NAME_BUFFER, 0, SOURCE_NAME_BUFFER.capacity())
-                .sourceRef(targetRef)
                 .correlationId(correlationId)
                 .extension(e -> e.set(extension))
                 .build();

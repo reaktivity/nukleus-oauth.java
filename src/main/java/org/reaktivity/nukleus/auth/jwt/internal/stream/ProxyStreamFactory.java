@@ -103,17 +103,17 @@ public class ProxyStreamFactory implements StreamFactory
         MessageConsumer source)
     {
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-        final long sourceRef = begin.sourceRef();
+        final long streamId = begin.streamId();
 
         MessageConsumer newStream;
 
-        if (sourceRef == 0L)
+        if ((streamId & 0x8000_0000_0000_0000L) == 0L)
         {
-            newStream = newConnectReplyStream(begin, source);
+            newStream = newAcceptStream(begin, source);
         }
         else
         {
-            newStream = newAcceptStream(begin, source);
+            newStream = newConnectReplyStream(begin, source);
         }
 
         return newStream;
@@ -121,49 +121,37 @@ public class ProxyStreamFactory implements StreamFactory
 
     private MessageConsumer newAcceptStream(
         final BeginFW begin,
-        final MessageConsumer source)
+        final MessageConsumer sender)
     {
-        final long sourceRef = begin.sourceRef();
-        final String acceptName = begin.source().asString();
+        final long acceptRouteId = begin.routeId();
         long authorization = authorize(begin);
 
-        final MessagePredicate filter = (t, b, o, l) ->
-        {
-            final RouteFW route = routeRO.wrap(b, o, o + l);
-            return sourceRef == route.sourceRef() &&
-                    acceptName.equals(route.source().asString());
-        };
-
-        final RouteFW route = router.resolve(authorization, filter, this::wrapRoute);
+        final MessagePredicate filter = (t, b, o, l) -> true;
+        final RouteFW route = router.resolve(acceptRouteId, authorization, filter, this::wrapRoute);
 
         MessageConsumer newStream = null;
 
         if (route != null)
         {
-            final long sourceRouteId = begin.routeId();
-            final String sourceName = begin.source().asString();
-            final long sourceId = begin.streamId();
-            final long sourceCorrelationId = begin.correlationId();
+            final long acceptInitialId = begin.streamId();
+            final long acceptCorrelationId = begin.correlationId();
             final long traceId = begin.trace();
             final OctetsFW extension = begin.extension();
 
             Correlation targetCorrelation = new Correlation();
-            targetCorrelation.acceptRouteId = sourceRouteId;
-            targetCorrelation.acceptId = sourceId;
-            targetCorrelation.acceptName = sourceName;
-            targetCorrelation.acceptCorrelationId = sourceCorrelationId;
+            targetCorrelation.acceptRouteId = acceptRouteId;
+            targetCorrelation.acceptInitialId = acceptInitialId;
+            targetCorrelation.acceptCorrelationId = acceptCorrelationId;
             long targetCorrelationId = supplyCorrelationId.getAsLong();
             correlations.put(targetCorrelationId, targetCorrelation);
 
-            String targetName = route.target().asString();
-            MessageConsumer target = router.supplyTarget(targetName);
-            long targetRef = route.targetRef();
             long targetRouteId = route.correlationId();
-            long targetId = supplyInitialId.getAsLong();
+            long targetInitialId = supplyInitialId.getAsLong();
+            MessageConsumer target = router.supplyReceiver(targetRouteId);
 
-            writer.doBegin(target, targetRouteId, targetId, targetRef, targetCorrelationId, traceId, authorization, extension);
-            ProxyStream stream = new ProxyStream(source, sourceRouteId, sourceId, target, targetRouteId, targetId);
-            router.setThrottle(targetName, targetId, stream::onThrottleMessage);
+            writer.doBegin(target, targetRouteId, targetInitialId, targetCorrelationId, traceId, authorization, extension);
+            ProxyStream stream = new ProxyStream(sender, acceptRouteId, acceptInitialId, target, targetRouteId, targetInitialId);
+            router.setThrottle(targetInitialId, stream::onThrottleMessage);
 
             newStream = stream::onStreamMessage;
         }
@@ -188,15 +176,14 @@ public class ProxyStreamFactory implements StreamFactory
             final long authorization = begin.authorization();
             final OctetsFW extension = begin.extension();
 
-            long targetRouteId = correlation.acceptRouteId;
-            String targetName = correlation.acceptName;
-            MessageConsumer target = router.supplyTarget(targetName);
-            long targetId = supplyReplyId.applyAsLong(correlation.acceptId);
+            long acceptRouteId = correlation.acceptRouteId;
+            MessageConsumer acceptReply = router.supplySender(acceptRouteId);
+            long acceptReplyId = supplyReplyId.applyAsLong(correlation.acceptInitialId);
 
-            writer.doBegin(target, targetRouteId, targetId, 0L, correlation.acceptCorrelationId,
-                    traceId, authorization, extension);
-            ProxyStream stream = new ProxyStream(source, sourceRouteId, sourceId, target, targetRouteId, targetId);
-            router.setThrottle(targetName, targetId, stream::onThrottleMessage);
+            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, correlation.acceptCorrelationId, traceId,
+                    authorization, extension);
+            ProxyStream stream = new ProxyStream(source, sourceRouteId, sourceId, acceptReply, acceptRouteId, acceptReplyId);
+            router.setThrottle(acceptReplyId, stream::onThrottleMessage);
 
             newStream = stream::onStreamMessage;
         }

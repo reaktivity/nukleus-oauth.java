@@ -152,7 +152,7 @@ public class ControlIT
     @Specification({
         "${unroute}/proxy/fails.unknown.route/controller"
     })
-    public void shouldFailToUnrouteProxyWithUnknownAcceptRouteRef() throws Exception
+    public void shouldFailToUnrouteProxyWithUnknownRoute() throws Exception
     {
         k3po.finish();
     }

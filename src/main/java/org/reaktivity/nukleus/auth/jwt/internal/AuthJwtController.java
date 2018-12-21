@@ -82,13 +82,6 @@ public class AuthJwtController implements Controller
         return "auth-jwt";
     }
 
-    public <T> T supplySource(
-        String source,
-        BiFunction<MessagePredicate, ToIntFunction<MessageConsumer>, T> factory)
-    {
-        return controllerSpi.doSupplySource(source, factory);
-    }
-
     public <T> T supplyTarget(
         String target,
         BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, T> factory)
@@ -104,6 +97,7 @@ public class AuthJwtController implements Controller
 
         ResolveFW resolveRO = resolveRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
                 .correlationId(correlationId)
+                .nukleus(name())
                 .realm(realm)
                 .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
                 .build();
@@ -117,29 +111,32 @@ public class AuthJwtController implements Controller
 
         UnresolveFW unresolveRO = unresolveRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
                                              .correlationId(correlationId)
+                                             .nukleus(name())
                                              .authorization(authorization)
                                              .build();
         return controllerSpi.doUnresolve(unresolveRO.typeId(), unresolveRO.buffer(), unresolveRO.offset(), unresolveRO.sizeof());
     }
 
     public CompletableFuture<Long> routeProxy(
-        String source,
-        long sourceRef,
-        String target,
-        long targetRef,
+        String localAddress,
+        String remoteAddress,
         long authorization)
     {
-        return route(Role.PROXY, source, sourceRef, target, targetRef, authorization);
+        return route(Role.PROXY, localAddress, remoteAddress, authorization);
     }
 
-    public CompletableFuture<Void> unrouteProxy(
-        String source,
-        long sourceRef,
-        String target,
-        long targetRef,
-        long authorization)
+    public CompletableFuture<Void> unroute(
+        long routeId)
     {
-        return unroute(Role.PROXY, source, sourceRef, target, targetRef, authorization);
+        long correlationId = controllerSpi.nextCorrelationId();
+
+        UnrouteFW unrouteRO = unrouteRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+                                 .correlationId(correlationId)
+                                 .nukleus(name())
+                                 .routeId(routeId)
+                                 .build();
+
+        return controllerSpi.doUnroute(unrouteRO.typeId(), unrouteRO.buffer(), unrouteRO.offset(), unrouteRO.sizeof());
     }
 
     public CompletableFuture<Void> freeze()
@@ -148,6 +145,7 @@ public class AuthJwtController implements Controller
 
         FreezeFW freeze = freezeRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
                                   .correlationId(correlationId)
+                                  .nukleus(name())
                                   .build();
 
         return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
@@ -160,48 +158,21 @@ public class AuthJwtController implements Controller
 
     private CompletableFuture<Long> route(
         Role role,
-        String source,
-        long sourceRef,
-        String target,
-        long targetRef,
+        String localAddress,
+        String remoteAddress,
         long authorization)
     {
         long correlationId = controllerSpi.nextCorrelationId();
 
         RouteFW routeRO = routeRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
                                  .correlationId(correlationId)
+                                 .nukleus(name())
                                  .role(b -> b.set(role))
-                                 .source(source)
-                                 .sourceRef(sourceRef)
-                                 .target(target)
-                                 .targetRef(targetRef)
                                  .authorization(authorization)
+                                 .localAddress(localAddress)
+                                 .remoteAddress(remoteAddress)
                                  .build();
 
         return controllerSpi.doRoute(routeRO.typeId(), routeRO.buffer(), routeRO.offset(), routeRO.sizeof());
     }
-
-    private CompletableFuture<Void> unroute(
-        Role role,
-        String source,
-        long sourceRef,
-        String target,
-        long targetRef,
-        long authorization)
-    {
-        long correlationId = controllerSpi.nextCorrelationId();
-
-        UnrouteFW unrouteRO = unrouteRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
-                                 .correlationId(correlationId)
-                                 .role(b -> b.set(role))
-                                 .source(source)
-                                 .sourceRef(sourceRef)
-                                 .target(target)
-                                 .targetRef(targetRef)
-                                 .authorization(authorization)
-                                 .build();
-
-        return controllerSpi.doUnroute(unrouteRO.typeId(), unrouteRO.buffer(), unrouteRO.offset(), unrouteRO.sizeof());
-    }
-
 }

@@ -45,8 +45,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     static class Correlation
     {
         long acceptRouteId;
-        long acceptId;
-        String acceptName;
+        long acceptInitialId;
         long acceptCorrelationId;
     }
 

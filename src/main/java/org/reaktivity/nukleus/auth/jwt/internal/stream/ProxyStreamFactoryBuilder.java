@@ -24,7 +24,6 @@ import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -32,8 +31,7 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
 {
-    private final JwtValidator validator;
-    private final ToLongFunction<String> supplyRealmId;
+    private final ToLongFunction<String> resolveTokenRealmId;
 
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
@@ -52,11 +50,9 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     private final Long2ObjectHashMap<Correlation> correlations;
 
     public ProxyStreamFactoryBuilder(
-            JwtValidator validator,
-            ToLongFunction<String> supplyRealmId)
+        ToLongFunction<String> resolveTokenRealmId)
     {
-        this.validator = validator;
-        this.supplyRealmId = supplyRealmId;
+        this.resolveTokenRealmId = resolveTokenRealmId;
         this.correlations = new Long2ObjectHashMap<>();
     }
 
@@ -139,7 +135,6 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
                 supplyReplyId,
                 supplyCorrelationId,
                 correlations,
-                supplyRealmId,
-                validator);
+                resolveTokenRealmId);
     }
 }

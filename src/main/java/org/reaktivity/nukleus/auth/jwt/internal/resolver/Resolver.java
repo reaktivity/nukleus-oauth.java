@@ -34,7 +34,8 @@ public class Resolver
 
     private final Realms realms;
 
-    public Resolver(Realms realms)
+    public Resolver(
+        Realms realms)
     {
         this.realms = realms;
     }

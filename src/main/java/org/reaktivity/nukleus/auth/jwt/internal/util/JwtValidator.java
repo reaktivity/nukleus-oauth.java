@@ -37,7 +37,8 @@ import org.jose4j.lang.JoseException;
 
 public class JwtValidator
 {
-    private JsonWebSignature jws = new JsonWebSignature();
+    private final ThreadLocal<JsonWebSignature> jwsRef = ThreadLocal.withInitial(JsonWebSignature::new);
+
     private final Map<String, JsonWebKey> keysByKid;
     private final LongSupplier supplyCurrentTimeMillis;
 
@@ -106,6 +107,7 @@ public class JwtValidator
         String realm = null;
         try
         {
+            final JsonWebSignature jws = jwsRef.get();
             jws.setCompactSerialization(token);
             String kid = jws.getKeyIdHeaderValue();
             JsonWebKey key;

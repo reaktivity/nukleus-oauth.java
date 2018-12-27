@@ -37,7 +37,6 @@ import org.reaktivity.nukleus.auth.jwt.internal.types.stream.HttpBeginExFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.stream.WindowFW;
 import org.reaktivity.nukleus.auth.jwt.internal.util.BufferUtil;
-import org.reaktivity.nukleus.auth.jwt.internal.util.JwtValidator;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteManager;
@@ -66,11 +65,10 @@ public class ProxyStreamFactory implements StreamFactory
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyCorrelationId;
-    private final ToLongFunction<String> supplyRealmId;
+    private final ToLongFunction<String> resolveTokenRealmId;
 
     private final Long2ObjectHashMap<Correlation> correlations;
     private final Writer writer;
-    private final JwtValidator validator;
 
     public ProxyStreamFactory(
         RouteManager router,
@@ -80,8 +78,7 @@ public class ProxyStreamFactory implements StreamFactory
         LongUnaryOperator supplyReplyId,
         LongSupplier supplyCorrelationId,
         Long2ObjectHashMap<Correlation> correlations,
-        ToLongFunction<String> supplyRealmId,
-        JwtValidator validator)
+        ToLongFunction<String> resolveTokenRealmId)
     {
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
@@ -90,8 +87,7 @@ public class ProxyStreamFactory implements StreamFactory
         this.supplyTrace = requireNonNull(supplyTrace);
         this.supplyCorrelationId = requireNonNull(supplyCorrelationId);
         this.correlations = correlations;
-        this.supplyRealmId = supplyRealmId;
-        this.validator = validator;
+        this.resolveTokenRealmId = resolveTokenRealmId;
     }
 
     @Override
@@ -218,11 +214,7 @@ public class ProxyStreamFactory implements StreamFactory
                 if (offset > 0)
                 {
                     String token = buffer.getStringWithoutLengthUtf8(offset, limit - offset);
-                    String realm = validator.validateAndGetRealm(token);
-                    if (realm != null)
-                    {
-                        authorization[0] = supplyRealmId.applyAsLong(realm);
-                    }
+                    authorization[0] = resolveTokenRealmId.applyAsLong(token);
                 }
             }
         });

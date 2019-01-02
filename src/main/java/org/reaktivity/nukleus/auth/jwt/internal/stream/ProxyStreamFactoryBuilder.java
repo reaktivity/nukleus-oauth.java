@@ -25,6 +25,7 @@ import java.util.function.ToLongFunction;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -45,6 +46,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
         long acceptRouteId;
         long acceptInitialId;
         long acceptCorrelationId;
+        MessageConsumer acceptReply;
     }
 
     private final Long2ObjectHashMap<Correlation> correlations;

@@ -17,6 +17,7 @@ package org.reaktivity.nukleus.auth.jwt.internal.streams;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,6 +44,7 @@ public class StreamsIT
             .counterValuesBufferCapacity(4096)
             .nukleus("auth-jwt"::equals)
             .configure("auth.jwt.keys", "keys/keys.jwk")
+            .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
             .clean();
 
     @Rule

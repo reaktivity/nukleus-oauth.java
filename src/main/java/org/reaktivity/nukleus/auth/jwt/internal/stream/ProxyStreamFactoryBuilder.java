@@ -36,7 +36,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
 
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
-    private LongSupplier supplyInitialId;
+    private LongUnaryOperator supplyInitialId;
     private LongUnaryOperator supplyReplyId;
     private LongSupplier supplyCorrelationId;
     private LongSupplier supplyTrace;
@@ -83,7 +83,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public ProxyStreamFactoryBuilder setInitialIdSupplier(
-        LongSupplier supplyInitialId)
+        LongUnaryOperator supplyInitialId)
     {
         this.supplyInitialId = supplyInitialId;
         return this;

@@ -21,8 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.ToIntFunction;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
@@ -34,8 +32,6 @@ import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.UnrouteFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.ResolveFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.UnresolveFW;
-import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessagePredicate;
 
 public class AuthJwtController implements Controller
 {
@@ -80,13 +76,6 @@ public class AuthJwtController implements Controller
     public String name()
     {
         return "auth-jwt";
-    }
-
-    public <T> T supplyTarget(
-        String target,
-        BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, T> factory)
-    {
-        return controllerSpi.doSupplyTarget(target, factory);
     }
 
     public CompletableFuture<Long> resolve(
@@ -149,11 +138,6 @@ public class AuthJwtController implements Controller
                                   .build();
 
         return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
-    }
-
-    public long count(String name)
-    {
-        return controllerSpi.doCount(name);
     }
 
     private CompletableFuture<Long> route(

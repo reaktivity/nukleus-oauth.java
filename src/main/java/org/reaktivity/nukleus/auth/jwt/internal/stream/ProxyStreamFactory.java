@@ -61,7 +61,7 @@ public class ProxyStreamFactory implements StreamFactory
 
     private final RouteManager router;
 
-    private final LongSupplier supplyInitialId;
+    private final LongUnaryOperator supplyInitialId;
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final LongSupplier supplyCorrelationId;
@@ -73,7 +73,7 @@ public class ProxyStreamFactory implements StreamFactory
     public ProxyStreamFactory(
         RouteManager router,
         MutableDirectBuffer writeBuffer,
-        LongSupplier supplyInitialId,
+        LongUnaryOperator supplyInitialId,
         LongSupplier supplyTrace,
         LongUnaryOperator supplyReplyId,
         LongSupplier supplyCorrelationId,
@@ -143,8 +143,8 @@ public class ProxyStreamFactory implements StreamFactory
             correlations.put(connectCorrelationId, targetCorrelation);
 
             long connectRouteId = route.correlationId();
-            long connectInitialId = supplyInitialId.getAsLong();
-            MessageConsumer connectInitial = router.supplyReceiver(connectRouteId);
+            long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
+            MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
 
             writer.doBegin(connectInitial, connectRouteId, connectInitialId, connectCorrelationId,
                     traceId, authorization, extension);

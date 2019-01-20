@@ -38,8 +38,7 @@ public final class AuthJwtControllerFactorySpi implements ControllerFactorySpi<A
         Configuration config,
         ControllerBuilder<AuthJwtController> builder)
     {
-        return builder.setName(name())
-                .setFactory(AuthJwtController::new)
-                .build();
+        return builder.setFactory(AuthJwtController::new)
+                      .build();
     }
 }

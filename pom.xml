@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-auth-jwt</artifactId>
-  <version>0.25</version>
+  <version>0.26</version>
   <name>JWT Auth Nukleus Implementation</name>
   <description>JWT Auth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-auth-jwt.java</url>
@@ -48,12 +48,12 @@
     <junit.version>4.12</junit.version>
 
     <k3po.version>3.0.0-alpha-97</k3po.version>
-    <k3po.nukleus.ext.version>0.36</k3po.nukleus.ext.version>
+    <k3po.nukleus.ext.version>0.37</k3po.nukleus.ext.version>
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.auth.jwt.spec.version>0.17</nukleus.auth.jwt.spec.version>
-    <reaktor.version>0.74</reaktor.version>
+    <nukleus.auth.jwt.spec.version>0.18</nukleus.auth.jwt.spec.version>
+    <reaktor.version>0.78</reaktor.version>
   </properties>
 
   <dependencies>

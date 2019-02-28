@@ -15,7 +15,9 @@
  */
 package org.reaktivity.nukleus.auth.jwt.internal;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.UnaryOperator;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
@@ -32,7 +34,7 @@ final class AuthJwtNukleus implements Nukleus
 
     private final AuthJwtConfiguration config;
     private final Realms realms;
-    private final JwtValidator validator;
+    private final UnaryOperator<String> validator;
     private final Int2ObjectHashMap<CommandHandler> commandHandlers;
 
     AuthJwtNukleus(
@@ -40,17 +42,25 @@ final class AuthJwtNukleus implements Nukleus
     {
         this.config = config;
 
-        Path keyFile = config.directory().resolve(name()).resolve(config.keyFileName());
-        final JwtValidator validator = new JwtValidator(keyFile, System::currentTimeMillis);
         final Realms realms = new Realms();
-        validator.forEachRealm(r -> realms.add(r));
+        final Path keyFile = config.directory().resolve(name()).resolve(config.keyFileName());
+
+        if (Files.exists(keyFile))
+        {
+            final JwtValidator validator = new JwtValidator(keyFile, System::currentTimeMillis);
+            validator.forEachRealm(r -> realms.add(r));
+            this.validator = validator::validateAndGetRealm;
+        }
+        else
+        {
+            this.validator = t -> null;
+        }
 
         final Resolver resolver = new Resolver(realms);
         final Int2ObjectHashMap<CommandHandler> commandHandlers = new Int2ObjectHashMap<>();
         commandHandlers.put(ResolveFW.TYPE_ID, resolver::resolve);
         commandHandlers.put(UnresolveFW.TYPE_ID, resolver::unresolve);
 
-        this.validator = validator;
         this.realms = realms;
         this.commandHandlers = commandHandlers;
     }
@@ -84,7 +94,7 @@ final class AuthJwtNukleus implements Nukleus
         String token)
     {
         long authorization = 0L;
-        String realm = validator.validateAndGetRealm(token);
+        String realm = validator.apply(token);
         if (realm != null)
         {
             authorization = realms.resolve(realm);

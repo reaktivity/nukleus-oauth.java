@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-auth-jwt</artifactId>
-  <version>0.27</version>
+  <version>0.28</version>
   <name>JWT Auth Nukleus Implementation</name>
   <description>JWT Auth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-auth-jwt.java</url>

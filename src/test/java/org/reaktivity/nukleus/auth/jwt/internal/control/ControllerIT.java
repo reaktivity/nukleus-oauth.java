@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -148,7 +149,7 @@ public class ControllerIT
         k3po.start();
 
         reaktor.controller(AuthJwtController.class)
-            .routeProxy("auth-jwt#0", "target#0", 0L)
+            .route(PROXY, "auth-jwt#0", "target#0", 0L)
             .get();
 
         k3po.finish();
@@ -294,7 +295,7 @@ public class ControllerIT
         k3po.start();
 
         long routeId = reaktor.controller(AuthJwtController.class)
-              .routeProxy("auth-jwt#0", "target#0", 0L)
+              .route(PROXY, "auth-jwt#0", "target#0", 0L)
               .get();
 
         k3po.notifyBarrier("ROUTED_PROXY");

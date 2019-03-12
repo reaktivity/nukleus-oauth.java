@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.auth.jwt.internal;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
@@ -26,12 +27,15 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerSpi;
+import org.reaktivity.nukleus.auth.jwt.internal.types.Flyweight;
+import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.FreezeFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.Role;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.UnrouteFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.ResolveFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.UnresolveFW;
+import org.reaktivity.nukleus.route.RouteKind;
 
 public class AuthJwtController implements Controller
 {
@@ -44,14 +48,16 @@ public class AuthJwtController implements Controller
     private final UnrouteFW.Builder unrouteRW = new UnrouteFW.Builder();
     private final FreezeFW.Builder freezeRW = new FreezeFW.Builder();
 
+    private final OctetsFW extensionRO = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
+
     private final ControllerSpi controllerSpi;
-    private final AtomicBuffer atomicBuffer;
+    private final AtomicBuffer commandBuffer;
 
     public AuthJwtController(
         ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
-        this.atomicBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        this.commandBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
     }
 
     @Override
@@ -75,7 +81,7 @@ public class AuthJwtController implements Controller
     @Override
     public String name()
     {
-        return "auth-jwt";
+        return AuthJwtNukleus.NAME;
     }
 
     public CompletableFuture<Long> resolve(
@@ -84,12 +90,13 @@ public class AuthJwtController implements Controller
     {
         long correlationId = controllerSpi.nextCorrelationId();
 
-        ResolveFW resolveRO = resolveRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+        ResolveFW resolveRO = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                 .correlationId(correlationId)
                 .nukleus(name())
                 .realm(realm)
                 .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
                 .build();
+
         return controllerSpi.doResolve(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
     }
 
@@ -98,20 +105,31 @@ public class AuthJwtController implements Controller
     {
         long correlationId = controllerSpi.nextCorrelationId();
 
-        UnresolveFW unresolveRO = unresolveRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+        UnresolveFW unresolveRO = unresolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                                              .correlationId(correlationId)
                                              .nukleus(name())
                                              .authorization(authorization)
                                              .build();
+
         return controllerSpi.doUnresolve(unresolveRO.typeId(), unresolveRO.buffer(), unresolveRO.offset(), unresolveRO.sizeof());
     }
 
+    @Deprecated
     public CompletableFuture<Long> routeProxy(
         String localAddress,
         String remoteAddress,
         long authorization)
     {
-        return route(Role.PROXY, localAddress, remoteAddress, authorization);
+        return route(PROXY, localAddress, remoteAddress, authorization);
+    }
+
+    public CompletableFuture<Long> route(
+        RouteKind kind,
+        String localAddress,
+        String remoteAddress,
+        long authorization)
+    {
+        return doRoute(kind, localAddress, remoteAddress, authorization, extensionRO);
     }
 
     public CompletableFuture<Void> unroute(
@@ -119,7 +137,7 @@ public class AuthJwtController implements Controller
     {
         long correlationId = controllerSpi.nextCorrelationId();
 
-        UnrouteFW unrouteRO = unrouteRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+        UnrouteFW unrouteRO = unrouteRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                                  .correlationId(correlationId)
                                  .nukleus(name())
                                  .routeId(routeId)
@@ -132,7 +150,7 @@ public class AuthJwtController implements Controller
     {
         long correlationId = controllerSpi.nextCorrelationId();
 
-        FreezeFW freeze = freezeRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+        FreezeFW freeze = freezeRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                                   .correlationId(correlationId)
                                   .nukleus(name())
                                   .build();
@@ -140,21 +158,24 @@ public class AuthJwtController implements Controller
         return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
     }
 
-    private CompletableFuture<Long> route(
-        Role role,
+    private CompletableFuture<Long> doRoute(
+        RouteKind kind,
         String localAddress,
         String remoteAddress,
-        long authorization)
+        long authorization,
+        Flyweight extension)
     {
-        long correlationId = controllerSpi.nextCorrelationId();
+        final long correlationId = controllerSpi.nextCorrelationId();
+        final Role role = Role.valueOf(kind.ordinal());
 
-        RouteFW routeRO = routeRW.wrap(atomicBuffer, 0, atomicBuffer.capacity())
+        final RouteFW routeRO = routeRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                                  .correlationId(correlationId)
                                  .nukleus(name())
                                  .role(b -> b.set(role))
                                  .authorization(authorization)
                                  .localAddress(localAddress)
                                  .remoteAddress(remoteAddress)
+                                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                                  .build();
 
         return controllerSpi.doRoute(routeRO.typeId(), routeRO.buffer(), routeRO.offset(), routeRO.sizeof());

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2018 The Reaktivity Project
+ * Copyright 2016-2019 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -64,7 +64,6 @@ public class ProxyStreamFactory implements StreamFactory
     private final LongUnaryOperator supplyInitialId;
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
-    private final LongSupplier supplyCorrelationId;
     private final ToLongFunction<String> resolveTokenRealmId;
 
     private final Long2ObjectHashMap<Correlation> correlations;
@@ -76,7 +75,6 @@ public class ProxyStreamFactory implements StreamFactory
         LongUnaryOperator supplyInitialId,
         LongSupplier supplyTrace,
         LongUnaryOperator supplyReplyId,
-        LongSupplier supplyCorrelationId,
         Long2ObjectHashMap<Correlation> correlations,
         ToLongFunction<String> resolveTokenRealmId)
     {
@@ -85,7 +83,6 @@ public class ProxyStreamFactory implements StreamFactory
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyTrace = requireNonNull(supplyTrace);
-        this.supplyCorrelationId = requireNonNull(supplyCorrelationId);
         this.correlations = correlations;
         this.resolveTokenRealmId = resolveTokenRealmId;
     }
@@ -130,24 +127,23 @@ public class ProxyStreamFactory implements StreamFactory
         if (route != null)
         {
             final long acceptInitialId = begin.streamId();
-            final long acceptCorrelationId = begin.correlationId();
             final long traceId = begin.trace();
             final OctetsFW extension = begin.extension();
 
             Correlation targetCorrelation = new Correlation();
             targetCorrelation.acceptRouteId = acceptRouteId;
             targetCorrelation.acceptInitialId = acceptInitialId;
-            targetCorrelation.acceptCorrelationId = acceptCorrelationId;
             targetCorrelation.acceptReply = acceptReply;
-            long connectCorrelationId = supplyCorrelationId.getAsLong();
-            correlations.put(connectCorrelationId, targetCorrelation);
 
             long connectRouteId = route.correlationId();
             long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
+            long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
 
-            writer.doBegin(connectInitial, connectRouteId, connectInitialId, connectCorrelationId,
-                    traceId, authorization, extension);
+            correlations.put(connectReplyId, targetCorrelation);
+
+            writer.doBegin(connectInitial, connectRouteId, connectInitialId, traceId,
+                    authorization, extension);
             ProxyStream stream = new ProxyStream(acceptReply, acceptRouteId, acceptInitialId,
                     connectInitial, connectRouteId, connectInitialId);
             router.setThrottle(connectInitialId, stream::onThrottleMessage);
@@ -160,28 +156,28 @@ public class ProxyStreamFactory implements StreamFactory
 
     private MessageConsumer newConnectReplyStream(
         final BeginFW begin,
-        final MessageConsumer source)
+        final MessageConsumer sender)
     {
-        final long correlationId = begin.correlationId();
-        Correlation correlation = correlations.remove(correlationId);
+        final long connectRouteId = begin.routeId();
+        final long connectReplyId = begin.streamId();
+        final long traceId = begin.trace();
+        final long authorization = begin.authorization();
+        final OctetsFW extension = begin.extension();
+
+        Correlation correlation = correlations.remove(connectReplyId);
 
         MessageConsumer newStream = null;
 
         if (correlation != null)
         {
-            final long sourceRouteId = begin.routeId();
-            final long sourceId = begin.streamId();
-            final long traceId = begin.trace();
-            final long authorization = begin.authorization();
-            final OctetsFW extension = begin.extension();
-
             long acceptRouteId = correlation.acceptRouteId;
             MessageConsumer acceptReply = correlation.acceptReply;
             long acceptReplyId = supplyReplyId.applyAsLong(correlation.acceptInitialId);
 
-            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, correlation.acceptCorrelationId, traceId,
-                    authorization, extension);
-            ProxyStream stream = new ProxyStream(source, sourceRouteId, sourceId, acceptReply, acceptRouteId, acceptReplyId);
+            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, authorization,
+                    extension);
+            ProxyStream stream = new ProxyStream(sender, connectRouteId, connectReplyId,
+                    acceptReply, acceptRouteId, acceptReplyId);
             router.setThrottle(acceptReplyId, stream::onThrottleMessage);
 
             newStream = stream::onStreamMessage;

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2018 The Reaktivity Project
+ * Copyright 2016-2019 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -45,7 +45,6 @@ public class Writer
         MessageConsumer receiver,
         long routeId,
         long streamId,
-        long correlationId,
         long traceId,
         long authorization,
         OctetsFW extension)
@@ -55,7 +54,6 @@ public class Writer
                 .streamId(streamId)
                 .trace(traceId)
                 .authorization(authorization)
-                .correlationId(correlationId)
                 .extension(e -> e.set(extension))
                 .build();
 

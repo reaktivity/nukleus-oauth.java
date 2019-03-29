@@ -48,12 +48,12 @@
     <junit.version>4.12</junit.version>
 
     <k3po.version>3.0.0-alpha-97</k3po.version>
-    <k3po.nukleus.ext.version>0.37</k3po.nukleus.ext.version>
+    <k3po.nukleus.ext.version>0.39</k3po.nukleus.ext.version>
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.auth.jwt.spec.version>0.18</nukleus.auth.jwt.spec.version>
-    <reaktor.version>0.78</reaktor.version>
+    <nukleus.auth.jwt.spec.version>0.19</nukleus.auth.jwt.spec.version>
+    <reaktor.version>0.87</reaktor.version>
   </properties>
 
   <dependencies>

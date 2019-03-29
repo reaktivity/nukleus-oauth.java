@@ -45,7 +45,6 @@ public class Writer
         MessageConsumer receiver,
         long routeId,
         long streamId,
-        long correlationId,
         long traceId,
         long authorization,
         OctetsFW extension)
@@ -55,7 +54,6 @@ public class Writer
                 .streamId(streamId)
                 .trace(traceId)
                 .authorization(authorization)
-                .correlationId(correlationId)
                 .extension(e -> e.set(extension))
                 .build();
 

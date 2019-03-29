@@ -38,14 +38,12 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     private MutableDirectBuffer writeBuffer;
     private LongUnaryOperator supplyInitialId;
     private LongUnaryOperator supplyReplyId;
-    private LongSupplier supplyCorrelationId;
     private LongSupplier supplyTrace;
 
     static class Correlation
     {
         long acceptRouteId;
         long acceptInitialId;
-        long acceptCorrelationId;
         MessageConsumer acceptReply;
     }
 
@@ -112,14 +110,6 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setTargetCorrelationIdSupplier(
-        LongSupplier supplyCorrelationId)
-    {
-        this.supplyCorrelationId = supplyCorrelationId;
-        return this;
-    }
-
-    @Override
     public StreamFactoryBuilder setBufferPoolSupplier(
         Supplier<BufferPool> supplyBufferPool)
     {
@@ -135,7 +125,6 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
                 supplyInitialId,
                 supplyTrace,
                 supplyReplyId,
-                supplyCorrelationId,
                 correlations,
                 resolveTokenRealmId);
     }

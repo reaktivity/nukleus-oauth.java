@@ -26,6 +26,7 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.reaktivity.nukleus.auth.jwt.internal.stream.ProxyStreamFactoryBuilder.Correlation;
+import org.reaktivity.nukleus.auth.jwt.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.String16FW;
 import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
@@ -198,32 +199,33 @@ public class ProxyStreamFactory implements StreamFactory
     private long authorize(
         BeginFW begin)
     {
-        final long[] authorization = {0L};
-
         final HttpBeginExFW beginEx = begin.extension().get(httpBeginExRO::wrap);
-        beginEx.headers().forEach(h ->
-        {
-            if (BufferUtil.equals(h.name(), AUTHORIZATION))
-            {
-                String16FW authorizationHeader = h.value();
-                final DirectBuffer buffer = authorizationHeader.buffer();
-                final int limit = authorizationHeader.limit();
-                int offset = BufferUtil.limitOfBytes(buffer, authorizationHeader.offset(),
-                        limit, BEARER_PREFIX);
-                if (offset > 0)
-                {
-                    String token = buffer.getStringWithoutLengthUtf8(offset, limit - offset);
-                    authorization[0] = resolveTokenRealmId.applyAsLong(token);
-                }
-            }
-        });
+        final HttpHeaderFW authorizationHeader = beginEx.headers().matchFirst(h -> BufferUtil.equals(h.name(), AUTHORIZATION));
 
-        if (authorization[0] == 0L)
+        String token = null;
+
+        if (authorizationHeader != null)
         {
-            authorization[0] = begin.authorization();
+            final String16FW value = authorizationHeader.value();
+            final DirectBuffer buffer = value.buffer();
+            final int offset = value.offset();
+            final int limit = value.limit();
+
+            final int tokenAt = BufferUtil.limitOfBytes(buffer, offset, limit, BEARER_PREFIX);
+
+            if (tokenAt > 0)
+            {
+                token = buffer.getStringWithoutLengthUtf8(tokenAt, limit - tokenAt);
+            }
         }
 
-        return authorization[0];
+        long authorization = begin.authorization();
+        if (token != null)
+        {
+            authorization = resolveTokenRealmId.applyAsLong(token);
+        }
+
+        return authorization;
     }
 
     private final class ProxyStream

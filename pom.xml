@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-auth-jwt</artifactId>
-  <version>0.29</version>
+  <version>0.30</version>
   <name>JWT Auth Nukleus Implementation</name>
   <description>JWT Auth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-auth-jwt.java</url>
@@ -36,8 +36,8 @@
   </scm>
 
   <properties>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>9</maven.compiler.source>
+    <maven.compiler.target>9</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
@@ -47,13 +47,13 @@
 
     <junit.version>4.12</junit.version>
 
-    <k3po.version>3.0.0-alpha-97</k3po.version>
-    <k3po.nukleus.ext.version>0.39</k3po.nukleus.ext.version>
+    <k3po.version>3.0.0-alpha-100</k3po.version>
+    <k3po.nukleus.ext.version>0.41</k3po.nukleus.ext.version>
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.auth.jwt.spec.version>0.19</nukleus.auth.jwt.spec.version>
-    <reaktor.version>0.87</reaktor.version>
+    <nukleus.auth.jwt.spec.version>0.20</nukleus.auth.jwt.spec.version>
+    <reaktor.version>0.90</reaktor.version>
   </properties>
 
   <dependencies>
@@ -72,7 +72,7 @@
     <dependency>
       <groupId>org.bitbucket.b_c</groupId>
       <artifactId>jose4j</artifactId>
-      <version>0.6.1</version>
+      <version>0.6.5</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -184,12 +184,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.6.1</version>
+        <version>3.8.0</version>
       </plugin>
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.7.9</version>
+        <version>0.8.2</version>
         <configuration>
           <rules>
             <rule>
@@ -240,7 +240,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.17</version>
+        <version>2.22.1</version>
         <configuration>
           <argLine>@{argLine}</argLine>
         </configuration>
@@ -268,7 +268,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>2.19.1</version>
+        <version>2.22.1</version>
         <configuration>
           <argLine>@{argLine}</argLine>
         </configuration>
@@ -278,6 +278,66 @@
               <goal>integration-test</goal>
               <goal>verify</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.4</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>org.reaktivity.nukleus.auth.jwt</Automatic-Module-Name>
+          </manifestEntries>
+        </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>io.gatling</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.4.2</version>
+        <configuration>
+          <shadeTestJar>true</shadeTestJar>
+          <outputFile>${project.build.directory}/${project.artifactId}-shaded.jar</outputFile>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <transformers>
+                <transformer
+                  implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer
+                  implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>org.openjdk.jmh.Main</mainClass>
+                  <manifestEntries>
+                    <Class-Path>${project.artifactId}-shaded.jar</Class-Path>
+                  </manifestEntries>
+                </transformer>
+              </transformers>
+              <artifactSet>
+                <includes>
+                  <include>org.agrona:agrona</include>
+                  <include>org.reaktivity:nukleus</include>
+                  <include>org.reaktivity:reaktor</include>
+                  <include>org.openjdk.jmh:jmh-core</include>
+                  <include>net.sf.jopt-simple:jopt-simple</include>
+                  <include>org.apache.commons:commons-math3</include>
+                  <include>commons-cli:commons-cli</include>
+                  <include>com.github.biboudis:jmh-profilers</include>
+                </includes>
+              </artifactSet>
+            </configuration>
           </execution>
         </executions>
       </plugin>

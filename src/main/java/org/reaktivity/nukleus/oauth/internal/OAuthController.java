@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal;
+package org.reaktivity.nukleus.oauth.internal;
 
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.nio.ByteOrder.nativeOrder;
@@ -27,17 +27,17 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerSpi;
-import org.reaktivity.nukleus.auth.jwt.internal.types.Flyweight;
-import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.control.FreezeFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.control.Role;
-import org.reaktivity.nukleus.auth.jwt.internal.types.control.RouteFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.control.UnrouteFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.ResolveFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.control.auth.UnresolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
+import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.FreezeFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.Role;
+import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolveFW;
 import org.reaktivity.nukleus.route.RouteKind;
 
-public class AuthJwtController implements Controller
+public class OAuthController implements Controller
 {
     private static final int MAX_SEND_LENGTH = 1024; // TODO: Configuration and Context
 
@@ -53,7 +53,7 @@ public class AuthJwtController implements Controller
     private final ControllerSpi controllerSpi;
     private final AtomicBuffer commandBuffer;
 
-    public AuthJwtController(
+    public OAuthController(
         ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
@@ -73,15 +73,15 @@ public class AuthJwtController implements Controller
     }
 
     @Override
-    public Class<AuthJwtController> kind()
+    public Class<OAuthController> kind()
     {
-        return AuthJwtController.class;
+        return OAuthController.class;
     }
 
     @Override
     public String name()
     {
-        return AuthJwtNukleus.NAME;
+        return OAuthNukleus.NAME;
     }
 
     public CompletableFuture<Long> resolve(

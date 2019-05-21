@@ -1,10 +1,10 @@
-# nukleus-auth-jwt.java 
+# nukleus-oauth.java 
 
-JWT (JSON Web Token) authorization nukleus. 
+OAuth nukleus with support for JWT (JSON Web Token) bearer tokens. 
 
 ## Configuration
 
-System property "auth.jwt.keys", default value "keys.jwk", specifies the name of a file which contains a set of public keys in JWK Set format as defined in RFC-7517. The file name  must either be absolute or relative to the "home" directory of the auth-jwt nukleus. Each key must have the following parameters:
+System property "oauth.keys", default value "keys.jwk", specifies the name of a file which contains a set of public keys in JWK Set format as defined in RFC-7517. The file name  must either be absolute or relative to the "home" directory of the auth-jwt nukleus. Each key must have the following parameters:
 
 1. kid (key identifier) unique within the file
 2. alg (algorithm) specifying the signing algorithm it is to be used with. 

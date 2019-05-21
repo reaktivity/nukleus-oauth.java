@@ -5,11 +5,11 @@
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
-  <artifactId>nukleus-auth-jwt</artifactId>
+  <artifactId>nukleus-oauth</artifactId>
   <version>develop-SNAPSHOT</version>
-  <name>JWT Auth Nukleus Implementation</name>
-  <description>JWT Auth Nukleus Implementation</description>
-  <url>https://github.com/reaktivity/nukleus-auth-jwt.java</url>
+  <name>OAuth Nukleus Implementation</name>
+  <description>OAuth Nukleus Implementation</description>
+  <url>https://github.com/reaktivity/nukleus-oauth.java</url>
 
   <licenses>
     <license>
@@ -30,9 +30,9 @@
   </developers>
 
   <scm>
-    <connection>scm:git:https://github.com/reaktivity/nukleus-auth-jwt.java</connection>
-    <developerConnection>scm:git:https://github.com/reaktivity/nukleus-auth-jwt.java</developerConnection>
-    <url>https://github.com/reaktivity/nukleus-auth-jwt.java</url>
+    <connection>scm:git:https://github.com/reaktivity/nukleus-oauth.java</connection>
+    <developerConnection>scm:git:https://github.com/reaktivity/nukleus-oauth.java</developerConnection>
+    <url>https://github.com/reaktivity/nukleus-oauth.java</url>
   </scm>
 
   <properties>
@@ -52,15 +52,15 @@
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.auth.jwt.spec.version>0.20</nukleus.auth.jwt.spec.version>
-    <reaktor.version>0.90</reaktor.version>
+    <nukleus.oauth.spec.version>0.21</nukleus.oauth.spec.version>
+    <reaktor.version>0.92</reaktor.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.reaktivity</groupId>
-      <artifactId>nukleus-auth-jwt.spec</artifactId>
-      <version>${nukleus.auth.jwt.spec.version}</version>
+      <artifactId>nukleus-oauth.spec</artifactId>
+      <version>${nukleus.oauth.spec.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -120,7 +120,7 @@
         <version>${nukleus.plugin.version}</version>
         <configuration>
           <scopeNames>core http</scopeNames>
-          <packageName>org.reaktivity.nukleus.auth.jwt.internal.types</packageName>
+          <packageName>org.reaktivity.nukleus.oauth.internal.types</packageName>
         </configuration>
         <executions>
           <execution>
@@ -230,8 +230,8 @@
               <goal>unpack-dependencies</goal>
             </goals>
             <configuration>
-              <includeArtifactIds>nukleus-auth-jwt.spec</includeArtifactIds>
-              <outputDirectory>target/nukleus-itests/auth-jwt</outputDirectory>
+              <includeArtifactIds>nukleus-oauth.spec</includeArtifactIds>
+              <outputDirectory>target/nukleus-itests/oauth</outputDirectory>
               <includes>**/*.jwk</includes>
             </configuration>
           </execution>

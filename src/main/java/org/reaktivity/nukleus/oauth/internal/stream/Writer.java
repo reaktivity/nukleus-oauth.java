@@ -13,17 +13,17 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.stream;
+package org.reaktivity.nukleus.oauth.internal.stream;
 
 import org.agrona.MutableDirectBuffer;
-import org.reaktivity.nukleus.auth.jwt.internal.types.OctetsFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.stream.AbortFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.stream.BeginFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.stream.DataFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.stream.EndFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.stream.ResetFW;
-import org.reaktivity.nukleus.auth.jwt.internal.types.stream.WindowFW;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.EndFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.ResetFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
 
 public class Writer
 {
@@ -36,7 +36,8 @@ public class Writer
 
     private final MutableDirectBuffer writeBuffer;
 
-    public Writer(MutableDirectBuffer writeBuffer)
+    public Writer(
+        MutableDirectBuffer writeBuffer)
     {
         this.writeBuffer = writeBuffer;
     }
@@ -90,12 +91,14 @@ public class Writer
         long routeId,
         long streamId,
         long traceId,
+        long authorization,
         OctetsFW extension)
     {
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
+                .authorization(authorization)
                 .extension(e -> e.set(extension))
                 .build();
 
@@ -106,12 +109,14 @@ public class Writer
         MessageConsumer receiver,
         long routeId,
         long streamId,
-        long traceId)
+        long traceId,
+        long authorization)
     {
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
+                .authorization(authorization)
                 .build();
 
         receiver.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
@@ -122,6 +127,7 @@ public class Writer
         final long routeId,
         final long streamId,
         final long traceId,
+        final long authorization,
         final int credit,
         final int padding,
         final long groupId)
@@ -130,6 +136,7 @@ public class Writer
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
+                .authorization(authorization)
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
@@ -142,12 +149,14 @@ public class Writer
         final MessageConsumer sender,
         final long routeId,
         final long streamId,
-        final long traceId)
+        final long traceId,
+        final long authorization)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
+                .authorization(authorization)
                 .build();
 
         sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());

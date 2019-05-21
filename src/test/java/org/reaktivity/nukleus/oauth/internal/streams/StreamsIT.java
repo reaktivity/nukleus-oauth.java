@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.streams;
+package org.reaktivity.nukleus.oauth.internal.streams;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
@@ -32,8 +32,8 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("route", "org/reaktivity/specification/nukleus/auth/jwt/control/route/proxy")
-            .addScriptRoot("streams", "org/reaktivity/specification/nukleus/auth/jwt/streams/proxy");
+            .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
+            .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(15, SECONDS));
 
@@ -42,13 +42,47 @@ public class StreamsIT
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(4096)
-            .nukleus("auth-jwt"::equals)
-            .configure("auth.jwt.keys", "keys/keys.jwk")
+            .nukleus("oauth"::equals)
+            .configure("oauth.keys", "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
             .clean();
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/authorize.then.abort.expiring.request/accept/client",
+        "${streams}/authorize.then.abort.expiring.request/connect/server"
+        })
+    public void shouldAuthorizeThenAbortExpiringRequest() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/authorize.then.abort.expiring.response/accept/client",
+        "${streams}/authorize.then.abort.expiring.response/connect/server"
+        })
+    public void shouldAuthorizeThenAbortExpiringResponse() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/authorize.query.with.signed.jwt.es256/accept/client",
+        "${streams}/authorize.query.with.signed.jwt.es256/connect/server"
+        })
+    @ScriptProperty("authorization 0x0002_000000000000L")
+    public void shouldAuthorizeQueryWithValidJwtEC256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
 
     @Test
     @Specification({
@@ -155,7 +189,7 @@ public class StreamsIT
         "${streams}/request.with.signed.jwt.es256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.es256.forwarded/connect/server"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
+    @ScriptProperty("authorization 0x0002_000000000000L")
     public void shouldForwardRequestWithValidJwtEC256OnSecuredRoute() throws Exception
     {
         k3po.finish();
@@ -167,8 +201,8 @@ public class StreamsIT
         "${streams}/request.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.rs256.forwarded/connect/server"
         })
-    @ScriptProperty({"authorization 0x0002_000000000000L",
-                    "expectedAuthorization 0x0002_000000000000L"})
+    @ScriptProperty({"authorization 0x0001_000000000000L",
+                     "expectedAuthorization 0x0001_000000000000L"})
     public void shouldForwardRequestWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();

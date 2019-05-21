@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.control;
+package org.reaktivity.nukleus.oauth.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.Matchers.either;
@@ -36,16 +36,16 @@ import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.nukleus.auth.jwt.internal.AuthJwtController;
+import org.reaktivity.nukleus.oauth.internal.OAuthController;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ControllerIT
 {
     private final K3poRule k3po = new K3poRule()
-        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/auth/jwt/control/resolve")
-        .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/auth/jwt/control/unresolve")
-        .addScriptRoot("route", "org/reaktivity/specification/nukleus/auth/jwt/control/route")
-        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/auth/jwt/control/unroute")
+        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+        .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/oauth/control/unresolve")
+        .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route")
+        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/oauth/control/unroute")
         .addScriptRoot("freeze", "org/reaktivity/specification/nukleus/control/freeze");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
@@ -55,7 +55,7 @@ public class ControllerIT
         .commandBufferCapacity(4096)
         .responseBufferCapacity(4096)
         .counterValuesBufferCapacity(4096)
-        .controller("auth-jwt"::equals);
+        .controller("oauth"::equals);
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
@@ -75,8 +75,8 @@ public class ControllerIT
 
         k3po.start();
 
-        reaktor.controller(AuthJwtController.class)
-          .resolve("realm",
+        reaktor.controller(OAuthController.class)
+          .resolve("RS256",
                   "role1", "role2", "role3", "role4", "role5", "role6", "role7", "role8", "role9", "role10",
                   "role11", "role12", "role13", "role14", "role15", "role16", "role17", "role18", "role19", "role20",
                   "role21", "role22", "role23", "role24", "role25", "role26", "role27", "role28", "role29", "role30",
@@ -95,13 +95,13 @@ public class ControllerIT
     {
         k3po.start();
 
-        long authorization1 = reaktor.controller(AuthJwtController.class)
-            .resolve("key1")
+        long authorization1 = reaktor.controller(OAuthController.class)
+            .resolve("RS256")
             .get();
         assertEquals(0x0001_000000000000L, authorization1);
 
-        long authorization2 = reaktor.controller(AuthJwtController.class)
-            .resolve("key2")
+        long authorization2 = reaktor.controller(OAuthController.class)
+            .resolve("ES256")
             .get();
         assertEquals(0x0002_000000000000L, authorization2);
 
@@ -116,8 +116,8 @@ public class ControllerIT
     {
         k3po.start();
 
-        long authorization1 = reaktor.controller(AuthJwtController.class)
-            .resolve("key1")
+        long authorization1 = reaktor.controller(OAuthController.class)
+            .resolve("RS256")
             .get();
         assertEquals(0x0001_000000000000L, authorization1);
 
@@ -132,8 +132,8 @@ public class ControllerIT
     {
         k3po.start();
 
-        long authorization = reaktor.controller(AuthJwtController.class)
-            .resolve("key1", "role1", "role2")
+        long authorization = reaktor.controller(OAuthController.class)
+            .resolve("RS256", "role1", "role2")
             .get();
         assertEquals(0x0001_00000000000cL, authorization);
 
@@ -148,8 +148,8 @@ public class ControllerIT
     {
         k3po.start();
 
-        reaktor.controller(AuthJwtController.class)
-            .route(PROXY, "auth-jwt#0", "target#0", 0L)
+        reaktor.controller(OAuthController.class)
+            .route(PROXY, "oauth#0", "target#0", 0L)
             .get();
 
         k3po.finish();
@@ -168,7 +168,7 @@ public class ControllerIT
         k3po.start();
 
         long authorizationWithUnknownRealm = 0x1000_000000000000L;
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
             .unresolve(authorizationWithUnknownRealm)
             .get();
 
@@ -188,7 +188,7 @@ public class ControllerIT
         k3po.start();
 
         long authorizationWithUnknownRoleBits = 0x0001_ffff0000ffffL;
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
             .unresolve(authorizationWithUnknownRoleBits)
             .get();
 
@@ -204,21 +204,21 @@ public class ControllerIT
     {
         k3po.start();
 
-        long authorization1 = reaktor.controller(AuthJwtController.class)
-          .resolve("key1")
+        long authorization1 = reaktor.controller(OAuthController.class)
+          .resolve("RS256")
           .get();
         assertEquals(0x0001_000000000000L, authorization1);
 
-        long authorization2 = reaktor.controller(AuthJwtController.class)
-                .resolve("key2")
+        long authorization2 = reaktor.controller(OAuthController.class)
+                .resolve("ES256")
                 .get();
         assertEquals(0x0002_000000000000L, authorization2);
 
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
             .unresolve(authorization1)
             .get();
 
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
             .unresolve(authorization2)
             .get();
 
@@ -234,12 +234,12 @@ public class ControllerIT
     {
         k3po.start();
 
-        long authorization = reaktor.controller(AuthJwtController.class)
-          .resolve("key1")
+        long authorization = reaktor.controller(OAuthController.class)
+          .resolve("RS256")
           .get();
         assertEquals(0x0001_000000000000L, authorization);
 
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
             .unresolve(authorization)
             .get();
 
@@ -255,12 +255,12 @@ public class ControllerIT
     {
         k3po.start();
 
-        long authorization = reaktor.controller(AuthJwtController.class)
-                .resolve("key1", "role1", "role2")
+        long authorization = reaktor.controller(OAuthController.class)
+                .resolve("RS256", "role1", "role2")
                 .get();
         assertEquals(0x0001_00000000000cL, authorization);
 
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
            .unresolve(authorization)
            .get();
 
@@ -278,7 +278,7 @@ public class ControllerIT
         thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
         k3po.start();
         long routeId = new Random().nextLong();
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
            .unroute(routeId)
            .get();
 
@@ -294,13 +294,13 @@ public class ControllerIT
     {
         k3po.start();
 
-        long routeId = reaktor.controller(AuthJwtController.class)
-              .route(PROXY, "auth-jwt#0", "target#0", 0L)
+        long routeId = reaktor.controller(OAuthController.class)
+              .route(PROXY, "oauth#0", "target#0", 0L)
               .get();
 
         k3po.notifyBarrier("ROUTED_PROXY");
 
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
                .unroute(routeId)
                .get();
 
@@ -312,7 +312,7 @@ public class ControllerIT
         "${freeze}/nukleus"
     })
     @ScriptProperty({
-        "nameF00N \"auth-jwt\"",
+        "nameF00N \"oauth\"",
         "commandCapacityF00N 4096",
         "responseCapacityF00N 4096"
     })
@@ -320,7 +320,7 @@ public class ControllerIT
     {
         k3po.start();
 
-        reaktor.controller(AuthJwtController.class)
+        reaktor.controller(OAuthController.class)
                .freeze()
                .get();
 

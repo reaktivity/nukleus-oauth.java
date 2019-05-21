@@ -13,8 +13,9 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.stream;
+package org.reaktivity.nukleus.oauth.internal.stream;
 
+import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
@@ -24,40 +25,38 @@ import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.jose4j.jwk.JsonWebKey;
 import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.concurrent.SignalingExecutor;
+import org.reaktivity.nukleus.oauth.internal.stream.OAuthProxyFactory.OAuthProxy;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
-public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
+public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
-    private final ToLongFunction<String> resolveTokenRealmId;
+    private final Function<String, JsonWebKey> supplyKey;
+    private final ToLongFunction<String> resolveRealm;
+    private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
     private LongUnaryOperator supplyInitialId;
     private LongUnaryOperator supplyReplyId;
     private LongSupplier supplyTrace;
+    private SignalingExecutor executor;
 
-    static class Correlation
+    public OAuthProxyFactoryBuilder(
+        Function<String, JsonWebKey> supplyKey,
+        ToLongFunction<String> resolveRealm)
     {
-        long acceptRouteId;
-        long acceptInitialId;
-        MessageConsumer acceptReply;
-    }
-
-    private final Long2ObjectHashMap<Correlation> correlations;
-
-    public ProxyStreamFactoryBuilder(
-        ToLongFunction<String> resolveTokenRealmId)
-    {
-        this.resolveTokenRealmId = resolveTokenRealmId;
+        this.supplyKey = supplyKey;
+        this.resolveRealm = resolveRealm;
         this.correlations = new Long2ObjectHashMap<>();
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setRouteManager(
+    public OAuthProxyFactoryBuilder setRouteManager(
             RouteManager router)
     {
         this.router = router;
@@ -72,7 +71,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setWriteBuffer(
+    public OAuthProxyFactoryBuilder setWriteBuffer(
         MutableDirectBuffer writeBuffer)
     {
         this.writeBuffer = writeBuffer;
@@ -80,7 +79,7 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setInitialIdSupplier(
+    public OAuthProxyFactoryBuilder setInitialIdSupplier(
         LongUnaryOperator supplyInitialId)
     {
         this.supplyInitialId = supplyInitialId;
@@ -96,14 +95,14 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setGroupBudgetClaimer(
+    public OAuthProxyFactoryBuilder setGroupBudgetClaimer(
         LongFunction<IntUnaryOperator> groupBudgetClaimer)
     {
         return this;
     }
 
     @Override
-    public ProxyStreamFactoryBuilder setGroupBudgetReleaser(
+    public OAuthProxyFactoryBuilder setGroupBudgetReleaser(
         LongFunction<IntUnaryOperator> groupBudgetReleaser)
     {
         return this;
@@ -117,15 +116,25 @@ public class ProxyStreamFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
+    public StreamFactoryBuilder setExecutor(
+        SignalingExecutor executor)
+    {
+        this.executor = executor;
+        return this;
+    }
+
+    @Override
     public StreamFactory build()
     {
-        return new ProxyStreamFactory(
+        return new OAuthProxyFactory(
                 router,
                 writeBuffer,
                 supplyInitialId,
                 supplyTrace,
                 supplyReplyId,
                 correlations,
-                resolveTokenRealmId);
+                supplyKey,
+                resolveRealm,
+                executor);
     }
 }

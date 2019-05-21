@@ -13,23 +13,23 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal;
+package org.reaktivity.nukleus.oauth.internal;
 
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 
-public final class AuthJwtNukleusFactorySpi implements NukleusFactorySpi
+public final class OAuthNukleusFactorySpi implements NukleusFactorySpi
 {
     @Override
     public String name()
     {
-        return AuthJwtNukleus.NAME;
+        return OAuthNukleus.NAME;
     }
 
     @Override
-    public AuthJwtNukleus create(
+    public OAuthNukleus create(
         Configuration config)
     {
-        return new AuthJwtNukleus(new AuthJwtConfiguration(config));
+        return new OAuthNukleus(new OAuthConfiguration(config));
     }
 }

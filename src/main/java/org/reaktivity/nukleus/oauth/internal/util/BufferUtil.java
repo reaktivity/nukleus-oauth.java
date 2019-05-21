@@ -13,10 +13,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.util;
+package org.reaktivity.nukleus.oauth.internal.util;
+
+import static org.agrona.BitUtil.SIZE_OF_BYTE;
+import static org.agrona.BitUtil.SIZE_OF_SHORT;
 
 import org.agrona.DirectBuffer;
-import org.reaktivity.nukleus.auth.jwt.internal.types.StringFW;
+import org.reaktivity.nukleus.oauth.internal.types.String16FW;
+import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 
 public final class BufferUtil
 {
@@ -24,7 +28,24 @@ public final class BufferUtil
         StringFW flyweight,
         byte[] value)
     {
-        return equals(flyweight.buffer(), flyweight.offset() + 1, flyweight.limit(), value);
+        return equals(flyweight.buffer(), flyweight.offset() + SIZE_OF_BYTE, flyweight.limit(), value);
+    }
+
+    public static int limitOfBytes(
+        String16FW flyweight,
+        byte[] value)
+    {
+        final DirectBuffer buffer = flyweight.buffer();
+        final int offset = flyweight.offset();
+        final int limit = flyweight.limit();
+        return limitOfBytes(buffer, offset + SIZE_OF_SHORT, limit, value);
+    }
+
+    public static int indexOfBytes(
+        String16FW flyweight,
+        byte[] value)
+    {
+        return Math.max(limitOfBytes(flyweight, value) - flyweight.offset() - value.length - SIZE_OF_SHORT, -1);
     }
 
     public static boolean equals(

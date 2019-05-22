@@ -371,12 +371,13 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long traceId = data.trace();
             final int padding = data.padding();
+            final long authorization = data.authorization();
             final long groupId = data.groupId();
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
             writer.doData(target, targetRouteId, targetStreamId, traceId,
-                          targetAuthorization, groupId, padding, payload, extension);
+                          authorization, groupId, padding, payload, extension);
         }
 
         private void onEnd(

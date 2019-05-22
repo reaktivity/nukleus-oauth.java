@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.util;
+package org.reaktivity.nukleus.oauth.internal.util;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.junit.Assert.assertEquals;
@@ -24,7 +24,7 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.Test;
-import org.reaktivity.nukleus.auth.jwt.internal.types.StringFW;
+import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 
 public class BufferUtilTest
 {

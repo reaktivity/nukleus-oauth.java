@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.resolver;
+package org.reaktivity.nukleus.oauth.internal;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -21,13 +21,13 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-public class RealmsTest
+public class OAuthRealmsTest
 {
 
     @Test
     public void shouldAddUpToMaximumRealms() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         for (int i=0; i < Short.SIZE; i++)
         {
             realms.add("realm" + i);
@@ -37,7 +37,7 @@ public class RealmsTest
     @Test(expected = IllegalStateException.class)
     public void shouldNotAddTooManyRealms() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         for (int i=0; i < Short.SIZE; i++)
         {
             realms.add("realm" + i);
@@ -48,7 +48,7 @@ public class RealmsTest
     @Test
     public void shouldResolveKnownRealms() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
         realms.add("realm two");
         assertEquals(0x0001_000000000000L, realms.resolve("realm one"));
@@ -58,14 +58,14 @@ public class RealmsTest
     @Test
     public void shouldNotResolveUnknownRealm() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         assertEquals(0L, realms.resolve("realm one"));
     }
 
     @Test
     public void shouldUnresolveAllKnownRealms() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         for (int i=0; i < Short.SIZE; i++)
         {
             realms.add("realm" + i);
@@ -80,7 +80,7 @@ public class RealmsTest
     @Test
     public void shouldNotUnresolveUnknownRealm() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
         assertFalse(realms.unresolve(0x0002_000000000000L));
     }
@@ -88,10 +88,9 @@ public class RealmsTest
     @Test
     public void shouldNotUnresolveInvalidRealm() throws Exception
     {
-        Realms realms = new Realms();
+        OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
         realms.add("realm two");
         assertFalse(realms.unresolve(0x0003_000000000000L));
     }
-
 }

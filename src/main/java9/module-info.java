@@ -19,8 +19,8 @@ module org.reaktivity.nukleus.auth.jwt
     requires org.jose4j;
 
     provides org.reaktivity.nukleus.NukleusFactorySpi
-        with org.reaktivity.nukleus.auth.jwt.internal.AuthJwtNukleusFactorySpi;
+        with org.reaktivity.nukleus.oauth.internal.OAuthNukleusFactorySpi;
 
     provides org.reaktivity.nukleus.ControllerFactorySpi
-        with org.reaktivity.nukleus.auth.jwt.internal.AuthJwtControllerFactorySpi;
+        with org.reaktivity.nukleus.oauth.internal.OAuthControllerFactorySpi;
 }

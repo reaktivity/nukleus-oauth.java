@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal.control;
+package org.reaktivity.nukleus.oauth.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
@@ -32,10 +32,10 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class ControlIT
 {
     private final K3poRule k3po = new K3poRule()
-        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/auth/jwt/control/resolve")
-        .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/auth/jwt/control/unresolve")
-        .addScriptRoot("route", "org/reaktivity/specification/nukleus/auth/jwt/control/route")
-        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/auth/jwt/control/unroute")
+        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+        .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/oauth/control/unresolve")
+        .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route")
+        .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/oauth/control/unroute")
         .addScriptRoot("freeze", "org/reaktivity/specification/nukleus/control/freeze");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
@@ -45,8 +45,8 @@ public class ControlIT
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(4096)
-            .nukleus("auth-jwt"::equals)
-            .configure("auth.jwt.keys", "keys/keys.jwk");
+            .nukleus("oauth"::equals)
+            .configure("oauth.keys", "keys/keys.jwk");
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
@@ -172,7 +172,7 @@ public class ControlIT
         "${freeze}/controller",
     })
     @ScriptProperty({
-        "nameF00C \"auth-jwt\"",
+        "nameF00C \"oauth\"",
         "commandCapacityF00C 4096",
         "responseCapacityF00C 4096"
     })

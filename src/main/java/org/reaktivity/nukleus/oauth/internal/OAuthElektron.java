@@ -13,27 +13,30 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.auth.jwt.internal;
+package org.reaktivity.nukleus.oauth.internal;
 
 import static java.util.Collections.singletonMap;
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.ToLongFunction;
 
+import org.jose4j.jwk.JsonWebKey;
 import org.reaktivity.nukleus.Elektron;
-import org.reaktivity.nukleus.auth.jwt.internal.stream.ProxyStreamFactoryBuilder;
+import org.reaktivity.nukleus.oauth.internal.stream.OAuthProxyFactoryBuilder;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
-final class AuthJwtElektron implements Elektron
+final class OAuthElektron implements Elektron
 {
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
 
-    AuthJwtElektron(
-        ToLongFunction<String> resolveTokenRealmId)
+    OAuthElektron(
+        Function<String, JsonWebKey> supplyKey,
+        ToLongFunction<String> resolveRealm)
     {
-        this.streamFactoryBuilders = singletonMap(PROXY, new ProxyStreamFactoryBuilder(resolveTokenRealmId));
+        this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(supplyKey, resolveRealm));
     }
 
     @Override

@@ -52,13 +52,13 @@
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>0.21</nukleus.oauth.spec.version>
+    <nukleus.oauth.spec.version>develop-SNAPSHOT</nukleus.oauth.spec.version>
     <reaktor.version>0.92</reaktor.version>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>org.reaktivity</groupId>
+      <groupId>org.dknoma</groupId>
       <artifactId>nukleus-oauth.spec</artifactId>
       <version>${nukleus.oauth.spec.version}</version>
       <scope>provided</scope>

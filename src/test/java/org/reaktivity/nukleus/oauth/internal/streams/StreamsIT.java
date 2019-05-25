@@ -33,6 +33,7 @@ public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
+            .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(15, SECONDS));
@@ -191,6 +192,20 @@ public class StreamsIT
         })
     @ScriptProperty("authorization 0x0002_000000000000L")
     public void shouldForwardRequestWithValidJwtEC256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+//        "${resolve}/with.roles/controller",
+        "${streams}/request.with.scope.with.signed.jwt.es256.forwarded/accept/client",
+        "${streams}/request.with.scope.with.signed.jwt.es256.forwarded/connect/server"
+    })
+    @ScriptProperty({"authorization 0x0002_000000000000L",
+                     "expectedAuthorization 0x0002_000000000000L"})
+    public void shouldForwardRequestWithScopeWithValidJwtEC256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }

@@ -475,6 +475,7 @@ public class OAuthProxyFactory implements StreamFactory
                 final JsonWebKey key = supplyKey.apply(kid);
                 if (algorithm != null && key != null && algorithm.equals(key.getAlgorithm()))
                 {
+                    signature.setKey(null);
                     signature.setKey(key.getKey());
 
                     final JwtClaims claims = JwtClaims.parse(signature.getPayload());

@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.jose4j.jwk.JsonWebKey;
@@ -80,9 +81,13 @@ public class OAuthRealms
         realmsIdsByName.put(realm, 1L << nextRealmBitShift++);
     }
 
+    // TODO: scopes = string of scopes. JWT tokens include a scopes claim, indicating which roles are assigned to the
+    //       token subject (eg. end user). These must be enforced by the oauth nukleus.
     public long resolve(
-        String realm)
+        String realm,
+        String scopes)
     {
+        System.out.println(String.format("Scopes: %s", scopes));
         return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
     }
 

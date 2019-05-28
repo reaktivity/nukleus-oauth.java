@@ -20,11 +20,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Future;
-import java.util.function.Function;
-import java.util.function.LongSupplier;
-import java.util.function.LongUnaryOperator;
-import java.util.function.ToLongFunction;
+import java.util.function.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -90,7 +90,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<String> resolveRealm;
+    private final ToLongBiFunction<String, String> resolveRealm;
     private final SignalingExecutor executor;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
@@ -106,7 +106,7 @@ public class OAuthProxyFactory implements StreamFactory
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<String> resolveRealm,
+		ToLongBiFunction<String, String> resolveRealm,
         SignalingExecutor executor)
     {
         this.router = requireNonNull(router);
@@ -155,8 +155,27 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            final String kid = verified.getKeyIdHeaderValue();
-            connectAuthorization = resolveRealm.applyAsLong(kid);
+            try {
+                final String kid = verified.getKeyIdHeaderValue();
+                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
+
+                // TODO: get the scopes from the claims. Scopes will come as a String
+                String scopesString = claims.getClaimValue("scopes").toString();
+//                System.out.println(claimNames);
+//                System.out.println(scopesString);
+//                System.out.println(claims.getClaimValue("scopes"));
+//                final List<String> scopes = new ArrayList<>(claimNames);
+//                for (String name:
+//                     claims) {
+//                    claims.getClaimValue()
+//                }
+                connectAuthorization = resolveRealm.applyAsLong(kid, scopesString);
+            }
+            catch (JoseException | InvalidJwtException ex)
+            {
+                // TODO: diagnostics?
+            }
+//            connectAuthorization = resolveRealm.applyAsLong(kid);
         }
 
         final long acceptRouteId = begin.routeId();
@@ -459,6 +478,7 @@ public class OAuthProxyFactory implements StreamFactory
         }
     }
 
+    // TODO: Change signatures to include scope as well as realm
     private JsonWebSignature verifiedSignature(
         BeginFW begin)
     {

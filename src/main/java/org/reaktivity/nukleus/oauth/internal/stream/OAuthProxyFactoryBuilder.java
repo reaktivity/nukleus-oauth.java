@@ -15,13 +15,8 @@
  */
 package org.reaktivity.nukleus.oauth.internal.stream;
 
-import java.util.function.Function;
-import java.util.function.IntUnaryOperator;
-import java.util.function.LongFunction;
-import java.util.function.LongSupplier;
-import java.util.function.LongUnaryOperator;
-import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
+import java.util.List;
+import java.util.function.*;
 
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
@@ -36,7 +31,7 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<String> resolveRealm;
+    private final ToLongBiFunction<String, String> resolveRealm;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
@@ -48,7 +43,7 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 
     public OAuthProxyFactoryBuilder(
         Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<String> resolveRealm)
+        ToLongBiFunction<String, String> resolveRealm)
     {
         this.supplyKey = supplyKey;
         this.resolveRealm = resolveRealm;

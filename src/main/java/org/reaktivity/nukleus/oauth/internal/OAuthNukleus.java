@@ -16,6 +16,8 @@
 package org.reaktivity.nukleus.oauth.internal;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -95,7 +97,15 @@ final class OAuthNukleus implements Nukleus
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
-        long authorization = realms.resolve(realm);
+//        final ListFW<StringFW> rolesRO = resolve.roles();
+//
+//        System.out.println("rolesRO: "+rolesRO);
+//
+//        final List<String> roles = new ArrayList<>();
+//        rolesRO.forEach(role -> roles.add(role.asString()));
+//        long authorization = realms.resolve(realm, roles);
+
+        long authorization = realms.resolve(realm, null);
         if (authorization != 0L)
         {
             final ResolvedFW resolved = resolvedRW.wrap(replyBuffer, 0, replyBuffer.capacity())

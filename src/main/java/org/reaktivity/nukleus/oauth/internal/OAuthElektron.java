@@ -18,8 +18,11 @@ package org.reaktivity.nukleus.oauth.internal;
 import static java.util.Collections.singletonMap;
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
+import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.ToLongBiFunction;
 import java.util.function.ToLongFunction;
 
 import org.jose4j.jwk.JsonWebKey;
@@ -34,7 +37,8 @@ final class OAuthElektron implements Elektron
 
     OAuthElektron(
         Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<String> resolveRealm)
+        ToLongBiFunction<String, String> resolveRealm)
+//        ToLongFunction<String> resolveRealm)
     {
         this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(supplyKey, resolveRealm));
     }

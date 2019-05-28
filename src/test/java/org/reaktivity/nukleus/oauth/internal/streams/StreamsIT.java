@@ -198,14 +198,13 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
 //        "${resolve}/with.roles/controller",
-        "${streams}/request.with.scope.with.signed.jwt.es256.forwarded/accept/client",
-        "${streams}/request.with.scope.with.signed.jwt.es256.forwarded/connect/server"
+        "${route}/controller",
+        "${streams}/request.with.scope.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.scope.with.signed.jwt.rs256.forwarded/connect/server"
     })
-    @ScriptProperty({"authorization 0x0002_000000000000L",
-                     "expectedAuthorization 0x0002_000000000000L"})
-    public void shouldForwardRequestWithScopeWithValidJwtEC256OnSecuredRoute() throws Exception
+    @ScriptProperty("authorization 0x0001_000000000000L")
+    public void shouldForwardRequestWithScopeWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }

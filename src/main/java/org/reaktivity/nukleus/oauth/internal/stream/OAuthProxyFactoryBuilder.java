@@ -31,7 +31,7 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongBiFunction<String, String> resolveRealm;
+    private final ToLongBiFunction<String, String[]> resolveRealm;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
@@ -43,7 +43,7 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 
     public OAuthProxyFactoryBuilder(
         Function<String, JsonWebKey> supplyKey,
-        ToLongBiFunction<String, String> resolveRealm)
+        ToLongBiFunction<String, String[]> resolveRealm)
     {
         this.supplyKey = supplyKey;
         this.resolveRealm = resolveRealm;

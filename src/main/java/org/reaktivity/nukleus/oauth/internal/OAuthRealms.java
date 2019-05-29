@@ -42,6 +42,7 @@ public class OAuthRealms
     private static final long SCOPE_MASK = 0xFFFF_000000000000L;
 
     private final Map<String, Long> realmsIdsByName = new CopyOnWriteHashMap<>();
+	private final Map<String, RealmScopes> scopeBitsByRealm = new CopyOnWriteHashMap<>();
 
     private int nextRealmBitShift = 48;
 
@@ -85,10 +86,52 @@ public class OAuthRealms
     //       token subject (eg. end user). These must be enforced by the oauth nukleus.
     public long resolve(
         String realm,
-        String scopes)
+        String[] scopes)
     {
-        System.out.println(String.format("Scopes: %s", scopes));
-        return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
+//        System.out.println(0x0001_000000000000L | 1 | 2 | 4);
+        if(scopes == null || scopes.length <= 0) {
+            return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
+        }
+
+        if (!scopeBitsByRealm.containsKey(realm)) {
+            scopeBitsByRealm.put(realm, new RealmScopes());
+        }
+
+        long realmBit = realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
+        System.out.println(String.format("before: %d", realmBit));
+
+        // if not already there, add them to the map, assign each scope a number between 0-31
+        // 	this number determines which low bit will be flipped if that scope is present
+
+//        long one = 0x0001_000000000007L;
+//		long wan = 281474976710656L;
+//		System.out.println(one);
+//        System.out.println(one | 7);
+
+//        System.out.println("scopes: " + scopes.length);
+        // TODO: lazily light up bits of the scope. OR together the auth high bit and the scope low bits to get result
+        RealmScopes realmScopes = scopeBitsByRealm.get(realm);
+        for (int i = 0; i < scopes.length; i++) {
+            String scope = scopes[i];
+            if (realmScopes.scopeBitAssigned(scope)) {
+                final int bit = realmScopes.getScopeBit(scope);
+                realmBit |= (1 << bit);
+            } else {
+                realmScopes.addScopeBit(scope);
+                final int bit = realmScopes.getScopeBit(scope);
+                realmBit |= (1 << bit);
+            }
+        }
+
+//		System.out.println(String.format("realm: %s", realm));
+//        System.out.println(String.format("Scopes: %s", scopes));
+//        long auth = realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
+//        System.out.println(String.format("Auth: %s", auth));
+//		System.out.println(String.format("scopes: %s", auth & SCOPE_MASK));
+//        return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
+
+        System.out.println(String.format("after: %d", realmBit));
+        return realmBit;
     }
 
     public boolean unresolve(
@@ -172,4 +215,33 @@ public class OAuthRealms
 
         return keysByKid;
     }
+
+    private class RealmScopes
+	{
+		private int nextScopeBitShift = 0;
+		private final Map<String, Integer> scopeBitsByName = new CopyOnWriteHashMap<>();
+
+        private int getNextScopeBitShift()
+        {
+            return nextScopeBitShift++;
+        }
+
+        private boolean scopeBitAssigned(
+                String scope)
+        {
+            return scopeBitsByName.containsKey(scope);
+        }
+
+        private void addScopeBit(
+                String scope)
+        {
+            scopeBitsByName.put(scope, getNextScopeBitShift());
+        }
+
+        private int getScopeBit(
+                String scope)
+        {
+            return scopeBitsByName.getOrDefault(scope, 0);
+        }
+	}
 }

@@ -203,7 +203,7 @@ public class StreamsIT
         "${streams}/request.with.scope.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scope.with.signed.jwt.rs256.forwarded/connect/server"
     })
-    @ScriptProperty("authorization 0x0001_000000000000L")
+    @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
     public void shouldForwardRequestWithScopeWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();

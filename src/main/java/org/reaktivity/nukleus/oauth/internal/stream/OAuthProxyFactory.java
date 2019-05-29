@@ -90,7 +90,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongBiFunction<String, String> resolveRealm;
+    private final ToLongBiFunction<String, String[]> resolveRealm;
     private final SignalingExecutor executor;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
@@ -106,7 +106,7 @@ public class OAuthProxyFactory implements StreamFactory
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> supplyKey,
-		ToLongBiFunction<String, String> resolveRealm,
+		ToLongBiFunction<String, String[]> resolveRealm,
         SignalingExecutor executor)
     {
         this.router = requireNonNull(router);
@@ -145,6 +145,10 @@ public class OAuthProxyFactory implements StreamFactory
         return newStream;
     }
 
+	private String[] splitScopes(String scopes) {
+		return scopes.split("\\s+");
+	}
+
     private MessageConsumer newInitialStream(
         final BeginFW begin,
         final MessageConsumer acceptReply)
@@ -161,7 +165,6 @@ public class OAuthProxyFactory implements StreamFactory
 
                 // TODO: get the scopes from the claims. Scopes will come as a String
                 String scopesString = claims.getClaimValue("scopes").toString();
-//                System.out.println(claimNames);
 //                System.out.println(scopesString);
 //                System.out.println(claims.getClaimValue("scopes"));
 //                final List<String> scopes = new ArrayList<>(claimNames);
@@ -169,7 +172,7 @@ public class OAuthProxyFactory implements StreamFactory
 //                     claims) {
 //                    claims.getClaimValue()
 //                }
-                connectAuthorization = resolveRealm.applyAsLong(kid, scopesString);
+                connectAuthorization = resolveRealm.applyAsLong(kid, splitScopes(scopesString));
             }
             catch (JoseException | InvalidJwtException ex)
             {
@@ -500,6 +503,11 @@ public class OAuthProxyFactory implements StreamFactory
                     final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
+//					final String scopesString = claims.getClaimValue("scopes").toString();
+//					System.out.println("kid: "+kid);
+//               		System.out.println("SCOOP: "+scopesString);
+
+               		// TODO: how to determine if a scope has been seen or not?
 
                     final long now = System.currentTimeMillis();
                     if ((expirationTime == null || now <= expirationTime.getValueInMillis()) &&

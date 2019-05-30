@@ -25,6 +25,8 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.oauth.internal.types.ListFW;
+import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolvedFW;
@@ -97,15 +99,11 @@ final class OAuthNukleus implements Nukleus
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
-//        final ListFW<StringFW> rolesRO = resolve.roles();
-//
-//        System.out.println("rolesRO: "+rolesRO);
-//
-//        final List<String> roles = new ArrayList<>();
-//        rolesRO.forEach(role -> roles.add(role.asString()));
-//        long authorization = realms.resolve(realm, roles);
+        final ListFW<StringFW> rolesRO = resolve.roles();
+        final StringBuilder rolesBuilder = new StringBuilder();
+        rolesRO.forEach(role -> rolesBuilder.append(role.asString()).append(" "));
+        long authorization = realms.resolve(realm, rolesBuilder.toString().split("\\s+"));
 
-        long authorization = realms.resolve(realm, null);
         if (authorization != 0L)
         {
             final ResolvedFW resolved = resolvedRW.wrap(replyBuffer, 0, replyBuffer.capacity())

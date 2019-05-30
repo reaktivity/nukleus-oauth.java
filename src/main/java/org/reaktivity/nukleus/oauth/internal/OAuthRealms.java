@@ -22,10 +22,7 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
@@ -41,8 +38,8 @@ public class OAuthRealms
 
     private static final long SCOPE_MASK = 0xFFFF_000000000000L;
 
-    private final Map<String, Long> realmsIdsByName = new CopyOnWriteHashMap<>();
-	private final Map<String, RealmScopes> scopeBitsByRealm = new CopyOnWriteHashMap<>();
+    private final Map<String, OAuthRealmObject> realmsIdsByName = new CopyOnWriteHashMap<>();
+//	private final Map<String, OAuthRealmObject> scopeBitsByRealm = new CopyOnWriteHashMap<>();
 
     private int nextRealmBitShift = 48;
 
@@ -75,39 +72,39 @@ public class OAuthRealms
     public void add(
         String realm)
     {
+        System.out.println("add realm: "+realm);
         if (realmsIdsByName.size() == MAX_REALMS)
         {
             throw new IllegalStateException("Too many realms");
         }
-        realmsIdsByName.put(realm, 1L << nextRealmBitShift++);
+        realmsIdsByName.put(realm, new OAuthRealmObject(1L << nextRealmBitShift++));
     }
 
     public long resolve(
         String realm,
         String[] scopes)
     {
-        // TODO: what about realms which try to have scopes count >48? will start to override realm high bit in that case
+        final OAuthRealmObject realmObject = realmsIdsByName.get(realm);
+        if(realmObject == null) {
+             return NO_AUTHORIZATION;
+        }
+        long realmBit = realmObject.realmBit;
+
         if(scopes == null || scopes.length <= 0)
         {
-            return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
-        }
-        long realmBit = realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
-        if (!scopeBitsByRealm.containsKey(realm))
-        {
-            scopeBitsByRealm.put(realm, new RealmScopes());
+            return realmBit;
         }
         // if not already there, add the scope to the map, assign each scope a number between 0-31
         // 	this number determines which low bit will be flipped if that scope is present
-        RealmScopes realmScopes = scopeBitsByRealm.get(realm);
         for (int i = 0; i < scopes.length; i++)
         {
             String scope = scopes[i];
-            if (!realmScopes.scopeBitAssigned(scope))
+            if(!realmObject.scopeBitAssigned(scope))
             {
-                realmScopes.addScopeBit(scope);
+                realmObject.addScopeBit(scope);
             }
-            final int bit = realmScopes.getScopeBit(scope);
-            realmBit |= (1 << bit);
+            final int bit = realmObject.getScopeBit(scope);
+            realmBit |= (1L << bit);
         }
         return realmBit;
     }
@@ -123,7 +120,7 @@ public class OAuthRealms
         }
         else
         {
-            result = realmsIdsByName.entrySet().removeIf(e -> (e.getValue() == scope));
+            result = realmsIdsByName.entrySet().removeIf(e -> (e.getValue().realmBit == scope));
         }
         return result;
     }
@@ -194,10 +191,16 @@ public class OAuthRealms
         return keysByKid;
     }
 
-    private class RealmScopes
+    private class OAuthRealmObject
 	{
+	    private long realmBit;
 		private int nextScopeBitShift = 0;
 		private final Map<String, Integer> scopeBitsByName = new CopyOnWriteHashMap<>();
+
+		private OAuthRealmObject(long realmBit)
+        {
+		    this.realmBit = realmBit;
+        }
 
         private int getNextScopeBitShift()
         {

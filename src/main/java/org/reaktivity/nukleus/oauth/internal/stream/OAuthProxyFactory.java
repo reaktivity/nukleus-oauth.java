@@ -498,6 +498,8 @@ public class OAuthProxyFactory implements StreamFactory
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
 
+                    System.out.println("verifying signature - scopes: "+claims.getClaimValue(SCOPES_CLAIM));
+
                     final long now = System.currentTimeMillis();
                     if ((expirationTime == null || now <= expirationTime.getValueInMillis()) &&
                         (notBefore == null || now >= notBefore.getValueInMillis()) &&

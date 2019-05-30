@@ -54,8 +54,6 @@ public class OAuthRealmsTest
         OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
         realms.add("realm two");
-//        List<String> scope = new ArrayList<>();
-//        scope.add("1");
         assertEquals(0x0001_000000000000L, realms.resolve("realm one", null));
         assertEquals(0x0002_000000000000L, realms.resolve("realm two", null));
     }

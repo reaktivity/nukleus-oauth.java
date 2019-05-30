@@ -20,9 +20,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Future;
 import java.util.function.*;
 import java.util.regex.Matcher;
@@ -173,7 +170,6 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 // TODO: diagnostics?
             }
-//            connectAuthorization = resolveRealm.applyAsLong(kid);
         }
 
         final long acceptRouteId = begin.routeId();
@@ -498,7 +494,7 @@ public class OAuthProxyFactory implements StreamFactory
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
 
-                    System.out.println("verifying signature - scopes: "+claims.getClaimValue(SCOPES_CLAIM));
+//                    System.out.println("verifying signature - scopes: "+claims.getClaimValue(SCOPES_CLAIM));
 
                     final long now = System.currentTimeMillis();
                     if ((expirationTime == null || now <= expirationTime.getValueInMillis()) &&

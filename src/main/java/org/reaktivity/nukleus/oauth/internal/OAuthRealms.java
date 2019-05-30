@@ -39,7 +39,6 @@ public class OAuthRealms
     private static final long SCOPE_MASK = 0xFFFF_000000000000L;
 
     private final Map<String, OAuthRealmObject> realmsIdsByName = new CopyOnWriteHashMap<>();
-//	private final Map<String, OAuthRealmObject> scopeBitsByRealm = new CopyOnWriteHashMap<>();
 
     private int nextRealmBitShift = 48;
 
@@ -85,7 +84,8 @@ public class OAuthRealms
         String[] scopes)
     {
         final OAuthRealmObject realmObject = realmsIdsByName.get(realm);
-        if(realmObject == null) {
+        if(realmObject == null)
+        {
              return NO_AUTHORIZATION;
         }
         long realmBit = realmObject.realmBit;
@@ -94,17 +94,23 @@ public class OAuthRealms
         {
             return realmBit;
         }
-        // if not already there, add the scope to the map, assign each scope a number between 0-31
-        // 	this number determines which low bit will be flipped if that scope is present
+        // if not already there, add the scope to the map, assign each scope a bit
+        // which determines which low bit will be flipped if that scope is present
         for (int i = 0; i < scopes.length; i++)
         {
-            String scope = scopes[i];
+            final String scope = scopes[i];
             if(!realmObject.scopeBitAssigned(scope))
             {
-                realmObject.addScopeBit(scope);
+                if(!realmObject.addScopeBit(scope))
+                {
+                    throw new IllegalStateException("Too many scopes");
+                }
             }
             final int bit = realmObject.getScopeBit(scope);
-            realmBit |= (1L << bit);
+            if(bit >= 0)
+            {
+                realmBit |= (1L << bit);
+            }
         }
         return realmBit;
     }
@@ -193,6 +199,8 @@ public class OAuthRealms
 
     private class OAuthRealmObject
 	{
+	    private static final int MAX_SCOPES = 48;
+
 	    private long realmBit;
 		private int nextScopeBitShift = 0;
 		private final Map<String, Integer> scopeBitsByName = new CopyOnWriteHashMap<>();
@@ -202,27 +210,32 @@ public class OAuthRealms
 		    this.realmBit = realmBit;
         }
 
-        private int getNextScopeBitShift()
-        {
-            return nextScopeBitShift++;
-        }
-
         private boolean scopeBitAssigned(
                 String scope)
         {
             return scopeBitsByName.containsKey(scope);
         }
 
-        private void addScopeBit(
+        private int getNextScopeBitShift()
+        {
+            return scopeBitsByName.size() < MAX_SCOPES ? nextScopeBitShift++ : -1;
+        }
+
+        private boolean addScopeBit(
                 String scope)
         {
-            scopeBitsByName.put(scope, getNextScopeBitShift());
+            final int nextScopeBit = getNextScopeBitShift();
+            if(nextScopeBit < 0 || nextScopeBit > MAX_SCOPES) {
+                return false;
+            }
+            scopeBitsByName.put(scope, nextScopeBit);
+            return true;
         }
 
         private int getScopeBit(
                 String scope)
         {
-            return scopeBitsByName.getOrDefault(scope, 0);
+            return scopeBitsByName.getOrDefault(scope, -1);
         }
 	}
 }

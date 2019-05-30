@@ -16,20 +16,23 @@
 package org.reaktivity.nukleus.oauth.internal.streams;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.Matchers.*;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
+import org.junit.rules.ExpectedException;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.nukleus.oauth.internal.OAuthController;
 import org.reaktivity.reaktor.test.ReaktorRule;
+
+import java.util.concurrent.ExecutionException;
 
 public class StreamsIT
 {
@@ -52,6 +55,9 @@ public class StreamsIT
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
+
+    @Rule
+    public final ExpectedException thrown = ExpectedException.none();
 
     @Test
     @Specification({
@@ -203,22 +209,26 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
-    })
+        })
     @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
     public void shouldForwardRequestWithScopesWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }
 
+    @Ignore("too many scopes test not yet implemented")
     @Test
     @Specification({
-            "${route}/controller",
-            "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/accept/client",
-            "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/connect/server"
-    })
-    @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
+        "${route}/controller",
+        "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/connect/server"
+        })
+    @ScriptProperty({"expectedAuthorization 0x0001_ffffffffffffL"})
     public void shouldForwardRequestWithTooManyScopesWithValidJwtRS256OnSecuredRoute() throws Exception
     {
+        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
+                .or(is(instanceOf(ExecutionException.class))));
+        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
         k3po.finish();
     }
 

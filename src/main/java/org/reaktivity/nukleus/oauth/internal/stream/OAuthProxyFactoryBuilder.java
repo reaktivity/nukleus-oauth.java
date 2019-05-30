@@ -15,7 +15,6 @@
  */
 package org.reaktivity.nukleus.oauth.internal.stream;
 
-import java.util.List;
 import java.util.function.*;
 
 import org.agrona.MutableDirectBuffer;

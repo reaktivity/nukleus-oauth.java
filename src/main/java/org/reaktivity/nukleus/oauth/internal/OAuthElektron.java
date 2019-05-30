@@ -18,12 +18,9 @@ package org.reaktivity.nukleus.oauth.internal;
 import static java.util.Collections.singletonMap;
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
-import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToLongBiFunction;
-import java.util.function.ToLongFunction;
 
 import org.jose4j.jwk.JsonWebKey;
 import org.reaktivity.nukleus.Elektron;

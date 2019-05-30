@@ -59,6 +59,8 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 
 public class OAuthProxyFactory implements StreamFactory
 {
+    private static final String SCOPES_CLAIM = "scopes";
+
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
@@ -145,7 +147,9 @@ public class OAuthProxyFactory implements StreamFactory
         return newStream;
     }
 
-	private String[] splitScopes(String scopes) {
+	private String[] splitScopes(
+	        String scopes)
+    {
 		return scopes.split("\\s+");
 	}
 
@@ -162,16 +166,7 @@ public class OAuthProxyFactory implements StreamFactory
             try {
                 final String kid = verified.getKeyIdHeaderValue();
                 final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-
-                // TODO: get the scopes from the claims. Scopes will come as a String
-                String scopesString = claims.getClaimValue("scopes").toString();
-//                System.out.println(scopesString);
-//                System.out.println(claims.getClaimValue("scopes"));
-//                final List<String> scopes = new ArrayList<>(claimNames);
-//                for (String name:
-//                     claims) {
-//                    claims.getClaimValue()
-//                }
+                final String scopesString = claims.getClaimValue(SCOPES_CLAIM).toString();
                 connectAuthorization = resolveRealm.applyAsLong(kid, splitScopes(scopesString));
             }
             catch (JoseException | InvalidJwtException ex)
@@ -481,7 +476,6 @@ public class OAuthProxyFactory implements StreamFactory
         }
     }
 
-    // TODO: Change signatures to include scope as well as realm
     private JsonWebSignature verifiedSignature(
         BeginFW begin)
     {
@@ -503,11 +497,6 @@ public class OAuthProxyFactory implements StreamFactory
                     final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
-//					final String scopesString = claims.getClaimValue("scopes").toString();
-//					System.out.println("kid: "+kid);
-//               		System.out.println("SCOOP: "+scopesString);
-
-               		// TODO: how to determine if a scope has been seen or not?
 
                     final long now = System.currentTimeMillis();
                     if ((expirationTime == null || now <= expirationTime.getValueInMillis()) &&

@@ -198,13 +198,24 @@ public class StreamsIT
 
     @Test
     @Specification({
-//        "${resolve}/with.roles/controller",
         "${route}/controller",
-        "${streams}/request.with.scope.with.signed.jwt.rs256.forwarded/accept/client",
-        "${streams}/request.with.scope.with.signed.jwt.rs256.forwarded/connect/server"
+        "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
     })
     @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
-    public void shouldForwardRequestWithScopeWithValidJwtRS256OnSecuredRoute() throws Exception
+    public void shouldForwardRequestWithScopesWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${route}/controller",
+            "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/accept/client",
+            "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/connect/server"
+    })
+    @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
+    public void shouldForwardRequestWithTooManyScopesWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }

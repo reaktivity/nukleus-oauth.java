@@ -162,7 +162,6 @@ public class OAuthProxyFactory implements StreamFactory
         {
             try {
                 final String kid = verified.getKeyIdHeaderValue();
-                System.out.println("kid: "+kid);
                 final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                 final Object scopeClaim = claims.getClaimValue(SCOPES_CLAIM);
                 connectAuthorization = scopeClaim != null ?
@@ -496,7 +495,6 @@ public class OAuthProxyFactory implements StreamFactory
                     final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
-
 //                    System.out.println("verifying signature - scopes: "+claims.getClaimValue(SCOPES_CLAIM));
 
                     final long now = System.currentTimeMillis();

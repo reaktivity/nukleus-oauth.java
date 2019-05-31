@@ -93,7 +93,6 @@ final class OAuthNukleus implements Nukleus
         MessageConsumer reply,
         MutableDirectBuffer replyBuffer)
     {
-    	System.out.println("onResolve");
         final ResolveFW resolve = resolveRO.wrap(buffer, index, index + length);
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();

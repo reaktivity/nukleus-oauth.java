@@ -38,8 +38,8 @@ import java.util.concurrent.ExecutionException;
 public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
+			.addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
-            .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(15, SECONDS));
@@ -210,22 +210,19 @@ public class StreamsIT
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
     @ScriptProperty({"expectedAuthorization 0x0001_000000000000L"})
-    public void shouldForwardRequestWithNoScopesWithValidJwtRS256OnSecuredRoute() throws Exception
+    public void shouldForwardRequestWithNoSetScopesWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }
 
     @Test
     @Specification({
+		"${resolve}/then.route.proxy/controller",
         "${resolve}/with.roles/controller",
-        "${resolve}/then.route.proxy/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
-    @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
-//    @ScriptProperty({"authorization 0x0001_000000000007L",
-//                     "expectedAuthorization 0x0001_000000000007L"})
-    public void shouldForwardRequestWithScopesWithValidJwtRS256OnSecuredRoute() throws Exception
+    public void shouldForwardRequestWithSetScopesWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }
@@ -233,12 +230,12 @@ public class StreamsIT
 //    @Ignore("Extra scopes not implemented yet.")
     @Test
     @Specification({
+			"${resolve}/then.route.proxy/controller",
             "${resolve}/with.roles/controller",
-            "${resolve}/then.route.proxy/controller",
             "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
             "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
     })
-    @ScriptProperty({"expectedAuthorization 0x0001_000000000005L"})
+//    @ScriptProperty({"expectedAuthorization 0x0001_000000000005L"})
 //    @ScriptProperty({"authorization 0x0001_000000000007L",
 //                     "expectedAuthorization 0x0001_000000000005L"})
     public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception

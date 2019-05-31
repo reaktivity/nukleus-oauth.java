@@ -124,7 +124,6 @@ public class OAuthRealms
         {
             return realmBit;
         }
-//        System.out.println(String.format("before - realm: %s\trealmBit: %d\tscopes: %s", realm, realmBit, Arrays.toString(scopes)));
         for (int i = 0; i < scopes.length; i++)
         {
             final String scope = scopes[i];
@@ -134,7 +133,6 @@ public class OAuthRealms
                 realmBit |= bit;
             }
         }
-        System.out.println(String.format("after - realm: %s\trealmBit: %s", realm, Long.toHexString(realmBit)));
         return realmBit;
     }
 

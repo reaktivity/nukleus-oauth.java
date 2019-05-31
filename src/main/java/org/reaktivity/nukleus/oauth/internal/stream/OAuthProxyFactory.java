@@ -174,9 +174,13 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
+//        System.out.println(String.format("connectAuthorization: %d", connectAuthorization));
+
         final long acceptRouteId = begin.routeId();
         final MessagePredicate filter = (t, b, o, l) -> true;
         final RouteFW route = router.resolve(acceptRouteId, connectAuthorization, filter, this::wrapRoute);
+
+//        System.out.println(String.format("acceptRouteId: %s", acceptRouteId));
 
         MessageConsumer newStream = null;
 

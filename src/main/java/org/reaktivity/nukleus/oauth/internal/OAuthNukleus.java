@@ -93,6 +93,7 @@ final class OAuthNukleus implements Nukleus
         MessageConsumer reply,
         MutableDirectBuffer replyBuffer)
     {
+    	System.out.println("onResolve");
         final ResolveFW resolve = resolveRO.wrap(buffer, index, index + length);
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
@@ -100,11 +101,11 @@ final class OAuthNukleus implements Nukleus
         final ListFW<StringFW> rolesRO = resolve.roles();
         final long authorization;
         if(rolesRO.isEmpty()) {
-            authorization = realms.resolve(realm, null);
+            authorization = realms.resolveAndPutIfAbsent(realm, null);
         } else {
             final StringBuilder rolesBuilder = new StringBuilder();
             rolesRO.forEach(role -> rolesBuilder.append(role.asString()).append(" "));
-            authorization = realms.resolve(realm, rolesBuilder.toString().split("\\s+"));
+            authorization = realms.resolveAndPutIfAbsent(realm, rolesBuilder.toString().split("\\s+"));
         }
 
         if (authorization != 0L)

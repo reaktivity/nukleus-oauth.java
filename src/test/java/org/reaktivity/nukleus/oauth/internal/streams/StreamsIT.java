@@ -30,6 +30,7 @@ import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
+import org.reaktivity.nukleus.oauth.internal.OAuthController;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 import java.util.concurrent.ExecutionException;
@@ -48,6 +49,7 @@ public class StreamsIT
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(4096)
+            .controller("oauth"::equals)
             .nukleus("oauth"::equals)
             .configure("oauth.keys", "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
@@ -207,8 +209,39 @@ public class StreamsIT
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
+    @ScriptProperty({"expectedAuthorization 0x0001_000000000000L"})
+    public void shouldForwardRequestWithNoScopesWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
+        })
     @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
+//    @ScriptProperty({"authorization 0x0001_000000000007L",
+//                     "expectedAuthorization 0x0001_000000000007L"})
     public void shouldForwardRequestWithScopesWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+//    @Ignore("Extra scopes not implemented yet.")
+    @Test
+    @Specification({
+            "${resolve}/with.roles/controller",
+            "${resolve}/then.route.proxy/controller",
+            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
+            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
+    })
+    @ScriptProperty({"expectedAuthorization 0x0001_000000000005L"})
+//    @ScriptProperty({"authorization 0x0001_000000000007L",
+//                     "expectedAuthorization 0x0001_000000000005L"})
+    public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }

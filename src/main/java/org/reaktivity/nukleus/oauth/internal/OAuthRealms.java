@@ -78,6 +78,38 @@ public class OAuthRealms
         realmsIdsByName.put(realm, new OAuthRealmObject(1L << nextRealmBitShift++));
     }
 
+    public long resolveAndPutIfAbsent(
+        String realm,
+        String[] scopes)
+    {
+        final OAuthRealmObject realmObject = realmsIdsByName.get(realm);
+        if(realmObject == null)
+        {
+            return NO_AUTHORIZATION;
+        }
+        long realmBit = realmObject.realmBit;
+        if(scopes == null || scopes.length <= 0)
+        {
+            return realmBit;
+        }
+        // if not already there, add the scope to the map, assign each scope a bit
+        // which determines which low bit will be flipped if that scope is present
+        for (int i = 0; i < scopes.length; i++)
+        {
+            final String scope = scopes[i];
+            if(!realmObject.scopeBitAssigned(scope) && !realmObject.addScopeBit(scope))
+            {
+                throw new IllegalStateException("Too many scopes");
+            }
+            final long bit = realmObject.getScopeBit(scope);
+            if(bit >= 0)
+            {
+                realmBit |= bit;
+            }
+        }
+        return realmBit;
+    }
+
     public long resolve(
         String realm,
         String[] scopes)
@@ -88,29 +120,21 @@ public class OAuthRealms
              return NO_AUTHORIZATION;
         }
         long realmBit = realmObject.realmBit;
-
         if(scopes == null || scopes.length <= 0)
         {
             return realmBit;
         }
-        // if not already there, add the scope to the map, assign each scope a bit
-        // which determines which low bit will be flipped if that scope is present
+//        System.out.println(String.format("before - realm: %s\trealmBit: %d\tscopes: %s", realm, realmBit, Arrays.toString(scopes)));
         for (int i = 0; i < scopes.length; i++)
         {
             final String scope = scopes[i];
-            if(!realmObject.scopeBitAssigned(scope))
-            {
-                if(!realmObject.addScopeBit(scope))
-                {
-                    throw new IllegalStateException("Too many scopes");
-                }
-            }
-            final int bit = realmObject.getScopeBit(scope);
+            final long bit = realmObject.getScopeBit(scope);
             if(bit >= 0)
             {
-                realmBit |= (1L << bit);
+                realmBit |= bit;
             }
         }
+        System.out.println(String.format("after - realm: %s\trealmBit: %s", realm, Long.toHexString(realmBit)));
         return realmBit;
     }
 
@@ -200,9 +224,10 @@ public class OAuthRealms
 	{
 	    private static final int MAX_SCOPES = 48;
 
-	    private long realmBit;
-		private int nextScopeBitShift = 0;
-		private final Map<String, Integer> scopeBitsByName = new CopyOnWriteHashMap<>();
+		private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
+
+        private long realmBit;
+        private long nextScopeBitShift;
 
 		private OAuthRealmObject(long realmBit)
         {
@@ -210,31 +235,27 @@ public class OAuthRealms
         }
 
         private boolean scopeBitAssigned(
-                String scope)
+            String scope)
         {
             return scopeBitsByName.containsKey(scope);
         }
 
-        private int getNextScopeBitShift()
-        {
-            return scopeBitsByName.size() < MAX_SCOPES ? nextScopeBitShift++ : -1;
-        }
-
         private boolean addScopeBit(
-                String scope)
+            String scope)
         {
-            final int nextScopeBit = getNextScopeBitShift();
-            if(nextScopeBit < 0 || nextScopeBit > MAX_SCOPES) {
+            final long nextScopeBit = scopeBitsByName.size() < MAX_SCOPES ? (1L << nextScopeBitShift++) : -1;
+            if(nextScopeBit < 0)
+            {
                 return false;
             }
             scopeBitsByName.put(scope, nextScopeBit);
             return true;
         }
 
-        private int getScopeBit(
-                String scope)
+        private long getScopeBit(
+            String scope)
         {
-            return scopeBitsByName.getOrDefault(scope, -1);
+            return scopeBitsByName.getOrDefault(scope, -1L);
         }
 	}
 }

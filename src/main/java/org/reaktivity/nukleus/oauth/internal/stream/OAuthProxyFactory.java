@@ -162,9 +162,12 @@ public class OAuthProxyFactory implements StreamFactory
         {
             try {
                 final String kid = verified.getKeyIdHeaderValue();
+                System.out.println("kid: "+kid);
                 final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-                final String scopesString = claims.getClaimValue(SCOPES_CLAIM).toString();
-                connectAuthorization = resolveRealm.applyAsLong(kid, splitScopes(scopesString));
+                final Object scopeClaim = claims.getClaimValue(SCOPES_CLAIM);
+                connectAuthorization = scopeClaim != null ?
+                                resolveRealm.applyAsLong(kid, splitScopes(scopeClaim.toString()))
+                                : resolveRealm.applyAsLong(kid, null);
             }
             catch (JoseException | InvalidJwtException ex)
             {

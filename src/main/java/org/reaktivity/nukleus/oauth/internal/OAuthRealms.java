@@ -71,7 +71,6 @@ public class OAuthRealms
     public void add(
         String realm)
     {
-        System.out.println("add realm: "+realm);
         if (realmsIdsByName.size() == MAX_REALMS)
         {
             throw new IllegalStateException("Too many realms");

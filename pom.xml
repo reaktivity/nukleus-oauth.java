@@ -58,7 +58,7 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.dknoma</groupId>
+      <groupId>org.reaktivity</groupId>
       <artifactId>nukleus-oauth.spec</artifactId>
       <version>${nukleus.oauth.spec.version}</version>
       <scope>provided</scope>

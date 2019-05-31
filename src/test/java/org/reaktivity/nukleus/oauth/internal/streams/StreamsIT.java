@@ -56,9 +56,6 @@ public class StreamsIT
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
 
-    @Rule
-    public final ExpectedException thrown = ExpectedException.none();
-
     @Test
     @Specification({
         "${route}/controller",
@@ -210,25 +207,9 @@ public class StreamsIT
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
-    @ScriptProperty({"scopes \"1 2 3 4\"", "expectedAuthorization 0x0001_00000000000fL"})
+    @ScriptProperty({"expectedAuthorization 0x0001_000000000007L"})
     public void shouldForwardRequestWithScopesWithValidJwtRS256OnSecuredRoute() throws Exception
     {
-        k3po.finish();
-    }
-
-    @Ignore("too many scopes test not yet implemented")
-    @Test
-    @Specification({
-        "${route}/controller",
-        "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/accept/client",
-        "${streams}/request.with.too.many.scopes.with.signed.jwt.rs256.forwarded/connect/server"
-        })
-    @ScriptProperty({"expectedAuthorization 0x0001_ffffffffffffL"})
-    public void shouldForwardRequestWithTooManyScopesWithValidJwtRS256OnSecuredRoute() throws Exception
-    {
-        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
-                .or(is(instanceOf(ExecutionException.class))));
-        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
         k3po.finish();
     }
 

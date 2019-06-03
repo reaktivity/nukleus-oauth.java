@@ -227,7 +227,6 @@ public class StreamsIT
         k3po.finish();
     }
 
-//    @Ignore("Extra scopes not implemented yet.")
     @Test
     @Specification({
 			"${resolve}/then.route.proxy/controller",

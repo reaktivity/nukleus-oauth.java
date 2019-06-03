@@ -119,10 +119,10 @@ public class OAuthRealms
         {
              return NO_AUTHORIZATION;
         }
-        long realmBit = realmObject.realmBit;
+        long authorizationBits = realmObject.realmBit;
         if(scopes == null || scopes.length <= 0)
         {
-            return realmBit;
+            return authorizationBits;
         }
         for (int i = 0; i < scopes.length; i++)
         {
@@ -130,10 +130,11 @@ public class OAuthRealms
             final long bit = realmObject.getScopeBit(scope);
             if(bit >= 0)
             {
-                realmBit |= bit;
+                authorizationBits |= bit;
             }
         }
-        return realmBit;
+//        System.out.println(String.format("authorizationBits: %d", authorizationBits));
+        return authorizationBits;
     }
 
     public boolean unresolve(

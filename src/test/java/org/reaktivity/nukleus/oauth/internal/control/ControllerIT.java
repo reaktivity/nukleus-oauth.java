@@ -136,7 +136,7 @@ public class ControllerIT
             .resolve("RS256", "scope1", "scope2", "scope3")
             .get();
 //        System.out.println("authorization: " + authorization);
-        assertEquals(0x0001_000000000015L, authorization);
+        assertEquals(0x0001_000000000007L, authorization);
 
         k3po.finish();
     }

@@ -219,18 +219,18 @@ public class OAuthRealms
         return keysByKid;
     }
 
-    private class OAuthRealmObject
-	{
-	    private static final int MAX_SCOPES = 48;
+    private final class OAuthRealmObject
+    {
+        private static final int MAX_SCOPES = 48;
 
-		private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
+        private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
 
         private long realmBit;
         private long nextScopeBitShift;
 
-		private OAuthRealmObject(long realmBit)
+        private OAuthRealmObject(long realmBit)
         {
-		    this.realmBit = realmBit;
+            this.realmBit = realmBit;
         }
 
         private boolean scopeBitAssigned(
@@ -256,5 +256,5 @@ public class OAuthRealms
         {
             return scopeBitsByName.getOrDefault(scope, -1L);
         }
-	}
+    }
 }

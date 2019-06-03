@@ -16,29 +16,24 @@
 package org.reaktivity.nukleus.oauth.internal.streams;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.hamcrest.Matchers.*;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
-import org.junit.rules.ExpectedException;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.nukleus.oauth.internal.OAuthController;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
-import java.util.concurrent.ExecutionException;
 
 public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
-			.addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+            .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 
@@ -217,7 +212,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-		"${resolve}/then.route.proxy/controller",
+        "${resolve}/then.route.proxy/controller",
         "${resolve}/with.roles/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
@@ -227,20 +222,20 @@ public class StreamsIT
         k3po.finish();
     }
 
-    @Test
-    @Specification({
-			"${resolve}/then.route.proxy/controller",
-            "${resolve}/with.roles/controller",
-            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
-            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
-    })
-//    @ScriptProperty({"expectedAuthorization 0x0001_000000000005L"})
-//    @ScriptProperty({"authorization 0x0001_000000000007L",
-//                     "expectedAuthorization 0x0001_000000000005L"})
-    public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
-    {
-        k3po.finish();
-    }
+//    @Test
+//    @Specification({
+//            "${resolve}/then.route.proxy/controller",
+//            "${resolve}/with.roles/controller",
+//            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
+//            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
+//    })
+////    @ScriptProperty({"expectedAuthorization 0x0001_000000000005L"})
+////    @ScriptProperty({"authorization 0x0001_000000000007L",
+////                     "expectedAuthorization 0x0001_000000000005L"})
+//    public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
+//    {
+//        k3po.finish();
+//    }
 
     @Test
     @Specification({

@@ -105,7 +105,7 @@ public class OAuthProxyFactory implements StreamFactory
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> supplyKey,
-		ToLongBiFunction<String, String[]> resolveRealm,
+        ToLongBiFunction<String, String[]> resolveRealm,
         SignalingExecutor executor)
     {
         this.router = requireNonNull(router);
@@ -144,11 +144,11 @@ public class OAuthProxyFactory implements StreamFactory
         return newStream;
     }
 
-	private String[] splitScopes(
-	        String scopes)
+    private String[] splitScopes(
+            String scopes)
     {
-		return scopes.split("\\s+");
-	}
+        return scopes.split("\\s+");
+    }
 
     private MessageConsumer newInitialStream(
         final BeginFW begin,
@@ -160,7 +160,8 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            try {
+            try
+            {
                 final String kid = verified.getKeyIdHeaderValue();
                 final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                 final Object scopeClaim = claims.getClaimValue(SCOPES_CLAIM);

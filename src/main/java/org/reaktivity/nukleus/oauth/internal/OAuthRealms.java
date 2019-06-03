@@ -97,6 +97,7 @@ public class OAuthRealms
         for (int i = 0; i < scopes.length; i++)
         {
             final String scope = scopes[i];
+            // check if scope's bit has been set and if scope can be added
             if(!realmObject.scopeBitAssigned(scope) && !realmObject.addScopeBit(scope))
             {
                 throw new IllegalStateException("Too many scopes");
@@ -133,7 +134,6 @@ public class OAuthRealms
                 authorizationBits |= bit;
             }
         }
-//        System.out.println(String.format("authorizationBits: %d", authorizationBits));
         return authorizationBits;
     }
 

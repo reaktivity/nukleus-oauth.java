@@ -222,20 +222,17 @@ public class StreamsIT
         k3po.finish();
     }
 
-//    @Test
-//    @Specification({
-//            "${resolve}/then.route.proxy/controller",
-//            "${resolve}/with.roles/controller",
-//            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
-//            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
-//    })
-////    @ScriptProperty({"expectedAuthorization 0x0001_000000000005L"})
-////    @ScriptProperty({"authorization 0x0001_000000000007L",
-////                     "expectedAuthorization 0x0001_000000000005L"})
-//    public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
-//    {
-//        k3po.finish();
-//    }
+    @Test
+    @Specification({
+            "${resolve}/then.route.proxy/controller",
+            "${resolve}/with.extra.roles/controller",
+            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
+            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
+    })
+    public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
 
     @Test
     @Specification({

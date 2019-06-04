@@ -42,7 +42,7 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class ControllerIT
 {
     private final K3poRule k3po = new K3poRule()
-        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+        .addScriptRoot("lookup", "org/reaktivity/specification/nukleus/oauth/control/resolve")
         .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/oauth/control/unresolve")
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route")
         .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/oauth/control/unroute")
@@ -65,7 +65,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/fails.too.many.roles/nukleus"
+        "${lookup}/fails.too.many.roles/nukleus"
     })
     public void shouldFailToResolveWithTooManyRoles() throws Exception
     {
@@ -89,7 +89,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/multiple.realms/nukleus"
+        "${lookup}/multiple.realms/nukleus"
     })
     public void shouldResolveMultipleRealms() throws Exception
     {
@@ -110,7 +110,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/one.realm/nukleus"
+        "${lookup}/one.realm/nukleus"
     })
     public void shouldResolveOneRealm() throws Exception
     {
@@ -126,7 +126,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/with.roles/nukleus"
+        "${lookup}/with.roles/nukleus"
     })
     public void shouldResolveWithRoles() throws Exception
     {
@@ -198,7 +198,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/multiple.realms/nukleus",
+        "${lookup}/multiple.realms/nukleus",
         "${unresolve}/multiple.realms/nukleus"
     })
     public void shouldUnresolveMultipleRealms() throws Exception
@@ -228,7 +228,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/one.realm/nukleus",
+        "${lookup}/one.realm/nukleus",
         "${unresolve}/one.realm/nukleus"
     })
     public void shouldUnresolveOneRealm() throws Exception
@@ -249,7 +249,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-        "${resolve}/with.roles/nukleus",
+        "${lookup}/with.roles/nukleus",
         "${unresolve}/with.roles/nukleus"
     })
     public void shouldUnresolveWithRoles() throws Exception

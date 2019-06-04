@@ -51,15 +51,15 @@ public class OAuthRealmsTest
         OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
         realms.add("realm two");
-        assertEquals(0x0001_000000000000L, realms.resolve("realm one", null));
-        assertEquals(0x0002_000000000000L, realms.resolve("realm two", null));
+        assertEquals(0x0001_000000000000L, realms.lookup("realm one", null));
+        assertEquals(0x0002_000000000000L, realms.lookup("realm two", null));
     }
 
     @Test
     public void shouldNotResolveUnknownRealm() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        assertEquals(0L, realms.resolve("realm one", null));
+        assertEquals(0L, realms.lookup("realm one", null));
     }
 
     @Test
@@ -72,7 +72,7 @@ public class OAuthRealmsTest
         }
         for (int i=0; i < Short.SIZE; i++)
         {
-            assertTrue(realms.unresolve(realms.resolve("realm" + i, null)));
+            assertTrue(realms.unresolve(realms.lookup("realm" + i, null)));
 
         }
     }

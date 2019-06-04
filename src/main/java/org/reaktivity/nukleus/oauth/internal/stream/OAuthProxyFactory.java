@@ -21,7 +21,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
 import java.util.concurrent.Future;
-import java.util.function.*;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
+import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,8 +59,6 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 
 public class OAuthProxyFactory implements StreamFactory
 {
-    private static final String SCOPES_CLAIM = "scopes";
-
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
@@ -89,7 +90,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongBiFunction<String, String[]> resolveRealm;
+    private final ToLongFunction<JsonWebSignature> resolveRealm;
     private final SignalingExecutor executor;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
@@ -105,7 +106,7 @@ public class OAuthProxyFactory implements StreamFactory
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> supplyKey,
-        ToLongBiFunction<String, String[]> resolveRealm,
+        ToLongFunction<JsonWebSignature> resolveRealm,
         SignalingExecutor executor)
     {
         this.router = requireNonNull(router);
@@ -144,12 +145,6 @@ public class OAuthProxyFactory implements StreamFactory
         return newStream;
     }
 
-    private String[] splitScopes(
-            String scopes)
-    {
-        return scopes.split("\\s+");
-    }
-
     private MessageConsumer newInitialStream(
         final BeginFW begin,
         final MessageConsumer acceptReply)
@@ -160,26 +155,12 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            // Try to parse the scopes claim if it exists.
-            try
-            {
-                final String kid = verified.getKeyIdHeaderValue();
-                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-                final Object scopeClaim = claims.getClaimValue(SCOPES_CLAIM);
-                connectAuthorization = scopeClaim != null ?
-                                resolveRealm.applyAsLong(kid, splitScopes(scopeClaim.toString()))
-                                : resolveRealm.applyAsLong(kid, null);
-            }
-            catch (JoseException | InvalidJwtException ex)
-            {
-                // TODO: diagnostics?
-            }
+            connectAuthorization = resolveRealm.applyAsLong(verified);
         }
 
         final long acceptRouteId = begin.routeId();
         final MessagePredicate filter = (t, b, o, l) -> true;
         final RouteFW route = router.resolve(acceptRouteId, connectAuthorization, filter, this::wrapRoute);
-
         MessageConsumer newStream = null;
 
         if (route != null)
@@ -497,7 +478,6 @@ public class OAuthProxyFactory implements StreamFactory
                     final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
-//                    System.out.println("verifying signature - scopes: "+claims.getClaimValue(SCOPES_CLAIM));
 
                     final long now = System.currentTimeMillis();
                     if ((expirationTime == null || now <= expirationTime.getValueInMillis()) &&

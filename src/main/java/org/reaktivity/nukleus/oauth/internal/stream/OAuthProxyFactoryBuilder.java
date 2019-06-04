@@ -15,11 +15,11 @@
  */
 package org.reaktivity.nukleus.oauth.internal.stream;
 
-import java.util.function.*;
 
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.jose4j.jwk.JsonWebKey;
+import org.jose4j.jws.JsonWebSignature;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.oauth.internal.stream.OAuthProxyFactory.OAuthProxy;
@@ -27,10 +27,19 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
+import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
+import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
+
 public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongBiFunction<String, String[]> resolveRealm;
+    private final ToLongFunction<JsonWebSignature> resolveRealm;
+//    private final ToLongBiFunction<String, String[]> resolveRealm;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
@@ -42,7 +51,8 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 
     public OAuthProxyFactoryBuilder(
         Function<String, JsonWebKey> supplyKey,
-        ToLongBiFunction<String, String[]> resolveRealm)
+        ToLongFunction<JsonWebSignature> resolveRealm)
+//        ToLongBiFunction<String, String[]> resolveRealm)
     {
         this.supplyKey = supplyKey;
         this.resolveRealm = resolveRealm;

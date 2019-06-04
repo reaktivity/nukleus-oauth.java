@@ -16,6 +16,8 @@
 package org.reaktivity.nukleus.oauth.internal;
 
 import java.nio.file.Path;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -34,6 +36,8 @@ import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolvedFW;
 final class OAuthNukleus implements Nukleus
 {
     static final String NAME = "oauth";
+
+    public static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final ResolveFW resolveRO = new ResolveFW();
     private final ResolvedFW.Builder resolvedRW = new ResolvedFW.Builder();
@@ -83,7 +87,7 @@ final class OAuthNukleus implements Nukleus
     @Override
     public OAuthElektron supplyElektron()
     {
-        return new OAuthElektron(realms::supplyKey, realms::resolve);
+        return new OAuthElektron(realms::supplyKey, realms::lookup);
     }
 
     private void onResolve(
@@ -97,18 +101,11 @@ final class OAuthNukleus implements Nukleus
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
-        final ListFW<StringFW> rolesRO = resolve.roles();
+        final ListFW<StringFW> roles = resolve.roles();
         final long authorization;
-        if(rolesRO.isEmpty())
-        {
-            authorization = realms.resolveAndPutIfAbsent(realm, null);
-        }
-        else
-        {
-            final StringBuilder rolesBuilder = new StringBuilder();
-            rolesRO.forEach(role -> rolesBuilder.append(role.asString()).append(" "));
-            authorization = realms.resolveAndPutIfAbsent(realm, rolesBuilder.toString().split("\\s+"));
-        }
+        final List<String> collectedRoles = new LinkedList<>();
+        roles.forEach(r -> collectedRoles.add(r.asString()));
+        authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY));
 
         if (authorization != 0L)
         {

@@ -32,7 +32,7 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class ControlIT
 {
     private final K3poRule k3po = new K3poRule()
-        .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+        .addScriptRoot("lookup", "org/reaktivity/specification/nukleus/oauth/control/resolve")
         .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/oauth/control/unresolve")
         .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route")
         .addScriptRoot("unroute", "org/reaktivity/specification/nukleus/oauth/control/unroute")
@@ -54,7 +54,7 @@ public class ControlIT
     @Ignore("roles not yet implemented")
     @Test
     @Specification({
-        "${resolve}/fails.too.many.roles/multiple.realms/controller"
+        "${lookup}/fails.too.many.roles/multiple.realms/controller"
     })
     public void shouldFailToResolveWithTooManyRoles() throws Exception
     {
@@ -63,7 +63,7 @@ public class ControlIT
 
     @Test
     @Specification({
-        "${resolve}/multiple.realms/controller"
+        "${lookup}/multiple.realms/controller"
     })
     public void shouldResolveMultipleRealms() throws Exception
     {
@@ -72,7 +72,7 @@ public class ControlIT
 
     @Test
     @Specification({
-        "${resolve}/one.realm/controller"
+        "${lookup}/one.realm/controller"
     })
     public void shouldResolveOneRealm() throws Exception
     {
@@ -82,7 +82,7 @@ public class ControlIT
     @Ignore("roles not yet implemented")
     @Test
     @Specification({
-        "${resolve}/with.roles/controller"
+        "${lookup}/with.roles/controller"
     })
     public void shouldResolveWithRoles() throws Exception
     {
@@ -119,7 +119,7 @@ public class ControlIT
 
     @Test
     @Specification({
-        "${resolve}/multiple.realms/controller",
+        "${lookup}/multiple.realms/controller",
         "${unresolve}/multiple.realms/controller"
     })
     public void shouldUnresolveMultipleRealms() throws Exception
@@ -129,7 +129,7 @@ public class ControlIT
 
     @Test
     @Specification({
-        "${resolve}/one.realm/controller",
+        "${lookup}/one.realm/controller",
         "${unresolve}/one.realm/controller"
     })
     public void shouldUnresolveOneRealm() throws Exception
@@ -140,7 +140,7 @@ public class ControlIT
     @Ignore("roles not yet implemented")
     @Test
     @Specification({
-        "${resolve}/with.roles/controller",
+        "${lookup}/with.roles/controller",
         "${unresolve}/with.roles/controller"
     })
     public void shouldUnresolveWithRoles() throws Exception

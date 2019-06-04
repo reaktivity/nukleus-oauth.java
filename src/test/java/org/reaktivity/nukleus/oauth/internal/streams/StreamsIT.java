@@ -29,11 +29,10 @@ import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
-
 public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+            .addScriptRoot("lookup", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 
@@ -44,7 +43,6 @@ public class StreamsIT
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(4096)
-            .controller("oauth"::equals)
             .nukleus("oauth"::equals)
             .configure("oauth.keys", "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
@@ -212,8 +210,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/with.roles/controller",
+        "${lookup}/then.route.proxy/controller",
+        "${lookup}/with.roles/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
@@ -224,8 +222,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-            "${resolve}/then.route.proxy/controller",
-            "${resolve}/with.extra.roles/controller",
+            "${lookup}/then.route.proxy/controller",
+            "${lookup}/with.extra.roles/controller",
             "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
             "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
     })

@@ -22,15 +22,23 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
+import org.jose4j.jws.JsonWebSignature;
+import org.jose4j.jwt.JwtClaims;
+import org.jose4j.jwt.consumer.InvalidJwtException;
 import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
 
 public class OAuthRealms
 {
+    public static final String[] EMPTY_STRING_ARRAY = new String[0];
+
+    private static final String SCOPES_CLAIM = "scopes";
     private static final Long NO_AUTHORIZATION = 0L;
 
     // To optimize authorization checks we use a single distinct bit per realm
@@ -38,7 +46,7 @@ public class OAuthRealms
 
     private static final long SCOPE_MASK = 0xFFFF_000000000000L;
 
-    private final Map<String, OAuthRealmObject> realmsIdsByName = new CopyOnWriteHashMap<>();
+    private final Map<String, OAuthRealm> realmsIdsByName = new CopyOnWriteHashMap<>();
 
     private int nextRealmBitShift = 48;
 
@@ -64,6 +72,12 @@ public class OAuthRealms
     private OAuthRealms(
         Map<String, JsonWebKey> keysByKid)
     {
+        // TODO: move kid authorization from startup to on first RESOLVE. Possibly would need to change the stream scripts
+        //       to change expectedAuthorization from 0x0001_000000000000L to 0 as realms wouldnt be added UNLESS RESOLVE
+        //       is called.  If realms arent assigned on startup by the config file, then no realm should exist until
+        //       RESOLVE is called.
+        //       The test DOES pass if changing expectedAuthorization from 0x0001_000000000000L -> 0x0000_000000000000L
+
         keysByKid.forEach((k, v) -> add(v.getKeyId()));
         this.keysByKid = keysByKid;
     }
@@ -75,66 +89,89 @@ public class OAuthRealms
         {
             throw new IllegalStateException("Too many realms");
         }
-        realmsIdsByName.put(realm, new OAuthRealmObject(1L << nextRealmBitShift++));
-    }
-
-    public long resolveAndPutIfAbsent(
-        String realm,
-        String[] scopes)
-    {
-        final OAuthRealmObject realmObject = realmsIdsByName.get(realm);
-        if(realmObject == null)
-        {
-            return NO_AUTHORIZATION;
-        }
-        long realmBit = realmObject.realmBit;
-        if(scopes == null || scopes.length <= 0)
-        {
-            return realmBit;
-        }
-        // if not already there, add the scope to the map, assign each scope a bit
-        // which determines which low bit will be flipped if that scope is present
-        for (int i = 0; i < scopes.length; i++)
-        {
-            final String scope = scopes[i];
-            // check if scope's bit has been set and if scope can be added
-            if(!realmObject.scopeBitAssigned(scope) && !realmObject.addScopeBit(scope))
-            {
-                throw new IllegalStateException("Too many scopes");
-            }
-            final long bit = realmObject.getScopeBit(scope);
-            if(bit >= 0)
-            {
-                realmBit |= bit;
-            }
-        }
-        return realmBit;
+        realmsIdsByName.put(realm, new OAuthRealm(1L << nextRealmBitShift++));
     }
 
     public long resolve(
         String realm,
         String[] scopes)
     {
-        final OAuthRealmObject realmObject = realmsIdsByName.get(realm);
+        // If realm doesn't exist, add it to realms
+//        if(!realmsIdsByName.containsKey(realm))
+//        {
+//            add(realm);
+//        }
+        final OAuthRealm realmObject = realmsIdsByName.get(realm);
         if(realmObject == null)
         {
-             return NO_AUTHORIZATION;
+            return NO_AUTHORIZATION;
         }
-        long authorizationBits = realmObject.realmBit;
-        if(scopes == null || scopes.length <= 0)
-        {
-            return authorizationBits;
-        }
+        long realmBit = realmObject.realmBit;
+        // if not already there, add the scope to the map, assign each scope a bit
+        // which determines which low bit will be flipped if that scope is present
         for (int i = 0; i < scopes.length; i++)
         {
             final String scope = scopes[i];
-            final long bit = realmObject.getScopeBit(scope);
-            if(bit >= 0)
+            // check if scope's bit has been set and if scope can be added
+            if(!realmObject.scopeBitAssigned(scope) && !realmObject.supplyScopeBit(scope))
             {
-                authorizationBits |= bit;
+                throw new IllegalStateException("Too many scopes");
             }
+            final long bit = realmObject.getScopeBit(scope);
+            realmBit |= bit;
+        }
+        return realmBit;
+    }
+
+    public long lookup(
+        String realmName,
+        String[] roleNames)
+    {
+        final OAuthRealm realm = realmsIdsByName.get(realmName);
+        if(realm == null)
+        {
+             return NO_AUTHORIZATION;
+        }
+        long authorizationBits = realm.realmBit;
+        for (int i = 0; i < roleNames.length; i++)
+        {
+            final String scope = roleNames[i];
+            final long bit = realm.getScopeBit(scope);
+            authorizationBits |= bit;
         }
         return authorizationBits;
+    }
+
+
+    public long lookup(
+        JsonWebSignature verified)
+    {
+        try
+        {
+            final String realmName = verified.getKeyIdHeaderValue();
+            final Object scopeClaim = JwtClaims.parse(verified.getPayload()).getClaimValue(SCOPES_CLAIM);
+            final String[] roleNames = scopeClaim != null ?
+                    splitScopes(scopeClaim.toString())
+                    : EMPTY_STRING_ARRAY;
+            final OAuthRealm realm = realmsIdsByName.get(realmName);
+            if(realm == null)
+            {
+                return NO_AUTHORIZATION;
+            }
+            long authorizationBits = realm.realmBit;
+            for (int i = 0; i < roleNames.length; i++)
+            {
+                final String scope = roleNames[i];
+                final long bit = realm.getScopeBit(scope);
+                authorizationBits |= bit;
+            }
+            return authorizationBits;
+        }
+        catch (JoseException | InvalidJwtException e)
+        {
+            // TODO: diagnostics?
+            return NO_AUTHORIZATION;
+        }
     }
 
     public boolean unresolve(
@@ -157,6 +194,12 @@ public class OAuthRealms
         String kid)
     {
         return keysByKid.get(kid);
+    }
+
+    private String[] splitScopes(
+            String scopes)
+    {
+        return scopes.split("\\s+");
     }
 
     private static Map<String, JsonWebKey> parseKeyMap(
@@ -219,7 +262,7 @@ public class OAuthRealms
         return keysByKid;
     }
 
-    private final class OAuthRealmObject
+    private final class OAuthRealm
     {
         private static final int MAX_SCOPES = 48;
 
@@ -228,7 +271,8 @@ public class OAuthRealms
         private long realmBit;
         private long nextScopeBitShift;
 
-        private OAuthRealmObject(long realmBit)
+        private OAuthRealm(
+            long realmBit)
         {
             this.realmBit = realmBit;
         }
@@ -239,22 +283,18 @@ public class OAuthRealms
             return scopeBitsByName.containsKey(scope);
         }
 
-        private boolean addScopeBit(
+        private boolean supplyScopeBit(
             String scope)
         {
-            final long nextScopeBit = scopeBitsByName.size() < MAX_SCOPES ? (1L << nextScopeBitShift++) : -1;
-            if(nextScopeBit < 0)
-            {
-                return false;
-            }
-            scopeBitsByName.put(scope, nextScopeBit);
-            return true;
+            // return true if not reach scope cap and scope bit >= 0
+            return scopeBitsByName.size() < MAX_SCOPES &&
+                   scopeBitsByName.computeIfAbsent(scope, s -> 1L << nextScopeBitShift++) >= 0;
         }
 
         private long getScopeBit(
             String scope)
         {
-            return scopeBitsByName.getOrDefault(scope, -1L);
+            return scopeBitsByName.getOrDefault(scope, 0L);
         }
     }
 }

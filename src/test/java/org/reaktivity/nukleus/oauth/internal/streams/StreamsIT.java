@@ -78,7 +78,7 @@ public class StreamsIT
     @Test
     @Specification({
         "${resolve}/then.route.proxy/controller",
-        "${resolve}/one.realm.es256/controller",
+        "${resolve}/multiple.realms.es256/controller",
         "${streams}/authorize.query.with.signed.jwt.es256/accept/client",
         "${streams}/authorize.query.with.signed.jwt.es256/connect/server"
         })
@@ -190,7 +190,7 @@ public class StreamsIT
     @Test
     @Specification({
         "${resolve}/then.route.proxy/controller",
-        "${resolve}/one.realm.es256/controller",
+        "${resolve}/multiple.realms.es256/controller",
         "${streams}/request.with.signed.jwt.es256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.es256.forwarded/connect/server"
         })

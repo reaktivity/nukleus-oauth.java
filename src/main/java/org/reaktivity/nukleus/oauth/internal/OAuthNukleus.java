@@ -102,10 +102,9 @@ final class OAuthNukleus implements Nukleus
         final String realm = resolve.realm().asString();
 
         final ListFW<StringFW> roles = resolve.roles();
-        final long authorization;
         final List<String> collectedRoles = new LinkedList<>();
         roles.forEach(r -> collectedRoles.add(r.asString()));
-        authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY));
+        final long authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY));
 
         if (authorization != 0L)
         {

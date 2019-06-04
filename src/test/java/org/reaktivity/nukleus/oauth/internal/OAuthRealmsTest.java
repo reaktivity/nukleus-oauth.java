@@ -19,7 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import org.jose4j.jws.JsonWebSignature;
 import org.junit.Test;
 
 public class OAuthRealmsTest
@@ -79,10 +78,11 @@ public class OAuthRealmsTest
     {
         OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
-        JsonWebSignature signature = new JsonWebSignature();
-        signature.setKeyIdHeaderValue("realm one");
-        signature.setPayload("");
-        assertEquals(0L, realms.lookup(signature));
+        assertEquals(0L, realms.lookup("realm one", EMPTY_STRING_ARRAY));
+//        JsonWebSignature signature = new JsonWebSignature();
+//        signature.setKeyIdHeaderValue("realm one");
+//        signature.setPayload("");
+//        assertEquals(0L, realms.lookup(signature));
     }
 
     @Test

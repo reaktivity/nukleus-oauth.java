@@ -77,7 +77,6 @@ public class OAuthRealmsTest
     public void shouldNotResolveUnknownRealm() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.add("realm one");
         assertEquals(0L, realms.lookup("realm one", EMPTY_STRING_ARRAY));
 //        JsonWebSignature signature = new JsonWebSignature();
 //        signature.setKeyIdHeaderValue("realm one");

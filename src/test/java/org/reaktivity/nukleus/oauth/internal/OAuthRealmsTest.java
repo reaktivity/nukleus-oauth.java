@@ -19,10 +19,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import org.jose4j.jws.JsonWebSignature;
 import org.junit.Test;
 
 public class OAuthRealmsTest
 {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     @Test
     public void shouldAddUpToMaximumRealms() throws Exception
@@ -51,15 +53,36 @@ public class OAuthRealmsTest
         OAuthRealms realms = new OAuthRealms();
         realms.add("realm one");
         realms.add("realm two");
-        assertEquals(0x0001_000000000000L, realms.lookup("realm one", null));
-        assertEquals(0x0002_000000000000L, realms.lookup("realm two", null));
+//        final JsonWebSignature signature1 = new JsonWebSignature();
+//        signature1.setKeyIdHeaderValue("realm one");
+//        signature1.setAlgorithmHeaderValue("RS256");
+//        final JsonWebKey key1 = realms.supplyKey("realm one");
+//        signature1.setKey(key1.getKey());
+//        signature1.sign();
+//        signature1.setPayload("");
+//        System.out.println(String.format("sig1: %s", signature1));
+//        final JsonWebSignature signature2 = new JsonWebSignature();
+//        signature2.setKeyIdHeaderValue("realm two");
+//        signature2.setAlgorithmHeaderValue("RS256");
+//        final JsonWebKey key2 = realms.supplyKey("realm two");
+//        signature2.setKey(key2.getKey());
+//        signature2.sign();
+//        signature2.setPayload("");
+//        assertEquals(0x0001_000000000000L, realms.lookup(signature1));
+//        assertEquals(0x0002_000000000000L, realms.lookup(signature2));
+        assertEquals(0x0001_000000000000L, realms.lookup("realm one", EMPTY_STRING_ARRAY));
+        assertEquals(0x0002_000000000000L, realms.lookup("realm two", EMPTY_STRING_ARRAY));
     }
 
     @Test
     public void shouldNotResolveUnknownRealm() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        assertEquals(0L, realms.lookup("realm one", null));
+        realms.add("realm one");
+        JsonWebSignature signature = new JsonWebSignature();
+        signature.setKeyIdHeaderValue("realm one");
+        signature.setPayload("");
+        assertEquals(0L, realms.lookup(signature));
     }
 
     @Test
@@ -72,8 +95,11 @@ public class OAuthRealmsTest
         }
         for (int i=0; i < Short.SIZE; i++)
         {
-            assertTrue(realms.unresolve(realms.lookup("realm" + i, null)));
-
+//            JsonWebSignature signature = new JsonWebSignature();
+//            signature.setKeyIdHeaderValue(String.format("realm%d", i));
+//            signature.sign();
+//            assertTrue(realms.unresolve(realms.lookup(signature)));
+            assertTrue(realms.unresolve(realms.lookup("realm"+i, EMPTY_STRING_ARRAY)));
         }
     }
 

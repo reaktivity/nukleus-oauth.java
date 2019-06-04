@@ -32,7 +32,7 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("lookup", "org/reaktivity/specification/nukleus/oauth/control/resolve")
+            .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 
@@ -53,7 +53,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/one.realm/controller",
         "${streams}/authorize.then.abort.expiring.request/accept/client",
         "${streams}/authorize.then.abort.expiring.request/connect/server"
         })
@@ -64,7 +65,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/one.realm/controller",
         "${streams}/authorize.then.abort.expiring.response/accept/client",
         "${streams}/authorize.then.abort.expiring.response/connect/server"
         })
@@ -75,7 +77,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/one.realm.es256/controller",
         "${streams}/authorize.query.with.signed.jwt.es256/accept/client",
         "${streams}/authorize.query.with.signed.jwt.es256/connect/server"
         })
@@ -186,7 +189,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/one.realm.es256/controller",
         "${streams}/request.with.signed.jwt.es256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.es256.forwarded/connect/server"
         })
@@ -198,7 +202,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/one.realm/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
@@ -210,8 +215,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${lookup}/then.route.proxy/controller",
-        "${lookup}/with.roles/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/with.roles/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
@@ -222,10 +227,10 @@ public class StreamsIT
 
     @Test
     @Specification({
-            "${lookup}/then.route.proxy/controller",
-            "${lookup}/with.extra.roles/controller",
-            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
-            "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/with.extra.roles/controller",
+        "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
     })
     public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
     {
@@ -234,7 +239,8 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${resolve}/then.route.proxy/controller",
+        "${resolve}/one.realm/controller",
         "${streams}/request.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.rs256.forwarded/connect/server"
         })

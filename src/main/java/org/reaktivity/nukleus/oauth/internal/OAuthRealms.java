@@ -77,8 +77,7 @@ public class OAuthRealms
         //       is called.  If realms arent assigned on startup by the config file, then no realm should exist until
         //       RESOLVE is called.
         //       The test DOES pass if changing expectedAuthorization from 0x0001_000000000000L -> 0x0000_000000000000L
-
-        keysByKid.forEach((k, v) -> add(v.getKeyId()));
+//        keysByKid.forEach((k, v) -> add(v.getKeyId()));
         this.keysByKid = keysByKid;
     }
 
@@ -97,10 +96,10 @@ public class OAuthRealms
         String[] scopes)
     {
         // If realm doesn't exist, add it to realms
-//        if(!realmsIdsByName.containsKey(realm))
-//        {
-//            add(realm);
-//        }
+        if(!realmsIdsByName.containsKey(realm))
+        {
+            add(realm);
+        }
         final OAuthRealm realmObject = realmsIdsByName.get(realm);
         if(realmObject == null)
         {

@@ -72,14 +72,9 @@ public class OAuthRealms
     private OAuthRealms(
         Map<String, JsonWebKey> keysByKid)
     {
-        // TODO: move kid authorization from startup to on first RESOLVE. Possibly would need to change the stream scripts
-        //       to change expectedAuthorization from 0x0001_000000000000L to 0 as realms wouldnt be added UNLESS RESOLVE
-        //       is called.  If realms arent assigned on startup by the config file, then no realm should exist until
-        //       RESOLVE is called.
-        //       The test DOES pass if changing expectedAuthorization from 0x0001_000000000000L -> 0x0000_000000000000L
+        // Moved realm assignment from startup to the first RESOLVE call
 //        keysByKid.forEach((k, v) -> add(v.getKeyId()));
         this.keysByKid = keysByKid;
-//        System.out.println(this.keysByKid);
     }
 
     public void add(

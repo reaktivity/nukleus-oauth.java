@@ -79,6 +79,7 @@ public class OAuthRealms
         //       The test DOES pass if changing expectedAuthorization from 0x0001_000000000000L -> 0x0000_000000000000L
 //        keysByKid.forEach((k, v) -> add(v.getKeyId()));
         this.keysByKid = keysByKid;
+//        System.out.println(this.keysByKid);
     }
 
     public void add(
@@ -123,32 +124,13 @@ public class OAuthRealms
     }
 
     public long lookup(
-        String realmName,
-        String[] roleNames)
-    {
-        final OAuthRealm realm = realmsIdsByName.get(realmName);
-        if(realm == null)
-        {
-             return NO_AUTHORIZATION;
-        }
-        long authorizationBits = realm.realmBit;
-        for (int i = 0; i < roleNames.length; i++)
-        {
-            final String scope = roleNames[i];
-            final long bit = realm.getScopeBit(scope);
-            authorizationBits |= bit;
-        }
-        return authorizationBits;
-    }
-
-
-    public long lookup(
         JsonWebSignature verified)
     {
+        final String realmName = verified.getKeyIdHeaderValue();
         try
         {
-            final String realmName = verified.getKeyIdHeaderValue();
-            final Object scopeClaim = JwtClaims.parse(verified.getPayload()).getClaimValue(SCOPES_CLAIM);
+            final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+            final Object scopeClaim = claims.getClaimValue(SCOPES_CLAIM);
             final String[] roleNames = scopeClaim != null ?
                     splitScopes(scopeClaim.toString())
                     : EMPTY_STRING_ARRAY;

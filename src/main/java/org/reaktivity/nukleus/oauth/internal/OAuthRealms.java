@@ -206,6 +206,7 @@ public class OAuthRealms
         private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
 
         private final long realmId;
+
         private long nextScopeBitShift;
 
         private OAuthRealm(
@@ -218,18 +219,13 @@ public class OAuthRealms
             String[] scopeNames)
         {
             long authorization = realmId;
-            // if not already there, add the scope to the map, assign each scope a bit
-            // which determines which low bit will be flipped if that scope is present
             for (int i = 0; i < scopeNames.length; i++)
             {
-                final String scope = scopeNames[i];
-                // check if scope's bit has been set and if scope can be added
-                if(!scopeBitAssigned(scope) && !supplyScopeBit(scope))
+                if(scopeBitsByName.size() >= MAX_SCOPES)
                 {
                     throw new IllegalStateException("Too many scopes");
                 }
-                final long bit = getScopeBit(scope);
-                authorization |= bit;
+                authorization |= scopeBitsByName.computeIfAbsent(scopeNames[i], s -> 1L << nextScopeBitShift++);
             }
             return authorization;
         }
@@ -240,31 +236,9 @@ public class OAuthRealms
             long authorization = realmId;
             for (int i = 0; i < scopeNames.length; i++)
             {
-                final String scope = scopeNames[i];
-                final long bit = getScopeBit(scope);
-                authorization |= bit;
+                authorization |= scopeBitsByName.getOrDefault(scopeNames[i], 0L);
             }
             return authorization;
-        }
-
-        private boolean scopeBitAssigned(
-            String scope)
-        {
-            return scopeBitsByName.containsKey(scope);
-        }
-
-        private boolean supplyScopeBit(
-            String scope)
-        {
-            // return true if not reach scope cap and scope bit >= 0
-            return scopeBitsByName.size() < MAX_SCOPES &&
-                   scopeBitsByName.computeIfAbsent(scope, s -> 1L << nextScopeBitShift++) >= 0;
-        }
-
-        private long getScopeBit(
-            String scope)
-        {
-            return scopeBitsByName.getOrDefault(scope, 0L);
         }
     }
 }

@@ -32,7 +32,6 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 public class StreamsIT
 {
     private final K3poRule k3po = new K3poRule()
-            .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/oauth/control/route/proxy")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/oauth/streams/proxy");
 

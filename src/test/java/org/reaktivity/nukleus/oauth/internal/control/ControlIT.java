@@ -54,7 +54,7 @@ public class ControlIT
     @Ignore("roles not yet implemented")
     @Test
     @Specification({
-        "${resolve}/fails.too.many.roles/multiple.realms/controller"
+        "${resolve}/fails.too.many.roles/controller"
     })
     public void shouldFailToResolveWithTooManyRoles() throws Exception
     {

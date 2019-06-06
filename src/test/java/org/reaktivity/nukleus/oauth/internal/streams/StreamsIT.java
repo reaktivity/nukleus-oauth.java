@@ -53,8 +53,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/one.realm/controller",
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.then.abort.expiring.request/accept/client",
         "${streams}/authorize.then.abort.expiring.request/connect/server"
         })
@@ -65,8 +64,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/one.realm/controller",
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.then.abort.expiring.response/accept/client",
         "${streams}/authorize.then.abort.expiring.response/connect/server"
         })
@@ -77,7 +75,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/multiple.realms.es256/controller",
+        "${route}/resolve.multiple.realms.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.query.with.signed.jwt.es256/accept/client",
         "${streams}/authorize.query.with.signed.jwt.es256/connect/server"
         })
@@ -188,7 +186,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/multiple.realms.es256/controller",
+        "${route}/resolve.multiple.realms.with.no.roles.then.route.proxy/controller",
         "${streams}/request.with.signed.jwt.es256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.es256.forwarded/connect/server"
         })
@@ -200,8 +198,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/one.realm/controller",
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
@@ -213,8 +210,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/with.roles/controller",
+        "${route}/resolve.one.realm.with.set.roles.then.route.proxy/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
         })
@@ -225,8 +221,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/with.extra.roles/controller",
+        "${route}/resolve.one.realm.with.extra.roles.then.route.proxy/controller",
         "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
     })
@@ -237,8 +232,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${resolve}/then.route.proxy/controller",
-        "${resolve}/one.realm/controller",
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/request.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.rs256.forwarded/connect/server"
         })

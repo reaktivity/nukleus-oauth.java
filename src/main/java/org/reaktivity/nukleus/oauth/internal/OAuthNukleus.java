@@ -37,7 +37,7 @@ final class OAuthNukleus implements Nukleus
 {
     static final String NAME = "oauth";
 
-    public static final String[] EMPTY_STRING_ARRAY = new String[0];
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final ResolveFW resolveRO = new ResolveFW();
     private final ResolvedFW.Builder resolvedRW = new ResolvedFW.Builder();

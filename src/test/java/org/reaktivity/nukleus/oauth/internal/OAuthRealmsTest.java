@@ -27,13 +27,15 @@ import org.junit.Test;
 
 public class OAuthRealmsTest
 {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
     @Test
     public void shouldAddUpToMaximumRealms() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
         for (int i=0; i < Short.SIZE; i++)
         {
-            realms.add("realm" + i);
+            realms.resolve("realm" + i, EMPTY_STRING_ARRAY);
         }
     }
 
@@ -43,17 +45,17 @@ public class OAuthRealmsTest
         OAuthRealms realms = new OAuthRealms();
         for (int i=0; i < Short.SIZE; i++)
         {
-            realms.add("realm" + i);
+            realms.resolve("realm" + i, EMPTY_STRING_ARRAY);
         }
-        realms.add("one realm too many");
+        realms.resolve("one realm too many", EMPTY_STRING_ARRAY);
     }
 
     @Test
     public void shouldResolveKnownRealms() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.add("realm one");
-        realms.add("realm two");
+        realms.resolve("realm one", EMPTY_STRING_ARRAY);
+        realms.resolve("realm two", EMPTY_STRING_ARRAY);
 
         JwtClaims claims = new JwtClaims();
         claims.setClaim("iss", "test issuer");
@@ -74,7 +76,6 @@ public class OAuthRealmsTest
         signatureTwo.setAlgorithmHeaderValue("ES256");
         signatureTwo.sign();
         signatureTwo.setKey(RFC7515_ES256.getPublic());
-        System.out.println(signatureTwo.verifySignature());
 
         assertEquals(0x0001_000000000000L, realms.lookup(signatureOne));
         assertEquals(0x0002_000000000000L, realms.lookup(signatureTwo));
@@ -97,7 +98,7 @@ public class OAuthRealmsTest
         String payload = claims.toJson();
         for (int i=0; i < Short.SIZE; i++)
         {
-            realms.add("realm" + i);
+            realms.resolve("realm" + i, EMPTY_STRING_ARRAY);
         }
         for (int i=0; i < Short.SIZE; i++)
         {
@@ -116,7 +117,7 @@ public class OAuthRealmsTest
     public void shouldNotUnresolveUnknownRealm() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.add("realm one");
+        realms.resolve("realm one", EMPTY_STRING_ARRAY);
         assertFalse(realms.unresolve(0x0002_000000000000L));
     }
 
@@ -124,8 +125,8 @@ public class OAuthRealmsTest
     public void shouldNotUnresolveInvalidRealm() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.add("realm one");
-        realms.add("realm two");
+        realms.resolve("realm one", EMPTY_STRING_ARRAY);
+        realms.resolve("realm two", EMPTY_STRING_ARRAY);
         assertFalse(realms.unresolve(0x0003_000000000000L));
     }
 }

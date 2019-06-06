@@ -39,7 +39,6 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
     private final Function<String, JsonWebKey> supplyKey;
     private final ToLongFunction<JsonWebSignature> resolveRealm;
-//    private final ToLongBiFunction<String, String[]> resolveRealm;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
@@ -52,7 +51,6 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     public OAuthProxyFactoryBuilder(
         Function<String, JsonWebKey> supplyKey,
         ToLongFunction<JsonWebSignature> resolveRealm)
-//        ToLongBiFunction<String, String[]> resolveRealm)
     {
         this.supplyKey = supplyKey;
         this.resolveRealm = resolveRealm;

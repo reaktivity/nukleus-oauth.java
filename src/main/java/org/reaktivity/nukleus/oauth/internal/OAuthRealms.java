@@ -40,7 +40,7 @@ public class OAuthRealms
     private static final String SCOPES_CLAIM = "scope";
     private static final Long NO_AUTHORIZATION = 0L;
 
-    // To optimize authorization checks we use a single distinct bit per realm
+    // To optimize authorization checks we use a single distinct bit per realm and per scope
     private static final int MAX_REALMS = Short.SIZE;
     private static final int MAX_SCOPES = 48;
 
@@ -91,8 +91,7 @@ public class OAuthRealms
     public long lookup(
         JsonWebSignature verified)
     {
-        final String realmName = verified.getKeyIdHeaderValue();
-        final OAuthRealm realm = realmsIdsByName.get(realmName);
+        final OAuthRealm realm = realmsIdsByName.get(verified.getKeyIdHeaderValue());
         long authorization = NO_AUTHORIZATION;
         if(realm != null)
         {
@@ -219,7 +218,7 @@ public class OAuthRealms
             long authorization = realmId;
             for (int i = 0; i < scopeNames.length; i++)
             {
-                if(scopeBitsByName.size() >= MAX_SCOPES || nextScopeBitShift >= MAX_SCOPES)
+                if(nextScopeBitShift >= MAX_SCOPES)
                 {
                     throw new IllegalStateException("Too many scopes");
                 }

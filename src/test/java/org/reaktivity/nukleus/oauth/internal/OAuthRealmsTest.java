@@ -25,6 +25,8 @@ import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
 import org.junit.Test;
 
+import java.security.KeyPair;
+
 public class OAuthRealmsTest
 {
     @Test
@@ -59,21 +61,8 @@ public class OAuthRealmsTest
         claims.setClaim("iss", "test issuer");
         String payload = claims.toJson();
 
-        final JsonWebSignature signatureOne = new JsonWebSignature();
-        signatureOne.setPayload(payload);
-        signatureOne.setKey(RFC7515_RS256.getPrivate());
-        signatureOne.setKeyIdHeaderValue("realm one");
-        signatureOne.setAlgorithmHeaderValue("RS256");
-        signatureOne.sign();
-        signatureOne.setKey(RFC7515_RS256.getPublic());
-
-        final JsonWebSignature signatureTwo = new JsonWebSignature();
-        signatureTwo.setPayload(payload);
-        signatureTwo.setKey(RFC7515_ES256.getPrivate());
-        signatureTwo.setKeyIdHeaderValue("realm two");
-        signatureTwo.setAlgorithmHeaderValue("ES256");
-        signatureTwo.sign();
-        signatureTwo.setKey(RFC7515_ES256.getPublic());
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload, RFC7515_RS256);
+        final JsonWebSignature signatureTwo = newSignedSignature("realm two", "ES256", payload, RFC7515_ES256);
 
         assertEquals(0x0001_000000000000L, realms.lookup(signatureOne));
         assertEquals(0x0002_000000000000L, realms.lookup(signatureTwo));
@@ -100,13 +89,7 @@ public class OAuthRealmsTest
         }
         for (int i=0; i < Short.SIZE; i++)
         {
-            final JsonWebSignature signature = new JsonWebSignature();
-            signature.setPayload(payload);
-            signature.setKey(RFC7515_RS256.getPrivate());
-            signature.setKeyIdHeaderValue("realm" + i);
-            signature.setAlgorithmHeaderValue("RS256");
-            signature.sign();
-            signature.setKey(RFC7515_RS256.getPublic());
+            final JsonWebSignature signature = newSignedSignature("realm"+i, "RS256", payload, RFC7515_RS256);
             assertTrue(realms.unresolve(realms.lookup(signature)));
         }
     }
@@ -126,5 +109,18 @@ public class OAuthRealmsTest
         realms.resolve("realm one");
         realms.resolve("realm two");
         assertFalse(realms.unresolve(0x0003_000000000000L));
+    }
+
+    private JsonWebSignature newSignedSignature(
+            String kid, String alg, String payload, KeyPair pair) throws Exception
+    {
+        final JsonWebSignature signature = new JsonWebSignature();
+        signature.setPayload(payload);
+        signature.setKey(pair.getPrivate());
+        signature.setKeyIdHeaderValue(kid);
+        signature.setAlgorithmHeaderValue(alg);
+        signature.sign();
+        signature.setKey(pair.getPublic());
+        return signature;
     }
 }

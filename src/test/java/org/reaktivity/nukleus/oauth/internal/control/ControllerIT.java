@@ -259,7 +259,7 @@ public class ControllerIT
         long authorization = reaktor.controller(OAuthController.class)
                 .resolve("RS256", "scope1", "scope2", "scope3")
                 .get();
-        assertEquals(0x0001_000000000015L, authorization);
+        assertEquals(0x0001_000000000007L, authorization);
 
         reaktor.controller(OAuthController.class)
            .unresolve(authorization)

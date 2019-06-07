@@ -42,7 +42,6 @@ public class OAuthRealms
 
     // To optimize authorization checks we use a single distinct bit per realm and per scope
     private static final int MAX_REALMS = Short.SIZE;
-    private static final int MAX_SCOPES = 48;
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
 
@@ -132,7 +131,7 @@ public class OAuthRealms
         {
             throw new IllegalStateException("Too many realms");
         }
-        return new OAuthRealm(realmName, 1L << nextRealmBitShift++ << MAX_SCOPES);
+        return new OAuthRealm(realmName, nextRealmBitShift++);
     }
 
     private static Map<String, JsonWebKey> parseKeyMap(
@@ -197,6 +196,8 @@ public class OAuthRealms
 
     private final class OAuthRealm
     {
+        private static final int MAX_SCOPES = 48;
+
         private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
 
         private final long realmId;
@@ -206,10 +207,20 @@ public class OAuthRealms
 
         private OAuthRealm(
             String realmName,
-            long realmId)
+            long realmBitShift)
         {
             this.realmName = realmName;
-            this.realmId = realmId;
+            this.realmId = 1L << realmBitShift << MAX_SCOPES;
+        }
+
+        private long assignScopeBit(
+            String scopeName)
+        {
+            if(nextScopeBitShift >= MAX_SCOPES)
+            {
+                throw new IllegalStateException("Too many scopes");
+            }
+            return 1L << nextScopeBitShift++;
         }
 
         private long resolve(
@@ -218,11 +229,7 @@ public class OAuthRealms
             long authorization = realmId;
             for (int i = 0; i < scopeNames.length; i++)
             {
-                if(nextScopeBitShift >= MAX_SCOPES)
-                {
-                    throw new IllegalStateException("Too many scopes");
-                }
-                authorization |= scopeBitsByName.computeIfAbsent(scopeNames[i], s -> 1L << nextScopeBitShift++);
+                authorization |= scopeBitsByName.computeIfAbsent(scopeNames[i], this::assignScopeBit);
             }
             return authorization;
         }

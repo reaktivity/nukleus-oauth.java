@@ -21,11 +21,11 @@ import static org.junit.Assert.assertTrue;
 import static org.reaktivity.specification.nukleus.oauth.internal.OAuthJwtKeys.RFC7515_ES256;
 import static org.reaktivity.specification.nukleus.oauth.internal.OAuthJwtKeys.RFC7515_RS256;
 
+import java.security.KeyPair;
+
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
 import org.junit.Test;
-
-import java.security.KeyPair;
 
 public class OAuthRealmsTest
 {

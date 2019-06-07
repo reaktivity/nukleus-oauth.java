@@ -37,7 +37,7 @@ import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
 public class OAuthRealms
 {
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
-    private static final String SCOPES_CLAIM = "scope";
+    private static final String SCOPE_CLAIM = "scope";
     private static final Long NO_AUTHORIZATION = 0L;
 
     // To optimize authorization checks we use a single distinct bit per realm and per scope
@@ -47,7 +47,7 @@ public class OAuthRealms
 
     private final Map<String, OAuthRealm> realmsIdsByName = new CopyOnWriteHashMap<>();
 
-    private int nextRealmBitShift = 0;
+    private int nextRealmBit = 0;
 
     private final Map<String, JsonWebKey> keysByKid;
 
@@ -97,7 +97,7 @@ public class OAuthRealms
             try
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                final Object scopeClaim = claims.getClaimValue(SCOPES_CLAIM);
+                final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String[] scopeNames = scopeClaim != null ?
                         scopeClaim.toString().split("\\s+")
                         : EMPTY_STRING_ARRAY;
@@ -127,11 +127,11 @@ public class OAuthRealms
     private OAuthRealm newOAuthRealm(
         String realmName)
     {
-        if (nextRealmBitShift == MAX_REALMS)
+        if (nextRealmBit == MAX_REALMS)
         {
             throw new IllegalStateException("Too many realms");
         }
-        return new OAuthRealm(realmName, nextRealmBitShift++);
+        return new OAuthRealm(realmName, nextRealmBit++);
     }
 
     private static Map<String, JsonWebKey> parseKeyMap(
@@ -203,7 +203,7 @@ public class OAuthRealms
         private final long realmId;
         private final String realmName;
 
-        private long nextScopeBitShift;
+        private long nextScopeBit;
 
         private OAuthRealm(
             String realmName,
@@ -211,16 +211,6 @@ public class OAuthRealms
         {
             this.realmName = realmName;
             this.realmId = 1L << realmBitShift << MAX_SCOPES;
-        }
-
-        private long assignScopeBit(
-            String scopeName)
-        {
-            if(nextScopeBitShift >= MAX_SCOPES)
-            {
-                throw new IllegalStateException("Too many scopes");
-            }
-            return 1L << nextScopeBitShift++;
         }
 
         private long resolve(
@@ -243,6 +233,16 @@ public class OAuthRealms
                 authorization |= scopeBitsByName.getOrDefault(scopeNames[i], 0L);
             }
             return authorization;
+        }
+
+        private long assignScopeBit(
+                String scopeName)
+        {
+            if(nextScopeBit >= MAX_SCOPES)
+            {
+                throw new IllegalStateException("Too many scopes");
+            }
+            return 1L << nextScopeBit++;
         }
 
         @Override

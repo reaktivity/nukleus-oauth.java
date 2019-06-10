@@ -81,7 +81,7 @@ public class OAuthRealms
         long authorization = NO_AUTHORIZATION;
         if(nextRealmBit < MAX_REALMS)
         {
-            final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, this::newOAuthRealm);
+            final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, OAuthRealm::new);
             authorization = realm.resolve(scopeNames);
         }
         return authorization;
@@ -127,13 +127,6 @@ public class OAuthRealms
         String kid)
     {
         return keysByKid.get(kid);
-    }
-
-    private OAuthRealm newOAuthRealm(
-        String realmName)
-    {
-        assert nextRealmBit < MAX_REALMS;
-        return new OAuthRealm(realmName, nextRealmBit++);
     }
 
     private static Map<String, JsonWebKey> parseKeyMap(
@@ -208,11 +201,11 @@ public class OAuthRealms
         private long nextScopeBit;
 
         private OAuthRealm(
-            String realmName,
-            long realmBitShift)
+            String realmName)
         {
+            assert nextRealmBit < MAX_REALMS;
             this.realmName = realmName;
-            this.realmId = 1L << realmBitShift << MAX_SCOPES;
+            this.realmId = 1L << nextRealmBit++ << MAX_SCOPES;
         }
 
         private long resolve(

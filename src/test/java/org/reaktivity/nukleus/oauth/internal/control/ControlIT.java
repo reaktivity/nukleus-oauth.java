@@ -59,7 +59,6 @@ public class ControlIT
         k3po.finish();
     }
 
-    // TODO: too many realms controller test requires realms got from keys.jwk
     @Test
     @Specification({
         "${resolve}/fails.too.many.realms/controller"

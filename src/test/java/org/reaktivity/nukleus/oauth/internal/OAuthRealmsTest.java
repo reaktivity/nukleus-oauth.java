@@ -39,7 +39,7 @@ public class OAuthRealmsTest
         }
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void shouldNotAddTooManyRealms() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
@@ -47,7 +47,7 @@ public class OAuthRealmsTest
         {
             realms.resolve("realm" + i);
         }
-        realms.resolve("one realm too many");
+        assertEquals(0L, realms.resolve("one realm too many"));
     }
 
     @Test

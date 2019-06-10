@@ -78,8 +78,15 @@ public class OAuthRealms
         String realmName,
         String[] scopeNames)
     {
-        final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, this::newOAuthRealm);
-        return realm.resolve(scopeNames);
+        try
+        {
+            final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, this::newOAuthRealm);
+            return realm.resolve(scopeNames);
+        }
+        catch(IllegalStateException ise)
+        {
+            return NO_AUTHORIZATION;
+        }
     }
     public long resolve(
         String realmName)

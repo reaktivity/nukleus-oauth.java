@@ -78,15 +78,13 @@ public class OAuthRealms
         String realmName,
         String[] scopeNames)
     {
-        try
+        long authorization = NO_AUTHORIZATION;
+        if(nextRealmBit < MAX_REALMS)
         {
             final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, this::newOAuthRealm);
-            return realm.resolve(scopeNames);
+            authorization = realm.resolve(scopeNames);
         }
-        catch(IllegalStateException ise)
-        {
-            return NO_AUTHORIZATION;
-        }
+        return authorization;
     }
     public long resolve(
         String realmName)
@@ -134,10 +132,7 @@ public class OAuthRealms
     private OAuthRealm newOAuthRealm(
         String realmName)
     {
-        if (nextRealmBit == MAX_REALMS)
-        {
-            throw new IllegalStateException("Too many realms");
-        }
+        assert nextRealmBit < MAX_REALMS;
         return new OAuthRealm(realmName, nextRealmBit++);
     }
 
@@ -223,10 +218,14 @@ public class OAuthRealms
         private long resolve(
             String[] scopeNames)
         {
-            long authorization = realmId;
-            for (int i = 0; i < scopeNames.length; i++)
+            long authorization = NO_AUTHORIZATION;
+            if(nextScopeBit + scopeNames.length < MAX_SCOPES)
             {
-                authorization |= scopeBitsByName.computeIfAbsent(scopeNames[i], this::assignScopeBit);
+                authorization = realmId;
+                for (int i = 0; i < scopeNames.length; i++)
+                {
+                    authorization |= scopeBitsByName.computeIfAbsent(scopeNames[i], this::assignScopeBit);
+                }
             }
             return authorization;
         }
@@ -243,12 +242,9 @@ public class OAuthRealms
         }
 
         private long assignScopeBit(
-                String scopeName)
+            String scopeName)
         {
-            if(nextScopeBit >= MAX_SCOPES)
-            {
-                throw new IllegalStateException("Too many scopes");
-            }
+            assert nextScopeBit < MAX_SCOPES;
             return 1L << nextScopeBit++;
         }
 

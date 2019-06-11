@@ -16,6 +16,8 @@
 package org.reaktivity.nukleus.oauth.internal;
 
 import java.nio.file.Path;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -23,6 +25,8 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.oauth.internal.types.ListFW;
+import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolvedFW;
@@ -32,6 +36,8 @@ import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolvedFW;
 final class OAuthNukleus implements Nukleus
 {
     static final String NAME = "oauth";
+
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final ResolveFW resolveRO = new ResolveFW();
     private final ResolvedFW.Builder resolvedRW = new ResolvedFW.Builder();
@@ -81,7 +87,7 @@ final class OAuthNukleus implements Nukleus
     @Override
     public OAuthElektron supplyElektron()
     {
-        return new OAuthElektron(realms::supplyKey, realms::resolve);
+        return new OAuthElektron(realms::supplyKey, realms::lookup);
     }
 
     private void onResolve(
@@ -95,7 +101,11 @@ final class OAuthNukleus implements Nukleus
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
-        long authorization = realms.resolve(realm);
+        final ListFW<StringFW> roles = resolve.roles();
+        final List<String> collectedRoles = new LinkedList<>();
+        roles.forEach(r -> collectedRoles.add(r.asString()));
+        final long authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY));
+
         if (authorization != 0L)
         {
             final ResolvedFW resolved = resolvedRW.wrap(replyBuffer, 0, replyBuffer.capacity())

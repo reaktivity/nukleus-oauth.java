@@ -24,7 +24,6 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
-import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.test.ReaktorRule;
@@ -52,7 +51,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.then.abort.expiring.request/accept/client",
         "${streams}/authorize.then.abort.expiring.request/connect/server"
         })
@@ -63,7 +62,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.then.abort.expiring.response/accept/client",
         "${streams}/authorize.then.abort.expiring.response/connect/server"
         })
@@ -74,11 +73,10 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${route}/resolve.multiple.realms.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.query.with.signed.jwt.es256/accept/client",
         "${streams}/authorize.query.with.signed.jwt.es256/connect/server"
         })
-    @ScriptProperty("authorization 0x0002_000000000000L")
     public void shouldAuthorizeQueryWithValidJwtEC256OnSecuredRoute() throws Exception
     {
         k3po.finish();
@@ -155,7 +153,6 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.with.expired.jwt.no.route/accept/client"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
     public void shouldRejectRequestWithExpiredJwt() throws Exception
     {
         k3po.finish();
@@ -177,7 +174,6 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.with.invalid.jwt.no.route/accept/client"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
     public void shouldRejectRequestWithInvalidJwt() throws Exception
     {
         k3po.finish();
@@ -185,11 +181,10 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${route}/resolve.multiple.realms.with.no.roles.then.route.proxy/controller",
         "${streams}/request.with.signed.jwt.es256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.es256.forwarded/connect/server"
         })
-    @ScriptProperty("authorization 0x0002_000000000000L")
     public void shouldForwardRequestWithValidJwtEC256OnSecuredRoute() throws Exception
     {
         k3po.finish();
@@ -197,12 +192,32 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/controller",
+        "${route}/resolve.one.realm.with.set.roles.then.route.proxy/controller",
+        "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/connect/server"
+        })
+    public void shouldForwardRequestWithSetScopesWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.extra.roles.then.route.proxy/controller",
+        "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.extra.scope.with.signed.jwt.rs256.forwarded/connect/server"
+        })
+    public void shouldForwardRequestWithExtraScopeWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/request.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.signed.jwt.rs256.forwarded/connect/server"
         })
-    @ScriptProperty({"authorization 0x0001_000000000000L",
-                     "expectedAuthorization 0x0001_000000000000L"})
     public void shouldForwardRequestWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
@@ -224,7 +239,6 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.with.unready.jwt.no.route/accept/client"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
     public void shouldRejectRequestWithUnreadyJwt() throws Exception
     {
         k3po.finish();
@@ -246,7 +260,6 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.with.unsigned.jwt.no.route/accept/client"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
     public void shouldRejectRequestWithUnsignedJwt() throws Exception
     {
         k3po.finish();
@@ -268,7 +281,6 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.without.authorization.no.route/accept/client"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
     public void shouldRejectRequestWithoutAuthorization() throws Exception
     {
         k3po.finish();
@@ -290,7 +302,6 @@ public class StreamsIT
         "${route}/controller",
         "${streams}/request.without.bearer.no.route/accept/client"
         })
-    @ScriptProperty("authorization 0x0001_000000000000L")
     public void shouldRejectRequestWithoutBearer() throws Exception
     {
         k3po.finish();

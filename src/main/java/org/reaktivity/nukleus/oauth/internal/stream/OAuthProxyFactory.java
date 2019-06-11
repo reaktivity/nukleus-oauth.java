@@ -90,7 +90,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<String> resolveRealm;
+    private final ToLongFunction<JsonWebSignature> resolveRealm;
     private final SignalingExecutor executor;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
@@ -106,7 +106,7 @@ public class OAuthProxyFactory implements StreamFactory
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<String> resolveRealm,
+        ToLongFunction<JsonWebSignature> resolveRealm,
         SignalingExecutor executor)
     {
         this.router = requireNonNull(router);
@@ -155,14 +155,12 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            final String kid = verified.getKeyIdHeaderValue();
-            connectAuthorization = resolveRealm.applyAsLong(kid);
+            connectAuthorization = resolveRealm.applyAsLong(verified);
         }
 
         final long acceptRouteId = begin.routeId();
         final MessagePredicate filter = (t, b, o, l) -> true;
         final RouteFW route = router.resolve(acceptRouteId, connectAuthorization, filter, this::wrapRoute);
-
         MessageConsumer newStream = null;
 
         if (route != null)

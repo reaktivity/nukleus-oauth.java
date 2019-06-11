@@ -18,7 +18,6 @@ package org.reaktivity.nukleus.oauth.internal.control;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
@@ -51,12 +50,20 @@ public class ControlIT
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
 
-    @Ignore("roles not yet implemented")
     @Test
     @Specification({
-        "${resolve}/fails.too.many.roles/multiple.realms/controller"
+        "${resolve}/fails.too.many.roles/controller"
     })
     public void shouldFailToResolveWithTooManyRoles() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/fails.too.many.realms/controller"
+    })
+    public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
         k3po.finish();
     }
@@ -79,7 +86,6 @@ public class ControlIT
         k3po.finish();
     }
 
-    @Ignore("roles not yet implemented")
     @Test
     @Specification({
         "${resolve}/with.roles/controller"
@@ -107,7 +113,6 @@ public class ControlIT
         k3po.finish();
     }
 
-    @Ignore("roles not yet implemented")
     @Test
     @Specification({
         "${unresolve}/fails.unknown.role/controller"
@@ -137,7 +142,6 @@ public class ControlIT
         k3po.finish();
     }
 
-    @Ignore("roles not yet implemented")
     @Test
     @Specification({
         "${resolve}/with.roles/controller",

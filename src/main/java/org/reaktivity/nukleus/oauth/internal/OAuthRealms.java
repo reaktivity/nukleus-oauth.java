@@ -28,21 +28,26 @@ import java.util.Map;
 
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
+import org.jose4j.jws.JsonWebSignature;
+import org.jose4j.jwt.JwtClaims;
+import org.jose4j.jwt.consumer.InvalidJwtException;
 import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
 
 public class OAuthRealms
 {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+    private static final String SCOPE_CLAIM = "scope";
     private static final Long NO_AUTHORIZATION = 0L;
 
-    // To optimize authorization checks we use a single distinct bit per realm
+    // To optimize authorization checks we use a single distinct bit per realm and per scope
     private static final int MAX_REALMS = Short.SIZE;
 
-    private static final long SCOPE_MASK = 0xFFFF_000000000000L;
+    private static final long REALM_MASK = 0xFFFF_000000000000L;
 
-    private final Map<String, Long> realmsIdsByName = new CopyOnWriteHashMap<>();
+    private final Map<String, OAuthRealm> realmsIdsByName = new CopyOnWriteHashMap<>();
 
-    private int nextRealmBitShift = 48;
+    private int nextRealmBit = 0;
 
     private final Map<String, JsonWebKey> keysByKid;
 
@@ -66,40 +71,56 @@ public class OAuthRealms
     private OAuthRealms(
         Map<String, JsonWebKey> keysByKid)
     {
-        keysByKid.forEach((k, v) -> add(v.getKeyId()));
         this.keysByKid = keysByKid;
     }
 
-    public void add(
-        String realm)
+    public long resolve(
+        String realmName,
+        String[] scopeNames)
     {
-        if (realmsIdsByName.size() == MAX_REALMS)
+        long authorization = NO_AUTHORIZATION;
+        if(nextRealmBit < MAX_REALMS)
         {
-            throw new IllegalStateException("Too many realms");
+            final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, OAuthRealm::new);
+            authorization = realm.resolve(scopeNames);
         }
-        realmsIdsByName.put(realm, 1L << nextRealmBitShift++);
+        return authorization;
+    }
+    public long resolve(
+        String realmName)
+    {
+        return resolve(realmName, EMPTY_STRING_ARRAY);
     }
 
-    public long resolve(
-        String realm)
+    public long lookup(
+        JsonWebSignature verified)
     {
-        return realmsIdsByName.getOrDefault(realm, NO_AUTHORIZATION);
+        final OAuthRealm realm = realmsIdsByName.get(verified.getKeyIdHeaderValue());
+        long authorization = NO_AUTHORIZATION;
+        if(realm != null)
+        {
+            try
+            {
+                final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+                final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
+                final String[] scopeNames = scopeClaim != null ?
+                        scopeClaim.toString().split("\\s+")
+                        : EMPTY_STRING_ARRAY;
+                authorization = realm.lookup(scopeNames);
+            }
+            catch (JoseException | InvalidJwtException e)
+            {
+                // TODO: diagnostics?
+            }
+        }
+        return authorization;
     }
 
     public boolean unresolve(
         long authorization)
     {
-        long scope = authorization & SCOPE_MASK;
-        boolean result;
-        if (Long.bitCount(scope) > 1)
-        {
-            result = false;
-        }
-        else
-        {
-            result = realmsIdsByName.entrySet().removeIf(e -> (e.getValue() == scope));
-        }
-        return result;
+        final long realmId = authorization & REALM_MASK;
+        return Long.bitCount(realmId) <= 1 && realmsIdsByName.entrySet().removeIf(e -> e.getValue().realmId == realmId);
     }
 
     public JsonWebKey supplyKey(
@@ -166,5 +187,64 @@ public class OAuthRealms
         }
 
         return keysByKid;
+    }
+
+    private final class OAuthRealm
+    {
+        private static final int MAX_SCOPES = 48;
+
+        private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
+
+        private final long realmId;
+        private final String realmName;
+
+        private long nextScopeBit;
+
+        private OAuthRealm(
+            String realmName)
+        {
+            assert nextRealmBit < MAX_REALMS;
+            this.realmName = realmName;
+            this.realmId = 1L << nextRealmBit++ << MAX_SCOPES;
+        }
+
+        private long resolve(
+            String[] scopeNames)
+        {
+            long authorization = NO_AUTHORIZATION;
+            if(nextScopeBit + scopeNames.length < MAX_SCOPES)
+            {
+                authorization = realmId;
+                for (int i = 0; i < scopeNames.length; i++)
+                {
+                    authorization |= scopeBitsByName.computeIfAbsent(scopeNames[i], this::assignScopeBit);
+                }
+            }
+            return authorization;
+        }
+
+        private long lookup(
+            String[] scopeNames)
+        {
+            long authorization = realmId;
+            for (int i = 0; i < scopeNames.length; i++)
+            {
+                authorization |= scopeBitsByName.getOrDefault(scopeNames[i], 0L);
+            }
+            return authorization;
+        }
+
+        private long assignScopeBit(
+            String scopeName)
+        {
+            assert nextScopeBit < MAX_SCOPES;
+            return 1L << nextScopeBit++;
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.format("Realm name: %s\n\tRealm id: %s\n\tScope bits: %s", realmName, realmId, scopeBitsByName);
+        }
     }
 }

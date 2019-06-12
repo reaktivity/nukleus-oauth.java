@@ -89,8 +89,8 @@ public class OAuthProxyFactory implements StreamFactory
     private final LongUnaryOperator supplyInitialId;
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
-    private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<JsonWebSignature> resolveRealm;
+    private final Function<String, JsonWebKey> lookupKey;
+    private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
@@ -105,8 +105,8 @@ public class OAuthProxyFactory implements StreamFactory
         LongSupplier supplyTrace,
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
-        Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<JsonWebSignature> resolveRealm,
+        Function<String, JsonWebKey> lookupKey,
+        ToLongFunction<JsonWebSignature> lookupAuthorization,
         SignalingExecutor executor)
     {
         this.router = requireNonNull(router);
@@ -115,8 +115,8 @@ public class OAuthProxyFactory implements StreamFactory
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyTrace = requireNonNull(supplyTrace);
         this.correlations = correlations;
-        this.supplyKey = supplyKey;
-        this.resolveRealm = resolveRealm;
+        this.lookupKey = lookupKey;
+        this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
     }
 
@@ -155,7 +155,7 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            connectAuthorization = resolveRealm.applyAsLong(verified);
+            connectAuthorization = lookupAuthorization.applyAsLong(verified);
         }
 
         final long acceptRouteId = begin.routeId();
@@ -470,7 +470,7 @@ public class OAuthProxyFactory implements StreamFactory
                 signature.setCompactSerialization(token);
                 final String kid = signature.getKeyIdHeaderValue();
                 final String algorithm = signature.getAlgorithmHeaderValue();
-                final JsonWebKey key = supplyKey.apply(kid);
+                final JsonWebKey key = lookupKey.apply(kid);
                 if (algorithm != null && key != null && algorithm.equals(key.getAlgorithm()))
                 {
                     signature.setKey(null);

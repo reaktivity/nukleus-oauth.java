@@ -94,25 +94,33 @@ final class OAuthNukleus implements Nukleus
         MessageConsumer reply,
         MutableDirectBuffer replyBuffer)
     {
-        // TODO: change to OAuthResolveExFW in order to make use of issuer and audience
         final ResolveFW resolve = resolveRO.wrap(buffer, index, index + length);
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
         System.out.println(String.format("resolve ext empty: %b", resolve.extension().sizeof() == 0));
+        final String issuer;
+        final String audience;
         if(resolve.extension().sizeof() > 0)
         {
             final OAuthResolveExFW resolveExtension = resolveROEx.wrap(buffer, resolve.extension().offset(), resolve.extension().limit());
-            final String issuer = resolveExtension.issuer().asString();
-            final String audience = resolveExtension.audience().asString();
+            issuer = resolveExtension.issuer().asString();
+            audience = resolveExtension.audience().asString();
             System.out.println(String.format("OAuthResolveExFW: %s\niss: %s\naud: %s",
                     resolveExtension, issuer, audience));
+        }
+        else
+        {
+            issuer = "";
+            audience = "";
         }
 
         final ListFW<StringFW> roles = resolve.roles();
         final List<String> collectedRoles = new LinkedList<>();
         roles.forEach(r -> collectedRoles.add(r.asString()));
-        final long authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY));
+        final long authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY), issuer, audience);
+
+        System.out.println("AUTTH: " + authorization);
 
         if (authorization != 0L)
         {

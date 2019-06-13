@@ -27,11 +27,7 @@ import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.oauth.internal.types.ListFW;
 import org.reaktivity.nukleus.oauth.internal.types.StringFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolveFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolvedFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolveFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolvedFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.*;
 
 final class OAuthNukleus implements Nukleus
 {
@@ -40,6 +36,7 @@ final class OAuthNukleus implements Nukleus
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final ResolveFW resolveRO = new ResolveFW();
+    private final OAuthResolveExFW resolveROEx = new OAuthResolveExFW();
     private final ResolvedFW.Builder resolvedRW = new ResolvedFW.Builder();
     private final UnresolveFW unresolveRO = new UnresolveFW();
     private final UnresolvedFW.Builder unresolvedRW = new UnresolvedFW.Builder();
@@ -97,9 +94,20 @@ final class OAuthNukleus implements Nukleus
         MessageConsumer reply,
         MutableDirectBuffer replyBuffer)
     {
+        // TODO: change to OAuthResolveExFW in order to make use of issuer and audience
         final ResolveFW resolve = resolveRO.wrap(buffer, index, index + length);
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
+
+        System.out.println(String.format("resolve ext empty: %b", resolve.extension().sizeof() == 0));
+        if(resolve.extension().sizeof() > 0)
+        {
+            final OAuthResolveExFW resolveExtension = resolveROEx.wrap(buffer, resolve.extension().offset(), resolve.extension().limit());
+            final String issuer = resolveExtension.issuer().asString();
+            final String audience = resolveExtension.audience().asString();
+            System.out.println(String.format("OAuthResolveExFW: %s\niss: %s\naud: %s",
+                    resolveExtension, issuer, audience));
+        }
 
         final ListFW<StringFW> roles = resolve.roles();
         final List<String> collectedRoles = new LinkedList<>();

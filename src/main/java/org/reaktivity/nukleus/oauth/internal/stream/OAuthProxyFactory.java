@@ -158,7 +158,7 @@ public class OAuthProxyFactory implements StreamFactory
             connectAuthorization = resolveRealm.applyAsLong(verified);
         }
 
-        System.out.println("connect auth: " + connectAuthorization);
+//        System.out.println("connect auth: " + connectAuthorization);
 
         final long acceptRouteId = begin.routeId();
         final MessagePredicate filter = (t, b, o, l) -> true;

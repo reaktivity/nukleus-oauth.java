@@ -101,7 +101,7 @@ public class OAuthRealms
             // TODO: if kid doesn't exist, make new list for it. else, get the list of that realm
             final List<OAuthRealm> realms = realmsIdsByName.computeIfAbsent(realmName, r -> new LinkedList<>());
             final OAuthRealm realm = getNewRealmIfAbsent(realmName, realms, issuerName, audienceName);
-            System.out.println("realm: " + realm);
+//            System.out.println("realm: " + realm);
             authorization = realm.resolve(scopeNames);
             realmsIdsByName.get(realmName).add(realm);
         }
@@ -119,9 +119,7 @@ public class OAuthRealms
     public long lookup(
         JsonWebSignature verified)
     {
-
         final List<OAuthRealm> realms = realmsIdsByName.get(verified.getKeyIdHeaderValue());
-
 //        final OAuthRealm realm = realmsIdsByName.get(verified.getKeyIdHeaderValue());
         long authorization = NO_AUTHORIZATION;
         if(!realms.isEmpty())
@@ -129,13 +127,15 @@ public class OAuthRealms
             try
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+//                System.out.println("verified.getPayload(): " + verified.getPayload());
+//                System.out.println("claims: " + claims);
                 final Object issuerClaim = claims.getClaimValue(ISSUER_CLAIM);
                 final Object audienceClaim = claims.getClaimValue(AUDIENCE_CLAIM);
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : "";
                 final String audienceName = audienceClaim != null ? audienceClaim.toString() : "";
                 final OAuthRealm realm = getRealmByFilter(realms, issuerName, audienceName);
-                System.out.println("iss : " + issuerName + "\taud: " + audienceName);
-                System.out.println("lookup - realm: " + realm);
+//                System.out.println("iss : " + issuerName + "\taud: " + audienceName);
+//                System.out.println("lookup - realm: " + realm);
 
                 final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String[] scopeNames = scopeClaim != null ?

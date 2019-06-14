@@ -98,7 +98,7 @@ final class OAuthNukleus implements Nukleus
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
-        System.out.println(String.format("resolve ext empty: %b", resolve.extension().sizeof() == 0));
+//        System.out.println(String.format("resolve ext empty: %b", resolve.extension().sizeof() == 0));
         final String issuer;
         final String audience;
         if(resolve.extension().sizeof() > 0)
@@ -106,8 +106,8 @@ final class OAuthNukleus implements Nukleus
             final OAuthResolveExFW resolveExtension = resolveROEx.wrap(buffer, resolve.extension().offset(), resolve.extension().limit());
             issuer = resolveExtension.issuer().asString();
             audience = resolveExtension.audience().asString();
-            System.out.println(String.format("OAuthResolveExFW: %s\niss: %s\naud: %s",
-                    resolveExtension, issuer, audience));
+//            System.out.println(String.format("OAuthResolveExFW: %s\niss: %s\naud: %s",
+//                    resolveExtension, issuer, audience));
         }
         else
         {
@@ -120,7 +120,7 @@ final class OAuthNukleus implements Nukleus
         roles.forEach(r -> collectedRoles.add(r.asString()));
         final long authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY), issuer, audience);
 
-        System.out.println("AUTTH: " + authorization);
+//        System.out.println("AUTTH: " + authorization);
 
         if (authorization != 0L)
         {

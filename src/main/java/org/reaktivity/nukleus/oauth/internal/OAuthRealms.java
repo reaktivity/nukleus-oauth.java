@@ -97,7 +97,8 @@ public class OAuthRealms
         long authorization = NO_AUTHORIZATION;
         if(nextRealmBit < MAX_REALMS)
         {
-//            final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, r -> new OAuthRealm(realmName, issuerName, audienceName));
+//            final OAuthRealm realm =
+//            realmsIdsByName.computeIfAbsent(realmName, r -> new OAuthRealm(realmName, issuerName, audienceName));
             // TODO: if kid doesn't exist, make new list for it. else, get the list of that realm
             final List<OAuthRealm> realms = realmsIdsByName.computeIfAbsent(realmName, r -> new LinkedList<>());
             final OAuthRealm realm = getNewRealmIfAbsent(realmName, realms, issuerName, audienceName);
@@ -122,7 +123,7 @@ public class OAuthRealms
         final List<OAuthRealm> realms = realmsIdsByName.get(verified.getKeyIdHeaderValue());
 //        final OAuthRealm realm = realmsIdsByName.get(verified.getKeyIdHeaderValue());
         long authorization = NO_AUTHORIZATION;
-        if(!realms.isEmpty())
+        if(realms != null && !realms.isEmpty())
         {
             try
             {
@@ -186,10 +187,14 @@ public class OAuthRealms
         boolean removed = false;
         if(Long.bitCount(realmId) <= 1)
         {
-            for (List<OAuthRealm> realms:
-                 realmsIdsByName.values())
+            for (List<OAuthRealm> realms: realmsIdsByName.values())
             {
                 removed = realms.removeIf(r -> r.realmId == realmId);
+                System.out.println("removed: " + removed);
+                if(removed)
+                {
+                    break;
+                }
             }
         }
         return removed;

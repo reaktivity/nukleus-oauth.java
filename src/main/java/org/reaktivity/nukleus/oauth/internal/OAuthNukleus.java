@@ -103,7 +103,8 @@ final class OAuthNukleus implements Nukleus
         final String audience;
         if(resolve.extension().sizeof() > 0)
         {
-            final OAuthResolveExFW resolveExtension = resolveROEx.wrap(buffer, resolve.extension().offset(), resolve.extension().limit());
+            final OAuthResolveExFW resolveExtension =
+                    resolveROEx.wrap(buffer, resolve.extension().offset(), resolve.extension().limit());
             issuer = resolveExtension.issuer().asString();
             audience = resolveExtension.audience().asString();
 //            System.out.println(String.format("OAuthResolveExFW: %s\niss: %s\naud: %s",

@@ -58,7 +58,6 @@ public class OAuthRealmsTest
         realms.resolve("realm two");
 
         JwtClaims claims = new JwtClaims();
-        claims.setClaim("iss", "test issuer");
         String payload = claims.toJson();
 
         final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload, RFC7515_RS256);
@@ -81,7 +80,6 @@ public class OAuthRealmsTest
     {
         OAuthRealms realms = new OAuthRealms();
         JwtClaims claims = new JwtClaims();
-        claims.setClaim("iss", "test issuer");
         String payload = claims.toJson();
         for (int i=0; i < Short.SIZE; i++)
         {

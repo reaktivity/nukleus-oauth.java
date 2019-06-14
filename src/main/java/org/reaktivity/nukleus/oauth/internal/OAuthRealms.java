@@ -102,7 +102,6 @@ public class OAuthRealms
             // TODO: if kid doesn't exist, make new list for it. else, get the list of that realm
             final List<OAuthRealm> realms = realmsIdsByName.computeIfAbsent(realmName, r -> new LinkedList<>());
             final OAuthRealm realm = getNewRealmIfAbsent(realmName, realms, issuerName, audienceName);
-//            System.out.println("realm: " + realm);
             authorization = realm.resolve(scopeNames);
             realmsIdsByName.get(realmName).add(realm);
         }
@@ -128,8 +127,6 @@ public class OAuthRealms
             try
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-//                System.out.println("verified.getPayload(): " + verified.getPayload());
-//                System.out.println("claims: " + claims);
                 final Object issuerClaim = claims.getClaimValue(ISSUER_CLAIM);
                 final Object audienceClaim = claims.getClaimValue(AUDIENCE_CLAIM);
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : "";
@@ -137,13 +134,12 @@ public class OAuthRealms
                 final OAuthRealm realm = getRealmByFilter(realms, issuerName, audienceName);
 //                System.out.println("iss : " + issuerName + "\taud: " + audienceName);
 //                System.out.println("lookup - realm: " + realm);
-
-                final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
-                final String[] scopeNames = scopeClaim != null ?
-                        scopeClaim.toString().split("\\s+")
-                        : EMPTY_STRING_ARRAY;
                 if (realm != null)
                 {
+                    final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
+                    final String[] scopeNames = scopeClaim != null ?
+                            scopeClaim.toString().split("\\s+")
+                            : EMPTY_STRING_ARRAY;
                     authorization = realm.lookup(scopeNames);
                 }
             }
@@ -190,7 +186,6 @@ public class OAuthRealms
             for (List<OAuthRealm> realms: realmsIdsByName.values())
             {
                 removed = realms.removeIf(r -> r.realmId == realmId);
-                System.out.println("removed: " + removed);
                 if(removed)
                 {
                     break;
@@ -212,15 +207,8 @@ public class OAuthRealms
         String issuerName,
         String audienceName)
     {
-        for(int i = 0; i < realms.size(); i++)
-        {
-            final OAuthRealm realm = realms.get(i);
-            if(realm.issuerName.equals(issuerName) && realm.audienceName.equals(audienceName))
-            {
-                return realm;
-            }
-        }
-        return new OAuthRealm(realmName, issuerName, audienceName);
+        final OAuthRealm realm = getRealmByFilter(realms, issuerName, audienceName);
+        return realm != null ? realm : new OAuthRealm(realmName, issuerName, audienceName);
     }
 
     private OAuthRealm getRealmByFilter(
@@ -237,13 +225,6 @@ public class OAuthRealms
             }
         }
         return null;
-    }
-
-    private void getRealmById(
-        List<OAuthRealm> realms,
-        long realmId)
-    {
-        realms.removeIf(r -> r.realmId == realmId);
     }
 
     private static Map<String, JsonWebKey> parseKeyMap(

@@ -90,7 +90,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<JsonWebSignature> resolveRealm;
+    private final ToLongFunction<JsonWebSignature> lookupRealm;
     private final SignalingExecutor executor;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
@@ -116,7 +116,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.supplyTrace = requireNonNull(supplyTrace);
         this.correlations = correlations;
         this.supplyKey = supplyKey;
-        this.resolveRealm = resolveRealm;
+        this.lookupRealm = resolveRealm;
         this.executor = executor;
     }
 
@@ -155,10 +155,8 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            connectAuthorization = resolveRealm.applyAsLong(verified);
+            connectAuthorization = lookupRealm.applyAsLong(verified);
         }
-
-//        System.out.println("connect auth: " + connectAuthorization);
 
         final long acceptRouteId = begin.routeId();
         final MessagePredicate filter = (t, b, o, l) -> true;

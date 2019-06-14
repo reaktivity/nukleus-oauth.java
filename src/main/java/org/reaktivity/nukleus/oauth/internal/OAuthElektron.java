@@ -35,9 +35,9 @@ final class OAuthElektron implements Elektron
 
     OAuthElektron(
         Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<JsonWebSignature> resolveRealm)
+        ToLongFunction<JsonWebSignature> lookupRealm)
     {
-        this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(supplyKey, resolveRealm));
+        this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(supplyKey, lookupRealm));
     }
 
     @Override

@@ -34,9 +34,9 @@ final class OAuthElektron implements Elektron
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
 
     OAuthElektron(
-        Function<String, JsonWebKey> lookupKey,
+        OAuthConfiguration config,
         ToLongFunction<JsonWebSignature> lookupAuthorization,
-        OAuthConfiguration config)
+        Function<String, JsonWebKey> lookupKey)
     {
         this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(config, lookupAuthorization, lookupKey));
     }

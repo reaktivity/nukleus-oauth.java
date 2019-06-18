@@ -60,6 +60,7 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 
 public class OAuthProxyFactory implements StreamFactory
 {
+    private final OAuthConfiguration config;
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
@@ -93,7 +94,6 @@ public class OAuthProxyFactory implements StreamFactory
     private final Function<String, JsonWebKey> lookupKey;
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
-    private OAuthConfiguration config;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
     private final Writer writer;
@@ -109,7 +109,8 @@ public class OAuthProxyFactory implements StreamFactory
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> lookupKey,
         ToLongFunction<JsonWebSignature> lookupAuthorization,
-        SignalingExecutor executor, RouteManager router)
+        SignalingExecutor executor,
+        RouteManager router)
     {
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);

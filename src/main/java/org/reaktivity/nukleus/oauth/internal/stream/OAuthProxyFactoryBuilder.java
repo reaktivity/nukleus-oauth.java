@@ -54,9 +54,9 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
         ToLongFunction<JsonWebSignature> lookupAuthorization,
         Function<String, JsonWebKey> lookupKey)
     {
+        this.config = config;
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
-        this.config = config;
         this.correlations = new Long2ObjectHashMap<>();
     }
 
@@ -132,7 +132,16 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     public StreamFactory build()
     {
         return new OAuthProxyFactory(
-            config, writeBuffer, supplyInitialId, supplyTrace, supplyReplyId, correlations, lookupKey, lookupAuthorization, executor, router
+            config,
+            writeBuffer,
+            supplyInitialId,
+            supplyTrace,
+            supplyReplyId,
+            correlations,
+            lookupKey,
+            lookupAuthorization,
+            executor,
+            router
         );
     }
 }

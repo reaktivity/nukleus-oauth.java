@@ -60,7 +60,6 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 
 public class OAuthProxyFactory implements StreamFactory
 {
-    private final OAuthConfiguration config;
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
@@ -86,19 +85,18 @@ public class OAuthProxyFactory implements StreamFactory
     private final AbortFW abortRO = new AbortFW();
     private final SignalFW signalRO = new SignalFW();
 
-    private final RouteManager router;
+    private final JsonWebSignature signature = new JsonWebSignature();
 
+    private final OAuthConfiguration config;
+    private final RouteManager router;
     private final LongUnaryOperator supplyInitialId;
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> lookupKey;
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
-
     private final Long2ObjectHashMap<OAuthProxy> correlations;
     private final Writer writer;
-
-    private final JsonWebSignature signature = new JsonWebSignature();
 
     public OAuthProxyFactory(
         OAuthConfiguration config,

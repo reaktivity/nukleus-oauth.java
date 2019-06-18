@@ -32,6 +32,7 @@ import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
+import org.jose4j.jwt.ReservedClaimNames;
 import org.jose4j.jwt.consumer.InvalidJwtException;
 import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
@@ -40,8 +41,6 @@ public class OAuthRealms
 {
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
     private static final String SCOPE_CLAIM = "scope";
-    private static final String ISSUER_CLAIM = "iss";
-    private static final String AUDIENCE_CLAIM = "aud";
     private static final Long NO_AUTHORIZATION = 0L;
 
     // To optimize authorization checks we use a single distinct bit per realm and per scope
@@ -109,8 +108,8 @@ public class OAuthRealms
             try
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                final Object issuerClaim = claims.getClaimValue(ISSUER_CLAIM);
-                final Object audienceClaim = claims.getClaimValue(AUDIENCE_CLAIM);
+                final Object issuerClaim = claims.getClaimValue(ReservedClaimNames.ISSUER);
+                final Object audienceClaim = claims.getClaimValue(ReservedClaimNames.AUDIENCE);
                 final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : "";
                 final String audienceName = audienceClaim != null ? audienceClaim.toString() : "";

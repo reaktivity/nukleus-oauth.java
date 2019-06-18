@@ -24,10 +24,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
@@ -81,15 +80,15 @@ public class OAuthRealms
 
     public long resolve(
         String realmName,
-        String[] scopeNames,
+        String audienceName,
         String issuerName,
-        String audienceName)
+        String[] scopeNames)
     {
         long authorization = NO_AUTHORIZATION;
         if(nextRealmBit < MAX_REALMS)
         {
             final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, OAuthRealm::new);
-            authorization = realm.resolve(scopeNames, issuerName, audienceName);
+            authorization = realm.resolve(audienceName, issuerName, scopeNames);
         }
         return authorization;
     }
@@ -97,7 +96,7 @@ public class OAuthRealms
     public long resolve(
         String realmName)
     {
-        return resolve(realmName, EMPTY_STRING_ARRAY, "", "");
+        return resolve(realmName, "", "", EMPTY_STRING_ARRAY);
     }
 
     public long lookup(
@@ -112,13 +111,13 @@ public class OAuthRealms
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
                 final Object issuerClaim = claims.getClaimValue(ISSUER_CLAIM);
                 final Object audienceClaim = claims.getClaimValue(AUDIENCE_CLAIM);
+                final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : "";
                 final String audienceName = audienceClaim != null ? audienceClaim.toString() : "";
-                final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String[] scopeNames = scopeClaim != null ?
                         scopeClaim.toString().split("\\s+")
                         : EMPTY_STRING_ARRAY;
-                authorization = realm.lookup(scopeNames, issuerName, audienceName);
+                authorization = realm.lookup(issuerName, audienceName, scopeNames);
             }
             catch (JoseException | InvalidJwtException e)
             {
@@ -132,28 +131,13 @@ public class OAuthRealms
         long authorization)
     {
         final long realmId = authorization & REALM_MASK;
-        return Long.bitCount(realmId) <= 1 && tryRemoveRealmInfoById(realmId);
+        return Long.bitCount(realmId) <= 1 && realmsIdsByName.values().removeIf(r -> r.unresolve(realmId) && r.isEmpty());
     }
 
     public JsonWebKey supplyKey(
         String kid)
     {
         return keysByKid.get(kid);
-    }
-
-    private boolean tryRemoveRealmInfoById(
-        long realmId)
-    {
-        boolean removed = false;
-        for (OAuthRealm realm: realmsIdsByName.values())
-        {
-            removed = realm.tryRemoveInfoById(realmId);
-            if(removed)
-            {
-                break;
-            }
-        }
-        return removed;
     }
 
     private static Map<String, JsonWebKey> parseKeyMap(
@@ -220,11 +204,11 @@ public class OAuthRealms
     {
         private static final int MAX_SCOPES = 48;
 
-        private final List<OAuthRealmInfo> realmInfoVariations = new LinkedList<>();
+        private final List<OAuthRealmInfo> realmInfos = new CopyOnWriteArrayList<>();
 
         private final String realmName;
 
-        private long nextScopeBit;
+        private int nextScopeBit = 0;
 
         private OAuthRealm(
             String realmName)
@@ -234,9 +218,9 @@ public class OAuthRealms
         }
 
         private long resolve(
-            String[] scopeNames,
+            String audienceName,
             String issuerName,
-            String audienceName)
+            String[] scopeNames)
         {
             long authorization = NO_AUTHORIZATION;
             if (nextScopeBit + scopeNames.length < MAX_SCOPES)
@@ -245,16 +229,16 @@ public class OAuthRealms
                 authorization = realmInfo.realmId;
                 for (int i = 0; i < scopeNames.length; i++)
                 {
-                    authorization |= realmInfo.computeScopeBitsIfAbsent(scopeNames[i], this::assignScopeBit);
+                    authorization |= realmInfo.supplyScopeBit(scopeNames[i]);
                 }
             }
             return authorization;
         }
 
         private long lookup(
-            String[] scopeNames,
             String issuerName,
-            String audienceName)
+            String audienceName,
+            String[] scopeNames)
         {
             final OAuthRealmInfo info = getInfoByFilter(issuerName, audienceName);
             long authorization = NO_AUTHORIZATION;
@@ -269,126 +253,129 @@ public class OAuthRealms
             return authorization;
         }
 
+        private boolean unresolve(
+            long realmId)
+        {
+            return realmInfos.removeIf(i -> i.realmId == realmId);
+        }
+
+        private boolean isEmpty()
+        {
+            return realmInfos.isEmpty();
+        }
+
         private OAuthRealmInfo computeInfoIfAbsent(
             String issuerName,
             String audienceName)
         {
             assert nextRealmBit < MAX_REALMS;
-            OAuthRealmInfo info = getInfoByFilter(issuerName, audienceName);
-            if(info == null)
-            {
-                info = new OAuthRealmInfo(1L << nextRealmBit++ << MAX_SCOPES, issuerName, audienceName);
-                realmInfoVariations.add(info);
-            }
-            return info;
+            return realmInfos.stream()
+                             .filter(r -> r.containsClaims(issuerName, audienceName))
+                             .findFirst()
+                             .orElseGet(() -> newRealmInfo(issuerName, audienceName));
+        }
+
+        private OAuthRealmInfo newRealmInfo(
+            String issuerName,
+            String audienceName)
+        {
+            OAuthRealmInfo realmInfo =
+                    new OAuthRealmInfo(1L << nextRealmBit++ << MAX_SCOPES, issuerName, audienceName);
+            realmInfos.add(realmInfo);
+            return realmInfo;
         }
 
         private OAuthRealmInfo getInfoByFilter(
             String issuerName,
             String audienceName)
         {
-            OAuthRealmInfo result = null;
-            for(int i = 0; i < realmInfoVariations.size(); i++)
-            {
-                final OAuthRealmInfo realmInfo = realmInfoVariations.get(i);
-                if(realmInfo.containsClaims(issuerName, audienceName))
-                {
-                    result = realmInfo;
-                    break;
-                }
-            }
-            return result;
-        }
-
-        private boolean tryRemoveInfoById(
-            long realmId)
-        {
-            return realmInfoVariations.removeIf(r -> r.realmId == realmId);
-        }
-
-        private long assignScopeBit(
-            String scopeName)
-        {
-            assert nextScopeBit < MAX_SCOPES;
-            return 1L << nextScopeBit++;
+            return realmInfos.stream()
+                             .filter(r -> r.containsClaims(issuerName, audienceName))
+                             .findFirst().orElse(null);
         }
 
         @Override
         public String toString()
         {
             return String.format("Realm name: \"%s\",\tRealm info: %s\n",
-                    realmName, realmInfoVariations);
-        }
-    }
-
-    private final class OAuthRealmInfo
-    {
-
-        private final long realmId;
-        private final Claims requiredClaims;
-        private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
-
-        private OAuthRealmInfo(
-            long realmId,
-            String issuerName,
-            String audienceName)
-        {
-            this.realmId = realmId;
-            this.requiredClaims = new Claims(issuerName, audienceName);
+                    realmName, realmInfos);
         }
 
-        private long getOrDefault(
-            String scopeName,
-            long defaultValue)
+        private final class OAuthRealmInfo
         {
-            return scopeBitsByName.getOrDefault(scopeName, defaultValue);
-        }
+            private final Map<String, Long> scopeBitsByName = new CopyOnWriteHashMap<>();
 
-        private long computeScopeBitsIfAbsent(
-            String scopeName,
-            Function<String, Long> mappingFunction)
-        {
-            return scopeBitsByName.computeIfAbsent(scopeName, mappingFunction);
-        }
+            private final long realmId;
+            private final Claims requiredClaims;
 
-        private boolean containsClaims(
-            String issuerName,
-            String audienceName)
-        {
-            return requiredClaims.containsClaims(issuerName, audienceName);
-        }
-
-        @Override
-        public String toString()
-        {
-            return String.format("Info: realm id=%d, claims=%s, scope bits=%s",
-                    realmId, requiredClaims, this.scopeBitsByName);
-        }
-
-        private final class Claims
-        {
-            final String issuerName;
-            final String audienceName;
-
-            private Claims(
+            private OAuthRealmInfo(
+                long realmId,
                 String issuerName,
                 String audienceName)
             {
-                this.issuerName = issuerName;
-                this.audienceName = audienceName;
+                this.realmId = realmId;
+                this.requiredClaims = new Claims(issuerName, audienceName);
+            }
+
+            private long getOrDefault(
+                String scopeName,
+                long defaultValue)
+            {
+                return scopeBitsByName.getOrDefault(scopeName, defaultValue);
+            }
+
+            private long supplyScopeBit(
+                String scopeName)
+            {
+                return scopeBitsByName.computeIfAbsent(scopeName, this::assignScopeBit);
             }
 
             private boolean containsClaims(
                 String issuerName,
                 String audienceName)
             {
-                return this.issuerName.equals(issuerName) && this.audienceName.equals(audienceName);
+                return requiredClaims.containsClaims(issuerName, audienceName);
+            }
+
+            private long assignScopeBit(
+                String scopeName)
+            {
+                assert nextScopeBit < MAX_SCOPES;
+                return 1L << nextScopeBit++;
             }
 
             @Override
             public String toString()
             {
-                return String.format("[issuer=\"%s\", audience=\"%s\"]", issuerName, audienceName);
+                return String.format("Info: realm id=%d, claims=[%s], scope bits=%s",
+                        realmId, requiredClaims, this.scopeBitsByName);
+            }
+
+            private final class Claims
+            {
+                final String issuerName;
+                final String audienceName;
+
+                private Claims(
+                    String issuerName,
+                    String audienceName)
+                {
+                    this.issuerName = issuerName;
+                    this.audienceName = audienceName;
+                }
+
+                private boolean containsClaims(
+                    String issuerName,
+                    String audienceName)
+                {
+                    return this.issuerName.equals(issuerName) && this.audienceName.equals(audienceName);
+                }
+
+                @Override
+                public String toString()
+                {
+                    return String.format("issuer=\"%s\", audience=\"%s\"", issuerName, audienceName);
+                }
             }
         }
     }

@@ -59,14 +59,14 @@ public class ControlIT
         k3po.finish();
     }
 
-    @Test
-    @Specification({
-        "${resolve}/fails.too.many.realms/controller"
-    })
-    public void shouldFailToResolveWithTooManyRealms() throws Exception
-    {
-        k3po.finish();
-    }
+//    @Test
+//    @Specification({
+//        "${resolve}/fails.too.many.realms/controller"
+//    })
+//    public void shouldFailToResolveWithTooManyRealms() throws Exception
+//    {
+//        k3po.finish();
+//    }
 
     @Test
     @Specification({

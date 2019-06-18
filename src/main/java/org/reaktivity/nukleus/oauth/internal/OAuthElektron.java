@@ -38,7 +38,7 @@ final class OAuthElektron implements Elektron
         ToLongFunction<JsonWebSignature> lookupAuthorization,
         OAuthConfiguration config)
     {
-        this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(lookupKey, lookupAuthorization, config));
+        this.streamFactoryBuilders = singletonMap(PROXY, new OAuthProxyFactoryBuilder(config, lookupAuthorization, lookupKey));
     }
 
     @Override

@@ -101,7 +101,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final JsonWebSignature signature = new JsonWebSignature();
 
     public OAuthProxyFactory(
-        RouteManager router,
+        OAuthConfiguration config,
         MutableDirectBuffer writeBuffer,
         LongUnaryOperator supplyInitialId,
         LongSupplier supplyTrace,
@@ -109,8 +109,7 @@ public class OAuthProxyFactory implements StreamFactory
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> lookupKey,
         ToLongFunction<JsonWebSignature> lookupAuthorization,
-        SignalingExecutor executor,
-        OAuthConfiguration config)
+        SignalingExecutor executor, RouteManager router)
     {
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
@@ -177,7 +176,7 @@ public class OAuthProxyFactory implements StreamFactory
             long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
-            long expiresAtMillis = (config.tokenExpeirationCheck() ? expiresAtMillis(verified) : EXPIRES_NEVER);
+            long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);
@@ -259,8 +258,6 @@ public class OAuthProxyFactory implements StreamFactory
                 expiresAtMillis = EXPIRES_IMMEDIATELY;
             }
         }
-
-        expiresAtMillis = EXPIRES_NEVER;
 
         return expiresAtMillis;
     }

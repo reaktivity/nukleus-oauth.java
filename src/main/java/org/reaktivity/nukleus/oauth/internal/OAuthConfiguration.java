@@ -22,7 +22,7 @@ public class OAuthConfiguration extends Configuration
     public static final PropertyDef<String> AUTH_JWT_KEYS;
 
     private static final ConfigurationDef AUTH_JWT_CONFIG;
-    public static final BooleanPropertyDef TOKEN_EXPIRATION_CHECK;
+    private static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
 
     static
     {
@@ -30,7 +30,7 @@ public class OAuthConfiguration extends Configuration
         final ConfigurationDef config = new ConfigurationDef("oauth");
         AUTH_JWT_KEYS = config.property("keys", "keys.jwk");
         AUTH_JWT_CONFIG = config;
-        TOKEN_EXPIRATION_CHECK = config.property("token.expiration.check", false);
+        EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
     }
 
     public OAuthConfiguration(
@@ -44,8 +44,8 @@ public class OAuthConfiguration extends Configuration
         return AUTH_JWT_KEYS.get(this);
     }
 
-    public boolean tokenExpeirationCheck()
+    public boolean expireInFlightRequests()
     {
-        return TOKEN_EXPIRATION_CHECK.getAsBoolean(this);
+        return EXPIRE_IN_FLIGHT_REQUESTS.getAsBoolean(this);
     }
 }

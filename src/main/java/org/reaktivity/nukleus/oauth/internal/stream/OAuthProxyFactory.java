@@ -112,6 +112,7 @@ public class OAuthProxyFactory implements StreamFactory
         SignalingExecutor executor,
         RouteManager router)
     {
+        this.config = config;
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
         this.supplyInitialId = requireNonNull(supplyInitialId);
@@ -121,7 +122,6 @@ public class OAuthProxyFactory implements StreamFactory
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
-        this.config = config;
     }
 
     @Override

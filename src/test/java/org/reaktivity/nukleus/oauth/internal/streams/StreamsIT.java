@@ -26,6 +26,7 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
+import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class StreamsIT
@@ -42,7 +43,7 @@ public class StreamsIT
             .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(4096)
             .nukleus("oauth"::equals)
-            .configure("oauth.keys", "keys/keys.jwk")
+            .configure(OAuthConfiguration.KEYS.name(), "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
             .clean();
 

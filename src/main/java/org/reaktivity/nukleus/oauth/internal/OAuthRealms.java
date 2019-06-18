@@ -49,7 +49,7 @@ public class OAuthRealms
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
 
-    private final Map<String, OAuthRealm> realmsIdsByName = new CopyOnWriteHashMap<>();
+    private final Map<String, OAuthRealm> realmsByName = new CopyOnWriteHashMap<>();
 
     private int nextRealmBit = 0;
 
@@ -87,7 +87,7 @@ public class OAuthRealms
         long authorization = NO_AUTHORIZATION;
         if(nextRealmBit < MAX_REALMS)
         {
-            final OAuthRealm realm = realmsIdsByName.computeIfAbsent(realmName, OAuthRealm::new);
+            final OAuthRealm realm = realmsByName.computeIfAbsent(realmName, OAuthRealm::new);
             authorization = realm.resolve(audienceName, issuerName, scopeNames);
         }
         return authorization;
@@ -102,7 +102,7 @@ public class OAuthRealms
     public long lookup(
         JsonWebSignature verified)
     {
-        final OAuthRealm realm = realmsIdsByName.get(verified.getKeyIdHeaderValue());
+        final OAuthRealm realm = realmsByName.get(verified.getKeyIdHeaderValue());
         long authorization = NO_AUTHORIZATION;
         if (realm != null)
         {
@@ -131,14 +131,14 @@ public class OAuthRealms
         long authorization)
     {
         final long realmId = authorization & REALM_MASK;
-        final OAuthRealm realm = realmsIdsByName.values().stream()
+        final OAuthRealm realm = realmsByName.values().stream()
                                                          .filter(rs -> rs.unresolve(realmId))
                                                          .findFirst().orElse(null);
-        realmsIdsByName.values().removeIf(OAuthRealm::isEmpty);
+        realmsByName.values().removeIf(OAuthRealm::isEmpty);
         return Long.bitCount(realmId) <= 1 && realm != null;
     }
 
-    public JsonWebKey supplyKey(
+    public JsonWebKey lookupKey(
         String kid)
     {
         return keysByKid.get(kid);

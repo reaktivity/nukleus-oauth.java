@@ -41,6 +41,7 @@ import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
@@ -84,39 +85,40 @@ public class OAuthProxyFactory implements StreamFactory
     private final AbortFW abortRO = new AbortFW();
     private final SignalFW signalRO = new SignalFW();
 
-    private final RouteManager router;
+    private final JsonWebSignature signature = new JsonWebSignature();
 
+    private final OAuthConfiguration config;
+    private final RouteManager router;
     private final LongUnaryOperator supplyInitialId;
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
-    private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<JsonWebSignature> resolveRealm;
+    private final Function<String, JsonWebKey> lookupKey;
+    private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
-
     private final Long2ObjectHashMap<OAuthProxy> correlations;
     private final Writer writer;
 
-    private final JsonWebSignature signature = new JsonWebSignature();
-
     public OAuthProxyFactory(
-        RouteManager router,
+        OAuthConfiguration config,
         MutableDirectBuffer writeBuffer,
         LongUnaryOperator supplyInitialId,
         LongSupplier supplyTrace,
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
-        Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<JsonWebSignature> resolveRealm,
-        SignalingExecutor executor)
+        Function<String, JsonWebKey> lookupKey,
+        ToLongFunction<JsonWebSignature> lookupAuthorization,
+        SignalingExecutor executor,
+        RouteManager router)
     {
+        this.config = config;
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyTrace = requireNonNull(supplyTrace);
         this.correlations = correlations;
-        this.supplyKey = supplyKey;
-        this.resolveRealm = resolveRealm;
+        this.lookupKey = lookupKey;
+        this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
     }
 
@@ -155,7 +157,7 @@ public class OAuthProxyFactory implements StreamFactory
         long connectAuthorization = acceptAuthorization;
         if (verified != null)
         {
-            connectAuthorization = resolveRealm.applyAsLong(verified);
+            connectAuthorization = lookupAuthorization.applyAsLong(verified);
         }
 
         final long acceptRouteId = begin.routeId();
@@ -173,7 +175,7 @@ public class OAuthProxyFactory implements StreamFactory
             long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
-            long expiresAtMillis = expiresAtMillis(verified);
+            long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);
@@ -470,7 +472,7 @@ public class OAuthProxyFactory implements StreamFactory
                 signature.setCompactSerialization(token);
                 final String kid = signature.getKeyIdHeaderValue();
                 final String algorithm = signature.getAlgorithmHeaderValue();
-                final JsonWebKey key = supplyKey.apply(kid);
+                final JsonWebKey key = lookupKey.apply(kid);
                 if (algorithm != null && key != null && algorithm.equals(key.getAlgorithm()))
                 {
                     signature.setKey(null);

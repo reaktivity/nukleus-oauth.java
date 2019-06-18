@@ -29,6 +29,7 @@ import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jws.JsonWebSignature;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
+import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.stream.OAuthProxyFactory.OAuthProxy;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -36,8 +37,9 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
-    private final Function<String, JsonWebKey> supplyKey;
-    private final ToLongFunction<JsonWebSignature> resolveRealm;
+    private final OAuthConfiguration config;
+    private final Function<String, JsonWebKey> lookupKey;
+    private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
@@ -48,11 +50,13 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     private SignalingExecutor executor;
 
     public OAuthProxyFactoryBuilder(
-        Function<String, JsonWebKey> supplyKey,
-        ToLongFunction<JsonWebSignature> resolveRealm)
+        OAuthConfiguration config,
+        ToLongFunction<JsonWebSignature> lookupAuthorization,
+        Function<String, JsonWebKey> lookupKey)
     {
-        this.supplyKey = supplyKey;
-        this.resolveRealm = resolveRealm;
+        this.config = config;
+        this.lookupKey = lookupKey;
+        this.lookupAuthorization = lookupAuthorization;
         this.correlations = new Long2ObjectHashMap<>();
     }
 
@@ -128,14 +132,16 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     public StreamFactory build()
     {
         return new OAuthProxyFactory(
-                router,
-                writeBuffer,
-                supplyInitialId,
-                supplyTrace,
-                supplyReplyId,
-                correlations,
-                supplyKey,
-                resolveRealm,
-                executor);
+            config,
+            writeBuffer,
+            supplyInitialId,
+            supplyTrace,
+            supplyReplyId,
+            correlations,
+            lookupKey,
+            lookupAuthorization,
+            executor,
+            router
+        );
     }
 }

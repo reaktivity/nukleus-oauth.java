@@ -29,6 +29,8 @@ import org.junit.Test;
 
 public class OAuthRealmsTest
 {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
     @Test
     public void shouldAddUpToMaximumRealms() throws Exception
     {
@@ -65,6 +67,95 @@ public class OAuthRealmsTest
 
         assertEquals(0x0001_000000000000L, realms.lookup(signatureOne));
         assertEquals(0x0002_000000000000L, realms.lookup(signatureTwo));
+    }
+
+    @Test
+    public void shouldResolveKnownRealmWithDifferentKidAndDifferentClaims() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one", "test issuer1", "test audience1", EMPTY_STRING_ARRAY);
+        realms.resolve("realm two", "test issuer2", "test audience2", EMPTY_STRING_ARRAY);
+
+        JwtClaims claims1 = new JwtClaims();
+        claims1.setClaim("iss", "test issuer1");
+        claims1.setClaim("aud", "test audience1");
+        String payload1 = claims1.toJson();
+
+        JwtClaims claims2 = new JwtClaims();
+        claims2.setClaim("iss", "test issuer2");
+        claims2.setClaim("aud", "test audience2");
+        String payload2 = claims2.toJson();
+
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload1, RFC7515_RS256);
+        final JsonWebSignature signatureTwo = newSignedSignature("realm two", "ES256", payload2, RFC7515_ES256);
+
+        assertEquals(0x0001_000000000000L, realms.lookup(signatureOne));
+        assertEquals(0x0002_000000000000L, realms.lookup(signatureTwo));
+    }
+
+    @Test
+    public void shouldResolveKnownRealmWithSameKidButDifferentClaims() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one", "test issuer1", "test audience1", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer2", "test audience2", EMPTY_STRING_ARRAY);
+
+        JwtClaims claims1 = new JwtClaims();
+        claims1.setClaim("iss", "test issuer1");
+        claims1.setClaim("aud", "test audience1");
+        String payload1 = claims1.toJson();
+
+        JwtClaims claims2 = new JwtClaims();
+        claims2.setClaim("iss", "test issuer2");
+        claims2.setClaim("aud", "test audience2");
+        String payload2 = claims2.toJson();
+
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload1, RFC7515_RS256);
+        final JsonWebSignature signatureTwo = newSignedSignature("realm one", "RS256", payload2, RFC7515_RS256);
+
+        assertEquals(0x0001_000000000000L, realms.lookup(signatureOne));
+        assertEquals(0x0002_000000000000L, realms.lookup(signatureTwo));
+    }
+
+    @Test
+    public void shouldUnresolveKnownRealmWithSameKidButDifferentClaims() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one", "test issuer1", "test audience1", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer2", "test audience2", EMPTY_STRING_ARRAY);
+
+        JwtClaims claims1 = new JwtClaims();
+        claims1.setClaim("iss", "test issuer1");
+        claims1.setClaim("aud", "test audience1");
+        String payload1 = claims1.toJson();
+
+        JwtClaims claims2 = new JwtClaims();
+        claims2.setClaim("iss", "test issuer2");
+        claims2.setClaim("aud", "test audience2");
+        String payload2 = claims2.toJson();
+
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload1, RFC7515_RS256);
+        final JsonWebSignature signatureTwo = newSignedSignature("realm one", "RS256", payload2, RFC7515_RS256);
+
+        assertTrue(realms.unresolve(realms.lookup(signatureOne)));
+        assertTrue(realms.unresolve(realms.lookup(signatureTwo)));
+    }
+
+    @Test
+    public void shouldFailTooManyUnresolvesOfKnownRealmAfterResolveWithSameKidButDifferentClaims() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one", "test issuer", "test audience", EMPTY_STRING_ARRAY);
+
+        JwtClaims claims = new JwtClaims();
+        claims.setClaim("iss", "test issuer");
+        claims.setClaim("aud", "test audience");
+        String payload = claims.toJson();
+
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload, RFC7515_RS256);
+
+        assertTrue(realms.unresolve(realms.lookup(signatureOne)));
+        assertFalse(realms.unresolve(realms.lookup(signatureOne)));
     }
 
     @Test

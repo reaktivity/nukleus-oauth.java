@@ -80,8 +80,8 @@ public class OAuthRealms
 
     public long resolve(
         String realmName,
-        String audienceName,
         String issuerName,
+        String audienceName,
         String[] scopeNames)
     {
         long authorization = NO_AUTHORIZATION;
@@ -131,7 +131,11 @@ public class OAuthRealms
         long authorization)
     {
         final long realmId = authorization & REALM_MASK;
-        return Long.bitCount(realmId) <= 1 && realmsIdsByName.values().removeIf(r -> r.unresolve(realmId) && r.isEmpty());
+        final OAuthRealm realm = realmsIdsByName.values().stream()
+                                                         .filter(rs -> rs.unresolve(realmId))
+                                                         .findFirst().orElse(null);
+        realmsIdsByName.values().removeIf(OAuthRealm::isEmpty);
+        return Long.bitCount(realmId) <= 1 && realm != null;
     }
 
     public JsonWebKey supplyKey(

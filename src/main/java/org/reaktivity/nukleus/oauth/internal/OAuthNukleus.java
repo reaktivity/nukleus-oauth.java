@@ -87,7 +87,7 @@ final class OAuthNukleus implements Nukleus
     @Override
     public OAuthElektron supplyElektron()
     {
-        return new OAuthElektron(realms::lookupKey, realms::lookup);
+        return new OAuthElektron(realms::lookupKey, realms::lookup, config);
     }
 
     private void onResolve(

@@ -29,6 +29,7 @@ import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jws.JsonWebSignature;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
+import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.stream.OAuthProxyFactory.OAuthProxy;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -38,6 +39,7 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 {
     private final Function<String, JsonWebKey> lookupKey;
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
+    private OAuthConfiguration config;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
@@ -49,10 +51,12 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 
     public OAuthProxyFactoryBuilder(
         Function<String, JsonWebKey> lookupKey,
-        ToLongFunction<JsonWebSignature> lookupAuthorization)
+        ToLongFunction<JsonWebSignature> lookupAuthorization,
+        OAuthConfiguration config)
     {
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
+        this.config = config;
         this.correlations = new Long2ObjectHashMap<>();
     }
 
@@ -136,6 +140,7 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
                 correlations,
                 lookupKey,
                 lookupAuthorization,
-                executor);
+                executor,
+                config);
     }
 }

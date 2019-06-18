@@ -41,6 +41,7 @@ import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
@@ -92,6 +93,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final Function<String, JsonWebKey> lookupKey;
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
+    private OAuthConfiguration config;
 
     private final Long2ObjectHashMap<OAuthProxy> correlations;
     private final Writer writer;
@@ -107,7 +109,8 @@ public class OAuthProxyFactory implements StreamFactory
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> lookupKey,
         ToLongFunction<JsonWebSignature> lookupAuthorization,
-        SignalingExecutor executor)
+        SignalingExecutor executor,
+        OAuthConfiguration config)
     {
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
@@ -118,6 +121,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
+        this.config = config;
     }
 
     @Override
@@ -173,7 +177,7 @@ public class OAuthProxyFactory implements StreamFactory
             long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
-            long expiresAtMillis = expiresAtMillis(verified);
+            long expiresAtMillis = (config.tokenExpeirationCheck() ? expiresAtMillis(verified) : EXPIRES_NEVER);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);
@@ -255,6 +259,8 @@ public class OAuthProxyFactory implements StreamFactory
                 expiresAtMillis = EXPIRES_IMMEDIATELY;
             }
         }
+
+        expiresAtMillis = EXPIRES_NEVER;
 
         return expiresAtMillis;
     }

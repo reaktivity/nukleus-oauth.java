@@ -19,9 +19,10 @@ import org.reaktivity.nukleus.Configuration;
 
 public class OAuthConfiguration extends Configuration
 {
-    public static final PropertyDef<String> AUTH_JWT_KEYS;;
+    public static final PropertyDef<String> AUTH_JWT_KEYS;
 
     private static final ConfigurationDef AUTH_JWT_CONFIG;
+    private static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
 
     static
     {
@@ -29,6 +30,7 @@ public class OAuthConfiguration extends Configuration
         final ConfigurationDef config = new ConfigurationDef("oauth");
         AUTH_JWT_KEYS = config.property("keys", "keys.jwk");
         AUTH_JWT_CONFIG = config;
+        EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
     }
 
     public OAuthConfiguration(
@@ -40,5 +42,10 @@ public class OAuthConfiguration extends Configuration
     public String keyFileName()
     {
         return AUTH_JWT_KEYS.get(this);
+    }
+
+    public boolean expireInFlightRequests()
+    {
+        return EXPIRE_IN_FLIGHT_REQUESTS.getAsBoolean(this);
     }
 }

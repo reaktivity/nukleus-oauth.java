@@ -41,6 +41,7 @@ import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
@@ -84,22 +85,21 @@ public class OAuthProxyFactory implements StreamFactory
     private final AbortFW abortRO = new AbortFW();
     private final SignalFW signalRO = new SignalFW();
 
-    private final RouteManager router;
+    private final JsonWebSignature signature = new JsonWebSignature();
 
+    private final OAuthConfiguration config;
+    private final RouteManager router;
     private final LongUnaryOperator supplyInitialId;
     private final LongSupplier supplyTrace;
     private final LongUnaryOperator supplyReplyId;
     private final Function<String, JsonWebKey> lookupKey;
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
-
     private final Long2ObjectHashMap<OAuthProxy> correlations;
     private final Writer writer;
 
-    private final JsonWebSignature signature = new JsonWebSignature();
-
     public OAuthProxyFactory(
-        RouteManager router,
+        OAuthConfiguration config,
         MutableDirectBuffer writeBuffer,
         LongUnaryOperator supplyInitialId,
         LongSupplier supplyTrace,
@@ -107,8 +107,10 @@ public class OAuthProxyFactory implements StreamFactory
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> lookupKey,
         ToLongFunction<JsonWebSignature> lookupAuthorization,
-        SignalingExecutor executor)
+        SignalingExecutor executor,
+        RouteManager router)
     {
+        this.config = config;
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
         this.supplyInitialId = requireNonNull(supplyInitialId);
@@ -173,7 +175,7 @@ public class OAuthProxyFactory implements StreamFactory
             long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
-            long expiresAtMillis = expiresAtMillis(verified);
+            long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);

@@ -22,6 +22,7 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -87,7 +88,7 @@ public class OAuthRealms
         if(nextRealmBit < MAX_REALMS)
         {
             final OAuthRealm realm = realmsByName.computeIfAbsent(realmName, OAuthRealm::new);
-            authorization = realm.resolve(audienceName, issuerName, scopeNames);
+            authorization = realm.resolve(issuerName, audienceName, scopeNames);
         }
         return authorization;
     }
@@ -130,10 +131,12 @@ public class OAuthRealms
         long authorization)
     {
         final long realmId = authorization & REALM_MASK;
-        final OAuthRealm realm = realmsByName.values().stream()
-                                                         .filter(rs -> rs.unresolve(realmId))
-                                                         .findFirst().orElse(null);
-        realmsByName.values().removeIf(OAuthRealm::isEmpty);
+        final Collection<OAuthRealm> realms = realmsByName.values();
+        final OAuthRealm realm = realms.stream()
+                                       .filter(rs -> rs.unresolve(realmId))
+                                       .findFirst()
+                                       .orElse(null);
+        realms.removeIf(OAuthRealm::isEmpty);
         return Long.bitCount(realmId) <= 1 && realm != null;
     }
 
@@ -211,7 +214,7 @@ public class OAuthRealms
 
         private final String realmName;
 
-        private int nextScopeBit = 0;
+        private int nextScopeBit;
 
         private OAuthRealm(
             String realmName)
@@ -221,14 +224,18 @@ public class OAuthRealms
         }
 
         private long resolve(
-            String audienceName,
             String issuerName,
+            String audienceName,
             String[] scopeNames)
         {
             long authorization = NO_AUTHORIZATION;
+            assert nextRealmBit < MAX_REALMS;
             if (nextScopeBit + scopeNames.length < MAX_SCOPES)
             {
-                final OAuthRealmInfo realmInfo = computeInfoIfAbsent(issuerName, audienceName);
+                final OAuthRealmInfo realmInfo = realmInfos.stream()
+                                                           .filter(r -> r.containsClaims(issuerName, audienceName))
+                                                           .findFirst()
+                                                           .orElseGet(() -> newRealmInfo(issuerName, audienceName));
                 authorization = realmInfo.realmId;
                 for (int i = 0; i < scopeNames.length; i++)
                 {
@@ -243,14 +250,17 @@ public class OAuthRealms
             String audienceName,
             String[] scopeNames)
         {
-            final OAuthRealmInfo info = getInfoByFilter(issuerName, audienceName);
+            final OAuthRealmInfo realmInfo = realmInfos.stream()
+                                                       .filter(r -> r.containsClaims(issuerName, audienceName))
+                                                       .findFirst()
+                                                       .orElse(null);
             long authorization = NO_AUTHORIZATION;
-            if(info != null)
+            if(realmInfo != null)
             {
-                authorization = info.realmId;
+                authorization = realmInfo.realmId;
                 for (int i = 0; i < scopeNames.length; i++)
                 {
-                    authorization |= info.getOrDefault(scopeNames[i], 0L);
+                    authorization |= realmInfo.scopeBit(scopeNames[i]);
                 }
             }
             return authorization;
@@ -267,17 +277,6 @@ public class OAuthRealms
             return realmInfos.isEmpty();
         }
 
-        private OAuthRealmInfo computeInfoIfAbsent(
-            String issuerName,
-            String audienceName)
-        {
-            assert nextRealmBit < MAX_REALMS;
-            return realmInfos.stream()
-                             .filter(r -> r.containsClaims(issuerName, audienceName))
-                             .findFirst()
-                             .orElseGet(() -> newRealmInfo(issuerName, audienceName));
-        }
-
         private OAuthRealmInfo newRealmInfo(
             String issuerName,
             String audienceName)
@@ -286,15 +285,6 @@ public class OAuthRealms
                     new OAuthRealmInfo(1L << nextRealmBit++ << MAX_SCOPES, issuerName, audienceName);
             realmInfos.add(realmInfo);
             return realmInfo;
-        }
-
-        private OAuthRealmInfo getInfoByFilter(
-            String issuerName,
-            String audienceName)
-        {
-            return realmInfos.stream()
-                             .filter(r -> r.containsClaims(issuerName, audienceName))
-                             .findFirst().orElse(null);
         }
 
         @Override
@@ -320,11 +310,10 @@ public class OAuthRealms
                 this.requiredClaims = new Claims(issuerName, audienceName);
             }
 
-            private long getOrDefault(
-                String scopeName,
-                long defaultValue)
+            private long scopeBit(
+                String scopeName)
             {
-                return scopeBitsByName.getOrDefault(scopeName, defaultValue);
+                return scopeBitsByName.getOrDefault(scopeName, 0L);
             }
 
             private long supplyScopeBit(

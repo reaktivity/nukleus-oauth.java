@@ -41,7 +41,7 @@ final class OAuthNukleus implements Nukleus
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final ResolveFW resolveRO = new ResolveFW();
-    private final OAuthResolveExFW resolveROEx = new OAuthResolveExFW();
+    private final OAuthResolveExFW resolveExRO = new OAuthResolveExFW();
     private final ResolvedFW.Builder resolvedRW = new ResolvedFW.Builder();
     private final UnresolveFW unresolveRO = new UnresolveFW();
     private final UnresolvedFW.Builder unresolvedRW = new UnresolvedFW.Builder();
@@ -107,17 +107,19 @@ final class OAuthNukleus implements Nukleus
         String audience = null;
         if(resolve.extension().sizeof() > 0)
         {
-            final OAuthResolveExFW resolveExtension =
-                    resolveROEx.wrap(buffer, resolve.extension().offset(), resolve.extension().limit());
-            issuer = resolveExtension.issuer().asString();
-            audience = resolveExtension.audience().asString();
+            final OAuthResolveExFW resolveEx =
+                    resolveExRO.tryWrap(buffer, resolve.extension().offset(), resolve.extension().limit());
+            if(resolveEx != null)
+            {
+                issuer = resolveEx.issuer().asString();
+                audience = resolveEx.audience().asString();
+            }
         }
 
         final ListFW<StringFW> roles = resolve.roles();
         final List<String> collectedRoles = new LinkedList<>();
         roles.forEach(r -> collectedRoles.add(r.asString()));
         final long authorization = realms.resolve(realm, issuer, audience, collectedRoles.toArray(EMPTY_STRING_ARRAY));
-
         if (authorization != 0L)
         {
             final ResolvedFW resolved = resolvedRW.wrap(replyBuffer, 0, replyBuffer.capacity())

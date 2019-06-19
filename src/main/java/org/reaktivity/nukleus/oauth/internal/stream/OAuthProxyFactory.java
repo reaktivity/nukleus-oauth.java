@@ -481,8 +481,6 @@ public class OAuthProxyFactory implements StreamFactory
                     final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                     final NumericDate expirationTime = claims.getExpirationTime();
                     final NumericDate notBefore = claims.getNotBefore();
-                    // TODO: put issued at claim check here?
-                    // final NumericDate issuedAt = claims.getIssuedAt();
                     final long now = System.currentTimeMillis();
                     if ((expirationTime == null || now <= expirationTime.getValueInMillis()) &&
                         (notBefore == null || now >= notBefore.getValueInMillis()) &&

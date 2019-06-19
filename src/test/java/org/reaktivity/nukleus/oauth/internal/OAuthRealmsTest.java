@@ -142,7 +142,7 @@ public class OAuthRealmsTest
     }
 
     @Test
-    public void shouldFailTooManyUnresolvesOfKnownRealmAfterResolveWithSameKidButDifferentClaims() throws Exception
+    public void shouldFailTooManyUnresolves() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
         realms.resolve("realm one", "test issuer", "test audience", EMPTY_STRING_ARRAY);
@@ -178,7 +178,7 @@ public class OAuthRealmsTest
         }
         for (int i=0; i < Short.SIZE; i++)
         {
-            final JsonWebSignature signature = newSignedSignature("realm"+i, "RS256", payload, RFC7515_RS256);
+            final JsonWebSignature signature = newSignedSignature("realm" + i, "RS256", payload, RFC7515_RS256);
             assertTrue(realms.unresolve(realms.lookup(signature)));
         }
     }

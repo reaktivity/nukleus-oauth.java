@@ -59,7 +59,7 @@ public class OAuthController implements Controller
         ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
-        this.commandBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        this.commandBuffer = newUnsafeBuffer();
     }
 
     @Override
@@ -108,7 +108,7 @@ public class OAuthController implements Controller
         String[] roles)
     {
         long correlationId = controllerSpi.nextCorrelationId();
-        final UnsafeBuffer resolveExBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        final UnsafeBuffer resolveExBuffer = newUnsafeBuffer();
         OAuthResolveExFW resolveEx = resolveExRW.wrap(resolveExBuffer, 0, resolveExBuffer.capacity())
                 .issuer(issuerName)
                 .audience(audienceName)
@@ -181,6 +181,10 @@ public class OAuthController implements Controller
                                   .build();
 
         return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
+    }
+
+    private UnsafeBuffer newUnsafeBuffer() {
+        return new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
     }
 
     private CompletableFuture<Long> doRoute(

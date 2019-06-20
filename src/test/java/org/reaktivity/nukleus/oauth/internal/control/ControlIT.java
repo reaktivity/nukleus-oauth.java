@@ -99,6 +99,15 @@ public class ControlIT
 
     @Test
     @Specification({
+            "${resolve}/one.realm.with.issuer.and.audience/controller"
+    })
+    public void shouldResolveWithIssuerAndAudience() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/proxy/controller"
     })
     public void shouldRouteProxy() throws Exception

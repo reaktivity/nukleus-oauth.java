@@ -22,7 +22,9 @@ import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
+import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.Controller;
@@ -30,6 +32,7 @@ import org.reaktivity.nukleus.ControllerSpi;
 import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.FreezeFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.OAuthResolveExFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.Role;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
@@ -37,12 +40,15 @@ import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
 import org.reaktivity.nukleus.route.RouteKind;
 
+import javax.naming.event.ObjectChangeListener;
+
 public class OAuthController implements Controller
 {
     private static final int MAX_SEND_LENGTH = 1024; // TODO: Configuration and Context
 
     // TODO: thread-safe flyweights or command queue from public methods
     private final ResolveFW.Builder resolveRW = new ResolveFW.Builder();
+    private final OAuthResolveExFW.Builder resolveExRW = new OAuthResolveExFW.Builder();
     private final UnresolveFW.Builder unresolveRW = new UnresolveFW.Builder();
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final UnrouteFW.Builder unrouteRW = new UnrouteFW.Builder();
@@ -89,7 +95,6 @@ public class OAuthController implements Controller
         String... roles)
     {
         long correlationId = controllerSpi.nextCorrelationId();
-
         ResolveFW resolveRO = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                 .correlationId(correlationId)
                 .nukleus(name())
@@ -98,6 +103,37 @@ public class OAuthController implements Controller
                 .build();
 
         return controllerSpi.doResolve(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
+    }
+
+    // TODO: be able to get the extension to be read by doResolve(). does not seem to read extensions
+    //       extensions can be added successfully to the flyweights, BUT are not read by doResolve().
+    public CompletableFuture<Long> resolve(
+        String realmName,
+        String issuerName,
+        String audienceName,
+        String[] roles)
+    {
+        long correlationId = controllerSpi.nextCorrelationId();
+
+        OAuthResolveExFW resolveEx = resolveExRW.wrap(commandBuffer, 0, commandBuffer.capacity())
+                .issuer(issuerName)
+                .audience(audienceName)
+                .build();
+        System.out.println("resolveEx: " + resolveEx);
+
+        ResolveFW resolve = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
+                .correlationId(correlationId)
+                .nukleus(name())
+                .realm(realmName)
+                .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
+                .extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof())
+                .build();
+
+        System.out.println("resolveRO: " + resolve.toString());
+        System.out.println("resolveRO.extension().offset(): " + resolve.extension().offset());
+        System.out.println("resolveRO.extension().limit(): " + resolve.extension().limit());
+
+        return controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
     }
 
     public CompletableFuture<Void> unresolve(

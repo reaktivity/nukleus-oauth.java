@@ -41,6 +41,8 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ControllerIT
 {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
         .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/oauth/control/unresolve")
@@ -235,6 +237,22 @@ public class ControllerIT
             .resolve("RS256", "scope1", "scope2", "scope3")
             .get();
         assertEquals(0x0001_000000000007L, authorization);
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+            "${resolve}/one.realm.with.issuer.and.audience/nukleus"
+    })
+    public void shouldResolveWithIssuerAndAudience() throws Exception
+    {
+        k3po.start();
+
+        long authorization = reaktor.controller(OAuthController.class)
+                .resolve("RS256", "test issuer", "test audience", EMPTY_STRING_ARRAY)
+                .get();
+        assertEquals(0x0001_000000000000L, authorization);
 
         k3po.finish();
     }

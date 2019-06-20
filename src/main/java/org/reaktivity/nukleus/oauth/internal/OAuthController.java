@@ -22,9 +22,7 @@ import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
-import org.agrona.DirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.Controller;
@@ -39,8 +37,6 @@ import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
 import org.reaktivity.nukleus.route.RouteKind;
-
-import javax.naming.event.ObjectChangeListener;
 
 public class OAuthController implements Controller
 {
@@ -105,8 +101,6 @@ public class OAuthController implements Controller
         return controllerSpi.doResolve(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
     }
 
-    // TODO: be able to get the extension to be read by doResolve(). does not seem to read extensions
-    //       extensions can be added successfully to the flyweights, BUT are not read by doResolve().
     public CompletableFuture<Long> resolve(
         String realmName,
         String issuerName,
@@ -114,12 +108,11 @@ public class OAuthController implements Controller
         String[] roles)
     {
         long correlationId = controllerSpi.nextCorrelationId();
-
-        OAuthResolveExFW resolveEx = resolveExRW.wrap(commandBuffer, 0, commandBuffer.capacity())
+        final UnsafeBuffer resolveExBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        OAuthResolveExFW resolveEx = resolveExRW.wrap(resolveExBuffer, 0, resolveExBuffer.capacity())
                 .issuer(issuerName)
                 .audience(audienceName)
                 .build();
-        System.out.println("resolveEx: " + resolveEx);
 
         ResolveFW resolve = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
                 .correlationId(correlationId)
@@ -128,10 +121,6 @@ public class OAuthController implements Controller
                 .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
                 .extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof())
                 .build();
-
-        System.out.println("resolveRO: " + resolve.toString());
-        System.out.println("resolveRO.extension().offset(): " + resolve.extension().offset());
-        System.out.println("resolveRO.extension().limit(): " + resolve.extension().limit());
 
         return controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
     }

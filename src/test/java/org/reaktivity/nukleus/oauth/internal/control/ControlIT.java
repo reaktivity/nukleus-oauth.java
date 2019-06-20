@@ -99,9 +99,18 @@ public class ControlIT
 
     @Test
     @Specification({
-            "${resolve}/one.realm.with.issuer.and.audience/controller"
+        "${resolve}/one.realm.with.issuer.and.audience/controller"
     })
     public void shouldResolveWithIssuerAndAudience() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles.issuer.and.audience/controller"
+    })
+    public void shouldResolveWithRolesIssuerAndAudience() throws Exception
     {
         k3po.finish();
     }

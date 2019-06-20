@@ -243,7 +243,7 @@ public class ControllerIT
 
     @Test
     @Specification({
-            "${resolve}/one.realm.with.issuer.and.audience/nukleus"
+        "${resolve}/one.realm.with.issuer.and.audience/nukleus"
     })
     public void shouldResolveWithIssuerAndAudience() throws Exception
     {
@@ -253,6 +253,23 @@ public class ControllerIT
                 .resolve("RS256", "test issuer", "test audience", EMPTY_STRING_ARRAY)
                 .get();
         assertEquals(0x0001_000000000000L, authorization);
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles.issuer.and.audience/nukleus"
+    })
+    public void shouldResolveWithRolesIssuerAndAudience() throws Exception
+    {
+        k3po.start();
+
+        long authorization = reaktor.controller(OAuthController.class)
+                .resolve("RS256", "test issuer", "test audience",
+                        new String[]{"scope1", "scope2", "scope3"})
+                .get();
+        assertEquals(0x0001_000000000007L, authorization);
 
         k3po.finish();
     }

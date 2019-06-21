@@ -54,12 +54,14 @@ public class OAuthController implements Controller
 
     private final ControllerSpi controllerSpi;
     private final AtomicBuffer commandBuffer;
+    private final AtomicBuffer extensionBuffer;
 
     public OAuthController(
         ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
-        this.commandBuffer = newUnsafeBuffer();
+        this.commandBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        this.extensionBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
     }
 
     @Override
@@ -87,29 +89,20 @@ public class OAuthController implements Controller
     }
 
     public CompletableFuture<Long> resolve(
-        String realm,
-        String... roles)
+        String realmName,
+        String... roleNames)
     {
-        long correlationId = controllerSpi.nextCorrelationId();
-        ResolveFW resolveRO = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
-                .correlationId(correlationId)
-                .nukleus(name())
-                .realm(realm)
-                .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
-                .build();
-
-        return controllerSpi.doResolve(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
+        return resolve(realmName, roleNames, "", "");
     }
 
     public CompletableFuture<Long> resolve(
         String realmName,
+        String[] roleNames,
         String issuerName,
-        String audienceName,
-        String[] roles)
+        String audienceName)
     {
         long correlationId = controllerSpi.nextCorrelationId();
-        final UnsafeBuffer resolveExBuffer = newUnsafeBuffer();
-        OAuthResolveExFW resolveEx = resolveExRW.wrap(resolveExBuffer, 0, resolveExBuffer.capacity())
+        OAuthResolveExFW resolveEx = resolveExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                 .issuer(issuerName)
                 .audience(audienceName)
                 .build();
@@ -118,7 +111,7 @@ public class OAuthController implements Controller
                 .correlationId(correlationId)
                 .nukleus(name())
                 .realm(realmName)
-                .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
+                .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
                 .extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof())
                 .build();
 
@@ -181,10 +174,6 @@ public class OAuthController implements Controller
                                   .build();
 
         return controllerSpi.doFreeze(freeze.typeId(), freeze.buffer(), freeze.offset(), freeze.sizeof());
-    }
-
-    private UnsafeBuffer newUnsafeBuffer() {
-        return new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
     }
 
     private CompletableFuture<Long> doRoute(

@@ -92,7 +92,7 @@ public class OAuthController implements Controller
         String realmName,
         String... roleNames)
     {
-        return resolve(realmName, roleNames, "", "");
+        return resolve(realmName, roleNames, null, null);
     }
 
     public CompletableFuture<Long> resolve(
@@ -102,19 +102,20 @@ public class OAuthController implements Controller
         String audienceName)
     {
         long correlationId = controllerSpi.nextCorrelationId();
-        OAuthResolveExFW resolveEx = resolveExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
-                .issuer(issuerName)
-                .audience(audienceName)
-                .build();
-
-        ResolveFW resolve = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
-                .correlationId(correlationId)
-                .nukleus(name())
-                .realm(realmName)
-                .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
-                .extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof())
-                .build();
-
+        final ResolveFW.Builder resolveBuilder = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
+                                               .correlationId(correlationId)
+                                               .nukleus(name())
+                                               .realm(realmName)
+                                               .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))));
+        if (issuerName != null || audienceName != null)
+        {
+            final OAuthResolveExFW resolveEx = resolveExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                                                          .issuer(issuerName)
+                                                          .audience(audienceName)
+                                                          .build();
+            resolveBuilder.extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof());
+        }
+        final ResolveFW resolve = resolveBuilder.build();
         return controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
     }
 

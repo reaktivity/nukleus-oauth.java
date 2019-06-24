@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.jose4j.jwk.JsonWebKey;
@@ -96,7 +97,7 @@ public class OAuthRealms
     public long resolve(
         String realmName)
     {
-        return resolve(realmName, "", "", EMPTY_STRING_ARRAY);
+        return resolve(realmName, null, null, EMPTY_STRING_ARRAY);
     }
 
     public long lookup(
@@ -112,8 +113,8 @@ public class OAuthRealms
                 final Object issuerClaim = claims.getClaimValue(ReservedClaimNames.ISSUER);
                 final Object audienceClaim = claims.getClaimValue(ReservedClaimNames.AUDIENCE);
                 final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
-                final String issuerName = issuerClaim != null ? issuerClaim.toString() : "";
-                final String audienceName = audienceClaim != null ? audienceClaim.toString() : "";
+                final String issuerName = issuerClaim != null ? issuerClaim.toString() : null;
+                final String audienceName = audienceClaim != null ? audienceClaim.toString() : null;
                 final String[] scopeNames = scopeClaim != null ?
                         scopeClaim.toString().split("\\s+")
                         : EMPTY_STRING_ARRAY;
@@ -283,6 +284,8 @@ public class OAuthRealms
         {
             OAuthRealmInfo realmInfo =
                     new OAuthRealmInfo(1L << nextRealmBit++ << MAX_SCOPES, issuerName, audienceName);
+//                            issuerName != null && !issuerName.isEmpty() ? issuerName : null,
+//                            audienceName != null && !audienceName.isEmpty() ? audienceName : null);
             realmInfos.add(realmInfo);
             return realmInfo;
         }
@@ -360,7 +363,7 @@ public class OAuthRealms
                     String issuerName,
                     String audienceName)
                 {
-                    return this.issuerName.equals(issuerName) && this.audienceName.equals(audienceName);
+                    return Objects.equals(this.issuerName, issuerName) && Objects.equals(this.audienceName, audienceName);
                 }
 
                 @Override

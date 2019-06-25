@@ -28,10 +28,10 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.oauth.internal.types.ListFW;
 import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolveFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolvedFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolveFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolvedFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.ResolvedFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.UnresolvedFW;
 
 final class OAuthNukleus implements Nukleus
 {

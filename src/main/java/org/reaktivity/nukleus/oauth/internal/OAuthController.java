@@ -33,8 +33,8 @@ import org.reaktivity.nukleus.oauth.internal.types.control.FreezeFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.Role;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.ResolveFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.auth.UnresolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
 import org.reaktivity.nukleus.route.RouteKind;
 
 public class OAuthController implements Controller

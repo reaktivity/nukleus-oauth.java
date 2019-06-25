@@ -69,7 +69,8 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public StreamFactoryBuilder setTraceSupplier(LongSupplier supplyTrace)
+    public StreamFactoryBuilder setTraceSupplier(
+        LongSupplier supplyTrace)
     {
         this.supplyTrace = supplyTrace;
         return this;

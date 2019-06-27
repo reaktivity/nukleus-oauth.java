@@ -27,6 +27,7 @@ import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.reaktor.test.ReaktorRule;
+import org.reaktivity.reaktor.test.annotation.Configure;
 
 public class ControlIT
 {
@@ -40,12 +41,12 @@ public class ControlIT
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
-            .directory("target/nukleus-itests")
-            .commandBufferCapacity(4096)
-            .responseBufferCapacity(4096)
-            .counterValuesBufferCapacity(4096)
-            .nukleus("oauth"::equals)
-            .configure("oauth.keys", "keys/keys.jwk");
+        .directory("target/nukleus-itests")
+        .commandBufferCapacity(4096)
+        .responseBufferCapacity(4096)
+        .counterValuesBufferCapacity(4096)
+        .nukleus("oauth"::equals)
+        .configure("oauth.keys", "keys/keys.jwk");
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
@@ -63,6 +64,7 @@ public class ControlIT
     @Specification({
         "${resolve}/fails.too.many.realms/controller"
     })
+    @Configure(name = "oauth.keys", value = "keys/tooManyRealmKeys.jwk")
     public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
         k3po.finish();
@@ -91,6 +93,24 @@ public class ControlIT
         "${resolve}/with.roles/controller"
     })
     public void shouldResolveWithRoles() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/one.realm.with.issuer.and.audience/controller"
+    })
+    public void shouldResolveWithIssuerAndAudience() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles.issuer.and.audience/controller"
+    })
+    public void shouldResolveWithRolesIssuerAndAudience() throws Exception
     {
         k3po.finish();
     }

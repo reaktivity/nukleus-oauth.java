@@ -28,6 +28,7 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.oauth.internal.types.ListFW;
 import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.OAuthResolveExFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ResolvedFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
@@ -40,6 +41,7 @@ final class OAuthNukleus implements Nukleus
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private final ResolveFW resolveRO = new ResolveFW();
+    private final OAuthResolveExFW resolveExRO = new OAuthResolveExFW();
     private final ResolvedFW.Builder resolvedRW = new ResolvedFW.Builder();
     private final UnresolveFW unresolveRO = new UnresolveFW();
     private final UnresolvedFW.Builder unresolvedRW = new UnresolvedFW.Builder();
@@ -101,11 +103,23 @@ final class OAuthNukleus implements Nukleus
         final long correlationId = resolve.correlationId();
         final String realm = resolve.realm().asString();
 
+        String issuer = null;
+        String audience = null;
+        if(resolve.extension().sizeof() > 0)
+        {
+            final OAuthResolveExFW resolveEx =
+                    resolveExRO.tryWrap(buffer, resolve.extension().offset(), resolve.extension().limit());
+            if(resolveEx != null)
+            {
+                issuer = resolveEx.issuer().asString();
+                audience = resolveEx.audience().asString();
+            }
+        }
+
         final ListFW<StringFW> roles = resolve.roles();
         final List<String> collectedRoles = new LinkedList<>();
         roles.forEach(r -> collectedRoles.add(r.asString()));
-        final long authorization = realms.resolve(realm, collectedRoles.toArray(EMPTY_STRING_ARRAY));
-
+        final long authorization = realms.resolve(realm, issuer, audience, collectedRoles.toArray(EMPTY_STRING_ARRAY));
         if (authorization != 0L)
         {
             final ResolvedFW resolved = resolvedRW.wrap(replyBuffer, 0, replyBuffer.capacity())

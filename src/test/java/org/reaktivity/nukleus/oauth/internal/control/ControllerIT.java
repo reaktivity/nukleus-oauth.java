@@ -41,6 +41,8 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ControllerIT
 {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
         .addScriptRoot("unresolve", "org/reaktivity/specification/nukleus/oauth/control/unresolve")
@@ -93,92 +95,94 @@ public class ControllerIT
     })
     public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
+        thrown.expect(is(instanceOf(ExecutionException.class)));
+        thrown.expectCause(is(instanceOf(IllegalStateException.class)));
+
         k3po.start();
 
         long authorization1 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm1")
                 .get();
         assertEquals(0x0001_000000000000L, authorization1);
 
         long authorization2 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm2")
                 .get();
         assertEquals(0x0002_000000000000L, authorization2);
 
         long authorization3 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm3")
                 .get();
         assertEquals(0x0004_000000000000L, authorization3);
 
         long authorization4 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm4")
                 .get();
         assertEquals(0x0008_000000000000L, authorization4);
 
         long authorization5 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm5")
                 .get();
         assertEquals(0x0010_000000000000L, authorization5);
 
         long authorization6 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm6")
                 .get();
         assertEquals(0x0020_000000000000L, authorization6);
 
         long authorization7 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm7")
                 .get();
         assertEquals(0x0040_000000000000L, authorization7);
 
         long authorization8 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm8")
                 .get();
         assertEquals(0x0080_000000000000L, authorization8);
 
         long authorization9 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm9")
                 .get();
         assertEquals(0x0100_000000000000L, authorization9);
 
         long authorization10 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm10")
                 .get();
         assertEquals(0x0200_000000000000L, authorization10);
 
         long authorization11 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm11")
                 .get();
         assertEquals(0x0400_000000000000L, authorization11);
 
         long authorization12 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm12")
                 .get();
         assertEquals(0x0800_000000000000L, authorization12);
 
         long authorization13 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm13")
                 .get();
         assertEquals(0x1000_000000000000L, authorization13);
 
         long authorization14 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm14")
                 .get();
         assertEquals(0x2000_000000000000L, authorization14);
 
         long authorization15 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm15")
                 .get();
         assertEquals(0x4000_000000000000L, authorization15);
 
         long authorization16 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+                .resolve("realm16")
                 .get();
         assertEquals(-0x8000_000000000000L, authorization16);
 
-        long authorization17 = reaktor.controller(OAuthController.class)
-                .resolve("RS256")
+        long authorization17TooMany = reaktor.controller(OAuthController.class)
+                .resolve("realm17TooMany")
                 .get();
-        assertEquals(0x0000_000000000000L, authorization17);
 
         k3po.finish();
     }
@@ -231,6 +235,38 @@ public class ControllerIT
         long authorization = reaktor.controller(OAuthController.class)
             .resolve("RS256", "scope1", "scope2", "scope3")
             .get();
+        assertEquals(0x0001_000000000007L, authorization);
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/one.realm.with.issuer.and.audience/nukleus"
+    })
+    public void shouldResolveWithIssuerAndAudience() throws Exception
+    {
+        k3po.start();
+
+        long authorization = reaktor.controller(OAuthController.class)
+                .resolve("RS256", EMPTY_STRING_ARRAY, "test issuer", "test audience")
+                .get();
+        assertEquals(0x0001_000000000000L, authorization);
+
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${resolve}/with.roles.issuer.and.audience/nukleus"
+    })
+    public void shouldResolveWithRolesIssuerAndAudience() throws Exception
+    {
+        k3po.start();
+
+        long authorization = reaktor.controller(OAuthController.class)
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "test audience")
+                .get();
         assertEquals(0x0001_000000000007L, authorization);
 
         k3po.finish();

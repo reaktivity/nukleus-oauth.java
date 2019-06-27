@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-oauth</artifactId>
-  <version>0.37</version>
+  <version>0.38</version>
   <name>OAuth Nukleus Implementation</name>
   <description>OAuth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-oauth.java</url>
@@ -52,7 +52,7 @@
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>0.23</nukleus.oauth.spec.version>
+    <nukleus.oauth.spec.version>0.24</nukleus.oauth.spec.version>
     <reaktor.version>0.93</reaktor.version>
   </properties>
 
@@ -119,7 +119,7 @@
         <artifactId>nukleus-maven-plugin</artifactId>
         <version>${nukleus.plugin.version}</version>
         <configuration>
-          <scopeNames>core http</scopeNames>
+          <scopeNames>core http oauth</scopeNames>
           <packageName>org.reaktivity.nukleus.oauth.internal.types</packageName>
         </configuration>
         <executions>

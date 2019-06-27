@@ -30,6 +30,7 @@ import org.reaktivity.nukleus.ControllerSpi;
 import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.FreezeFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.OAuthResolveExFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.Role;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
@@ -43,6 +44,7 @@ public class OAuthController implements Controller
 
     // TODO: thread-safe flyweights or command queue from public methods
     private final ResolveFW.Builder resolveRW = new ResolveFW.Builder();
+    private final OAuthResolveExFW.Builder resolveExRW = new OAuthResolveExFW.Builder();
     private final UnresolveFW.Builder unresolveRW = new UnresolveFW.Builder();
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final UnrouteFW.Builder unrouteRW = new UnrouteFW.Builder();
@@ -52,12 +54,14 @@ public class OAuthController implements Controller
 
     private final ControllerSpi controllerSpi;
     private final AtomicBuffer commandBuffer;
+    private final AtomicBuffer extensionBuffer;
 
     public OAuthController(
         ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
         this.commandBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        this.extensionBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
     }
 
     @Override
@@ -85,19 +89,34 @@ public class OAuthController implements Controller
     }
 
     public CompletableFuture<Long> resolve(
-        String realm,
-        String... roles)
+        String realmName,
+        String... roleNames)
+    {
+        return resolve(realmName, roleNames, null, null);
+    }
+
+    public CompletableFuture<Long> resolve(
+        String realmName,
+        String[] roleNames,
+        String issuerName,
+        String audienceName)
     {
         long correlationId = controllerSpi.nextCorrelationId();
-
-        ResolveFW resolveRO = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
-                .correlationId(correlationId)
-                .nukleus(name())
-                .realm(realm)
-                .roles(b -> Arrays.asList(roles).forEach(s -> b.item(sb -> sb.set(s, UTF_8))))
-                .build();
-
-        return controllerSpi.doResolve(resolveRO.typeId(), resolveRO.buffer(), resolveRO.offset(), resolveRO.sizeof());
+        final ResolveFW.Builder resolveBuilder = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
+                                               .correlationId(correlationId)
+                                               .nukleus(name())
+                                               .realm(realmName)
+                                               .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))));
+        if (issuerName != null || audienceName != null)
+        {
+            final OAuthResolveExFW resolveEx = resolveExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                                                          .issuer(issuerName)
+                                                          .audience(audienceName)
+                                                          .build();
+            resolveBuilder.extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof());
+        }
+        final ResolveFW resolve = resolveBuilder.build();
+        return controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
     }
 
     public CompletableFuture<Void> unresolve(

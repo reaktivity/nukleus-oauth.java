@@ -89,12 +89,15 @@ public class ControllerIT
         k3po.finish();
     }
 
-    @Test(expected = ExecutionException.class)
+    @Test
     @Specification({
         "${resolve}/fails.too.many.realms/nukleus"
     })
     public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
+        thrown.expect(is(instanceOf(ExecutionException.class)));
+        thrown.expectCause(is(instanceOf(IllegalStateException.class)));
+
         k3po.start();
 
         long authorization1 = reaktor.controller(OAuthController.class)

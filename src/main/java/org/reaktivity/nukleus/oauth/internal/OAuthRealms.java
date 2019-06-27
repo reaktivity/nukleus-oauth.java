@@ -284,8 +284,6 @@ public class OAuthRealms
         {
             OAuthRealmInfo realmInfo =
                     new OAuthRealmInfo(1L << nextRealmBit++ << MAX_SCOPES, issuerName, audienceName);
-//                            issuerName != null && !issuerName.isEmpty() ? issuerName : null,
-//                            audienceName != null && !audienceName.isEmpty() ? audienceName : null);
             realmInfos.add(realmInfo);
             return realmInfo;
         }

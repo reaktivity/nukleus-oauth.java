@@ -89,16 +89,12 @@ public class ControllerIT
         k3po.finish();
     }
 
-    @Test
+    @Test(expected = ExecutionException.class)
     @Specification({
         "${resolve}/fails.too.many.realms/nukleus"
     })
     public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
-        thrown.expect(either(is(instanceOf(IllegalStateException.class)))
-                .or(is(instanceOf(ExecutionException.class))));
-        thrown.expectCause(either(nullValue(Exception.class)).or(is(instanceOf(IllegalStateException.class))));
-
         k3po.start();
 
         long authorization1 = reaktor.controller(OAuthController.class)
@@ -266,8 +262,7 @@ public class ControllerIT
         k3po.start();
 
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "test audience"
-                )
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "test audience")
                 .get();
         assertEquals(0x0001_000000000007L, authorization);
 

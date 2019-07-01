@@ -111,7 +111,6 @@ public class ControlIT
     @Specification({
         "${resolve}/with.roles.issuer.and.audience/controller"
     })
-    @Configure(name = AUTO_DISCOVER_REALMS_CONFIG_PREFIX, value = "true")
     public void shouldResolveWithRolesIssuerAndAudience() throws Exception
     {
         k3po.finish();

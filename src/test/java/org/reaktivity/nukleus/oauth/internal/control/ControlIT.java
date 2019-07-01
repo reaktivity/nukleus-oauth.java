@@ -16,8 +16,12 @@
 package org.reaktivity.nukleus.oauth.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertEquals;
 import static org.junit.rules.RuleChain.outerRule;
-import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS_CONFIG_PREFIX;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS_NAME;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,10 +51,22 @@ public class ControlIT
         .responseBufferCapacity(4096)
         .counterValuesBufferCapacity(4096)
         .nukleus("oauth"::equals)
-        .configure("nukleus.oauth.keys", "keys/keys.jwk");
+        .configure(KEYS.name(), "keys/keys.jwk");
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
+
+    @Test
+    public void shouldMatchKeysConfigName()
+    {
+        assertEquals(KEYS_NAME, KEYS.name());
+    }
+
+    @Test
+    public void shouldMatchAutoDiscoverRealmsConfigName()
+    {
+        assertEquals(AUTO_DISCOVER_REALMS_NAME, AUTO_DISCOVER_REALMS.name());
+    }
 
     @Test
     @Specification({
@@ -65,7 +81,7 @@ public class ControlIT
     @Specification({
         "${resolve}/fails.too.many.realms/controller"
     })
-    @Configure(name = "nukleus.oauth.keys", value = "keys/tooManyRealmKeys.jwk")
+    @Configure(name = KEYS_NAME, value = "keys/tooManyRealmKeys.jwk")
     public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
         k3po.finish();

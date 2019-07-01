@@ -55,9 +55,8 @@ final class OAuthNukleus implements Nukleus
         OAuthConfiguration config)
     {
         this.config = config;
-
         final Path keyFile = config.directory().resolve(name()).resolve(config.keyFileName());
-        final OAuthRealms realms = new OAuthRealms(keyFile);
+        final OAuthRealms realms = new OAuthRealms(keyFile, config.autoDiscoverRealms());
 
         final Int2ObjectHashMap<CommandHandler> commandHandlers = new Int2ObjectHashMap<>();
         commandHandlers.put(ResolveFW.TYPE_ID, this::onResolve);

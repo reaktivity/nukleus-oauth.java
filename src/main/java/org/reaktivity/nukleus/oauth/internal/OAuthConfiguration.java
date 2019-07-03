@@ -20,6 +20,9 @@ import org.reaktivity.nukleus.Configuration;
 public class OAuthConfiguration extends Configuration
 {
     public static final PropertyDef<String> KEYS;
+    public static final BooleanPropertyDef AUTO_DISCOVER_REALMS;
+    public static final String KEYS_NAME = "nukleus.oauth.keys";
+    public static final String AUTO_DISCOVER_REALMS_NAME = "nukleus.oauth.auto.discover.realms";
 
     private static final ConfigurationDef OAUTH_CONFIG;
     private static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
@@ -29,6 +32,7 @@ public class OAuthConfiguration extends Configuration
         final ConfigurationDef config = new ConfigurationDef("nukleus.oauth");
         KEYS = config.property("keys", "keys.jwk");
         EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
+        AUTO_DISCOVER_REALMS = config.property("auto.discover.realms", false);
         OAUTH_CONFIG = config;
     }
 
@@ -46,5 +50,10 @@ public class OAuthConfiguration extends Configuration
     public boolean expireInFlightRequests()
     {
         return EXPIRE_IN_FLIGHT_REQUESTS.getAsBoolean(this);
+    }
+
+    public boolean autoDiscoverRealms()
+    {
+        return AUTO_DISCOVER_REALMS.getAsBoolean(this);
     }
 }

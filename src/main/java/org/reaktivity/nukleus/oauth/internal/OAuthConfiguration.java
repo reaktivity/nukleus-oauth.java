@@ -19,13 +19,13 @@ import org.reaktivity.nukleus.Configuration;
 
 public class OAuthConfiguration extends Configuration
 {
-    public static final PropertyDef<String> KEYS;
-    public static final BooleanPropertyDef AUTO_DISCOVER_REALMS;
     public static final String KEYS_NAME = "nukleus.oauth.keys";
     public static final String AUTO_DISCOVER_REALMS_NAME = "nukleus.oauth.auto.discover.realms";
 
-    private static final ConfigurationDef OAUTH_CONFIG;
-    private static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
+    static final ConfigurationDef OAUTH_CONFIG;
+    static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
+    static final PropertyDef<String> KEYS;
+    static final BooleanPropertyDef AUTO_DISCOVER_REALMS;
 
     static
     {

@@ -23,7 +23,7 @@ import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISC
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
-public class OAuthConfigurationsTest
+public class OAuthConfigurationTest
 {
 
     @Test

@@ -17,6 +17,8 @@ package org.reaktivity.nukleus.oauth.internal.streams;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS_NAME;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import org.junit.Rule;
@@ -26,8 +28,8 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.reaktor.test.ReaktorRule;
+import org.reaktivity.reaktor.test.annotation.Configure;
 
 public class StreamsIT
 {
@@ -43,7 +45,7 @@ public class StreamsIT
             .responseBufferCapacity(4096)
             .counterValuesBufferCapacity(4096)
             .nukleus("oauth"::equals)
-            .configure(OAuthConfiguration.KEYS.name(), "keys/keys.jwk")
+            .configure(KEYS_NAME, "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
             .clean();
 
@@ -242,6 +244,18 @@ public class StreamsIT
         "${streams}/request.with.signed.jwt.rs256.forwarded/connect/server"
         })
     public void shouldForwardRequestWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/request.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.signed.jwt.rs256.forwarded/connect/server"
+        })
+    @Configure(name = AUTO_DISCOVER_REALMS_NAME, value = "true")
+    public void shouldForwardRequestWithValidJwtRS256OnSecuredRouteWithAutoDiscoveredRealm() throws Exception
     {
         k3po.finish();
     }

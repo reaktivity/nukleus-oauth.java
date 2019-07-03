@@ -18,10 +18,12 @@ package org.reaktivity.nukleus.oauth.internal;
 import java.nio.file.Path;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2ObjectHashMap;
+import org.jose4j.jwk.JsonWebKey;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -56,7 +58,13 @@ final class OAuthNukleus implements Nukleus
     {
         this.config = config;
         final Path keyFile = config.directory().resolve(name()).resolve(config.keyFileName());
-        final OAuthRealms realms = new OAuthRealms(keyFile, config.autoDiscoverRealms());
+        final Map<String, JsonWebKey> keysByKid = OAuthRealms.parseKeyMap(keyFile);
+        final OAuthRealms realms = new OAuthRealms(keysByKid);
+
+        if (config.autoDiscoverRealms())
+        {
+            keysByKid.keySet().forEach(realms::resolve);
+        }
 
         final Int2ObjectHashMap<CommandHandler> commandHandlers = new Int2ObjectHashMap<>();
         commandHandlers.put(ResolveFW.TYPE_ID, this::onResolve);

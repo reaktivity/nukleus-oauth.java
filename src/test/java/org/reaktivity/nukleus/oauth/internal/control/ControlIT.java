@@ -17,7 +17,6 @@ package org.reaktivity.nukleus.oauth.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
-import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
 import org.junit.Rule;
@@ -48,7 +47,7 @@ public class ControlIT
         .responseBufferCapacity(4096)
         .counterValuesBufferCapacity(4096)
         .nukleus("oauth"::equals)
-        .configure(KEYS.name(), "keys/keys.jwk");
+        .configure(KEYS_NAME, "keys/keys.jwk");
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);

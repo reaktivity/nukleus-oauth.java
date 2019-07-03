@@ -87,10 +87,7 @@ public class OAuthRealms
         this.keysByKid = keysByKid;
         if(autoDiscoverRealms)
         {
-            for (Map.Entry<String, JsonWebKey> keyValue : this.keysByKid.entrySet())
-            {
-                realmsByName.computeIfAbsent(keyValue.getKey(), OAuthRealm::new);
-            }
+            this.keysByKid.keySet().forEach(this::supplyRealm);
         }
     }
 
@@ -162,10 +159,17 @@ public class OAuthRealms
         return keysByKid.get(kid);
     }
 
+    private OAuthRealm supplyRealm(
+        String realmName)
+    {
+        return realmsByName.computeIfAbsent(realmName, OAuthRealm::new);
+    }
+
     private static Map<String, JsonWebKey> parseKeyMap(
         Path keyFile)
     {
         Map<String, JsonWebKey> keysByKid = Collections.emptyMap();
+
         if (Files.exists(keyFile))
         {
             try

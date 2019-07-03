@@ -62,18 +62,6 @@ public class OAuthRealms
     }
 
     public OAuthRealms(
-        Path keyFile)
-    {
-        this(parseKeyMap(keyFile));
-    }
-
-    public OAuthRealms(
-        String keysAsJwkSet)
-    {
-        this(toKeyMap(keysAsJwkSet));
-    }
-
-    private OAuthRealms(
         Map<String, JsonWebKey> keysByKid)
     {
         this.keysByKid = keysByKid;
@@ -147,7 +135,7 @@ public class OAuthRealms
         return keysByKid.get(kid);
     }
 
-    private static Map<String, JsonWebKey> parseKeyMap(
+    static Map<String, JsonWebKey> parseKeyMap(
         Path keyFile)
     {
         Map<String, JsonWebKey> keysByKid = Collections.emptyMap();

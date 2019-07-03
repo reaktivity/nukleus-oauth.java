@@ -17,6 +17,7 @@ package org.reaktivity.nukleus.oauth.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,7 +47,7 @@ public class ControlIT
         .responseBufferCapacity(4096)
         .counterValuesBufferCapacity(4096)
         .nukleus("oauth"::equals)
-        .configure("oauth.keys", "keys/keys.jwk");
+        .configure(KEYS_NAME, "keys/keys.jwk");
 
     @Rule
     public final TestRule chain = outerRule(k3po).around(timeout).around(reaktor);
@@ -64,7 +65,7 @@ public class ControlIT
     @Specification({
         "${resolve}/fails.too.many.realms/controller"
     })
-    @Configure(name = "oauth.keys", value = "keys/tooManyRealmKeys.jwk")
+    @Configure(name = KEYS_NAME, value = "keys/tooManyRealmKeys.jwk")
     public void shouldFailToResolveWithTooManyRealms() throws Exception
     {
         k3po.finish();

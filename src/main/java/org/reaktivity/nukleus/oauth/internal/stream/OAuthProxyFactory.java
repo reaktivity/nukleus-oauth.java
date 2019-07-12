@@ -20,6 +20,9 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -86,6 +89,8 @@ public class OAuthProxyFactory implements StreamFactory
     private final SignalFW signalRO = new SignalFW();
 
     private final JsonWebSignature signature = new JsonWebSignature();
+
+    private final Map<Long, IdentityHashMap<String, Authorization>> inFlightAuthorizations = new HashMap<>();
 
     private final OAuthConfiguration config;
     private final RouteManager router;
@@ -180,6 +185,13 @@ public class OAuthProxyFactory implements StreamFactory
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);
 
+            // TODO: extract necessary info
+            //       broadcast to everyone else
+            //       then add new streamIds from acceptInitialId so no braodcast to self
+            //       .
+            //       inFlightAuthorizations = <affinity, Map<subject, authorization(auth, expiresAt, refCount)>>
+
+
             correlations.put(connectReplyId, initialStream);
 
             writer.doBegin(connectInitial, connectRouteId, connectInitialId, traceId,
@@ -259,6 +271,35 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         return expiresAtMillis;
+    }
+
+    private final class Authorization
+    {
+        private long authorization;
+        private long expiresAt;
+        private int referenceCount;
+
+        private Authorization(
+            long authorization,
+            long expiresAt)
+        {
+            this.authorization = authorization;
+            this.expiresAt = expiresAt;
+            referenceCount++;
+        }
+
+        // TODO: inc/dec refCount based off of incoming/outgoing resp/req. if reach 0 refCount, then remove this auth from map
+        private void updateAuthorization(
+            long authorization)
+        {
+            this.authorization = authorization;
+        }
+
+        private void updateExpiresAt(
+            long expiresAt)
+        {
+            this.expiresAt = expiresAt;
+        }
     }
 
     final class OAuthProxy
@@ -402,6 +443,8 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
+        // TODO: TOKEN_REAUTHORIZED_SIGNAL
+        //       OAuthSignalEx: auth, expiresAt
         private void onSignal(
             SignalFW signal)
         {

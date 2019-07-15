@@ -18,6 +18,8 @@ package org.reaktivity.nukleus.oauth.internal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableMap;
 import static org.agrona.LangUtil.rethrowUnchecked;
+import static org.jose4j.jwt.ReservedClaimNames.AUDIENCE;
+import static org.jose4j.jwt.ReservedClaimNames.ISSUER;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,7 +36,6 @@ import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jwk.JsonWebKeySet;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
-import org.jose4j.jwt.ReservedClaimNames;
 import org.jose4j.jwt.consumer.InvalidJwtException;
 import org.jose4j.lang.JoseException;
 import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
@@ -98,15 +99,15 @@ public class OAuthRealms
             try
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                final Object issuerClaim = claims.getClaimValue(ReservedClaimNames.ISSUER);
-                final Object audienceClaim = claims.getClaimValue(ReservedClaimNames.AUDIENCE);
+                final Object issuerClaim = claims.getClaimValue(ISSUER);
+                final Object audienceClaim = claims.getClaimValue(AUDIENCE);
                 final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : null;
-                final String audienceName = audienceClaim != null ? audienceClaim.toString() : null;
+                final String[] audienceNames = audienceClaim != null ? audienceClaim.toString().split("\\s+") : null;
                 final String[] scopeNames = scopeClaim != null ?
                         scopeClaim.toString().split("\\s+")
                         : EMPTY_STRING_ARRAY;
-                authorization = realm.lookup(issuerName, audienceName, scopeNames);
+                authorization = realm.lookup(issuerName, audienceNames, scopeNames);
             }
             catch (JoseException | InvalidJwtException e)
             {
@@ -236,11 +237,11 @@ public class OAuthRealms
 
         private long lookup(
             String issuerName,
-            String audienceName,
+            String[] audienceNames,
             String[] scopeNames)
         {
             final OAuthRealmInfo realmInfo = realmInfos.stream()
-                                                       .filter(r -> r.containsClaims(issuerName, audienceName))
+                                                       .filter(r -> r.containsClaims(issuerName, audienceNames))
                                                        .findFirst()
                                                        .orElse(null);
             long authorization = NO_AUTHORIZATION;
@@ -313,9 +314,9 @@ public class OAuthRealms
 
             private boolean containsClaims(
                 String issuerName,
-                String audienceName)
+                String... audienceNames)
             {
-                return requiredClaims.containsClaims(issuerName, audienceName);
+                return requiredClaims.containsClaims(issuerName, audienceNames);
             }
 
             private long assignScopeBit(
@@ -347,9 +348,32 @@ public class OAuthRealms
 
                 private boolean containsClaims(
                     String issuerName,
-                    String audienceName)
+                    String[] audienceNames)
                 {
-                    return Objects.equals(this.issuerName, issuerName) && Objects.equals(this.audienceName, audienceName);
+                    return (this.issuerName == null || Objects.equals(this.issuerName, issuerName)) &&
+                            (this.audienceName == null || (audienceNames != null && containsThisAudienceName(audienceNames)));
+                }
+
+                private boolean containsThisAudienceName(
+                    String[] audienceNames)
+                {
+                    final int index = indexOfThisAudienceName(audienceNames);
+                    return index >= 0 && audienceNames[indexOfThisAudienceName(audienceNames)].equals(this.audienceName);
+                }
+
+                private int indexOfThisAudienceName(
+                    String[] audienceNames)
+                {
+                    int index = -1;
+                    for(int i = 0; i < audienceNames.length; i++)
+                    {
+                        if(audienceNames[i].equals(this.audienceName))
+                        {
+                            index = i;
+                            break;
+                        }
+                    }
+                    return index;
                 }
 
                 @Override

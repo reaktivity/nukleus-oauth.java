@@ -24,7 +24,6 @@ import static org.jose4j.jwt.ReservedClaimNames.ISSUER;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -366,7 +365,7 @@ public class OAuthRealms
                     String[] audienceNames)
                 {
                     int index = -1;
-                    for(int i = 0 ; i < audienceNames.length; i++)
+                    for(int i = 0; i < audienceNames.length; i++)
                     {
                         if(audienceNames[i].equals(this.audienceName))
                         {

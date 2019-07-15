@@ -91,8 +91,6 @@ public class OAuthProxyFactory implements StreamFactory
 
     private final JsonWebSignature signature = new JsonWebSignature();
 
-    private final Map<Long, IdentityHashMap<String, AuthorizationState>>[] inFlightAuthorizationsByRealm = new HashMap[16];
-
     private final OAuthConfiguration config;
     private final RouteManager router;
     private final LongUnaryOperator supplyInitialId;
@@ -153,19 +151,6 @@ public class OAuthProxyFactory implements StreamFactory
         return newStream;
     }
 
-//    private void incrementInFlightAuthorizationRefCount(
-//        int realmId,
-//        long groupId,
-//        String subject,
-//        long authorization,
-//        long expiresAt)
-//    {
-//        inFlightAuthorizationsByRealm[realmId]
-//                                     .computeIfAbsent(groupId, g -> new IdentityHashMap<>())
-//                                     .computeIfAbsent(subject.intern(), s -> new AuthorizationState(authorization, expiresAt))
-//                                     .incrementReferenceCount();
-//    }
-
     private MessageConsumer newInitialStream(
         final BeginFW begin,
         final MessageConsumer acceptReply)
@@ -198,15 +183,6 @@ public class OAuthProxyFactory implements StreamFactory
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);
-
-//            long realmId = connectAuthorization & REALM_MASK;
-
-            // TODO: extract necessary info
-            //       broadcast to everyone else
-            //       then add new streamIds from acceptInitialId so no braodcast to self
-            //       .
-            //       inFlightAuthorizations = <affinity, Map<subject, authorization(auth, expiresAt, refCount)>>[16]
-
 
             correlations.put(connectReplyId, initialStream);
 
@@ -287,54 +263,6 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         return expiresAtMillis;
-    }
-
-    private final class AuthorizationState
-    {
-        private long authorization;
-        private long expiresAt;
-        private int referenceCount;
-
-        private AuthorizationState(
-            long authorization,
-            long expiresAt)
-        {
-            this.authorization = authorization;
-            this.expiresAt = expiresAt;
-        }
-
-        // TODO: inc/dec refCount based off of incoming/outgoing resp/req. if reach 0 refCount, then remove this auth from map
-        private int getReferenceCount()
-        {
-            return referenceCount;
-        }
-
-        private void updateAuthorization(
-            long authorization)
-        {
-            this.authorization = authorization;
-        }
-
-        private void updateExpiresAt(
-            long expiresAt)
-        {
-            this.expiresAt = expiresAt;
-        }
-
-        private void incrementReferenceCount()
-        {
-            referenceCount++;
-        }
-
-        private void decrementReferenceCount()
-        {
-            referenceCount--;
-        }
-
-        private void cleanup()
-        {
-
-        }
     }
 
     final class OAuthProxy
@@ -478,8 +406,6 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
-        // TODO: TOKEN_REAUTHORIZED_SIGNAL
-        //       OAuthSignalEx: auth, expiresAt
         private void onSignal(
             SignalFW signal)
         {

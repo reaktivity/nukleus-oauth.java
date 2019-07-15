@@ -88,6 +88,19 @@ public class OAuthController implements Controller
         return OAuthNukleus.NAME;
     }
 
+//    public CompletableFuture<Long> resolve(
+//            String realmName)
+//    {
+//        return resolve(realmName, null, null, null);
+//    }
+//
+//    public CompletableFuture<Long> resolve(
+//            String realmName,
+//            String[] roleNames)
+//    {
+//        return resolve(realmName, roleNames, null, null);
+//    }
+
     public CompletableFuture<Long> resolve(
         String realmName,
         String... roleNames)

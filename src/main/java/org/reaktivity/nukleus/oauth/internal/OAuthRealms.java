@@ -22,6 +22,7 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -102,11 +103,11 @@ public class OAuthRealms
                 final Object audienceClaim = claims.getClaimValue(ReservedClaimNames.AUDIENCE);
                 final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : null;
-                final String audienceName = audienceClaim != null ? audienceClaim.toString() : null;
+                final String[] audienceNames = audienceClaim != null ? audienceClaim.toString().split("\\s+") : null;
                 final String[] scopeNames = scopeClaim != null ?
                         scopeClaim.toString().split("\\s+")
                         : EMPTY_STRING_ARRAY;
-                authorization = realm.lookup(issuerName, audienceName, scopeNames);
+                authorization = realm.lookup(issuerName, audienceNames, scopeNames);
             }
             catch (JoseException | InvalidJwtException e)
             {
@@ -236,11 +237,11 @@ public class OAuthRealms
 
         private long lookup(
             String issuerName,
-            String audienceName,
+            String[] audienceNames,
             String[] scopeNames)
         {
             final OAuthRealmInfo realmInfo = realmInfos.stream()
-                                                       .filter(r -> r.containsClaims(issuerName, audienceName))
+                                                       .filter(r -> r.containsClaims(issuerName, audienceNames))
                                                        .findFirst()
                                                        .orElse(null);
             long authorization = NO_AUTHORIZATION;
@@ -313,9 +314,9 @@ public class OAuthRealms
 
             private boolean containsClaims(
                 String issuerName,
-                String audienceName)
+                String... audienceNames)
             {
-                return requiredClaims.containsClaims(issuerName, audienceName);
+                return requiredClaims.containsClaims(issuerName, audienceNames);
             }
 
             private long assignScopeBit(
@@ -347,9 +348,13 @@ public class OAuthRealms
 
                 private boolean containsClaims(
                     String issuerName,
-                    String audienceName)
+                    String[] audienceNames)
                 {
-                    return Objects.equals(this.issuerName, issuerName) && Objects.equals(this.audienceName, audienceName);
+
+                    return Objects.equals(this.issuerName, issuerName)
+                            && audienceNames != null ? Arrays.asList(audienceNames).contains(this.audienceName)
+                            // TODO: NOT AS NULL
+                            : Objects.equals(this.audienceName, null);
                 }
 
                 @Override

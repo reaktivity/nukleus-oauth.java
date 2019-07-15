@@ -232,7 +232,7 @@ public class StreamsIT
         "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/connect/server"
     })
-    public void shouldForwardRequestWithATokenWithIssuerOrAudienceWithoutThmeOnSecuredRoute() throws Exception
+    public void shouldForwardRequestWithATokenWithIssuerOrAudienceWithoutSpecifiedClaimsOnTheSecuredRoute() throws Exception
     {
         k3po.finish();
     }

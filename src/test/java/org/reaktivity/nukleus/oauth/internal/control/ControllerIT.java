@@ -79,11 +79,11 @@ public class ControllerIT
 
         reaktor.controller(OAuthController.class)
           .resolve("RS256",
-                  "role1", "role2", "role3", "role4", "role5", "role6", "role7", "role8", "role9", "role10",
+                  new String[]{"role1", "role2", "role3", "role4", "role5", "role6", "role7", "role8", "role9", "role10",
                   "role11", "role12", "role13", "role14", "role15", "role16", "role17", "role18", "role19", "role20",
                   "role21", "role22", "role23", "role24", "role25", "role26", "role27", "role28", "role29", "role30",
                   "role31", "role32", "role33", "role34", "role35", "role36", "role37", "role38", "role39", "role40",
-                  "role41", "role42", "role43", "role44", "role45", "role46", "role47", "role48", "role49TooMany")
+                  "role41", "role42", "role43", "role44", "role45", "role46", "role47", "role48", "role49TooMany"})
           .get();
 
         k3po.finish();
@@ -233,7 +233,7 @@ public class ControllerIT
         k3po.start();
 
         long authorization = reaktor.controller(OAuthController.class)
-            .resolve("RS256", "scope1", "scope2", "scope3")
+            .resolve("RS256", new String[]{"scope1", "scope2", "scope3"})
             .get();
         assertEquals(0x0001_000000000007L, authorization);
 
@@ -249,7 +249,7 @@ public class ControllerIT
         k3po.start();
 
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", EMPTY_STRING_ARRAY, "test issuer", "test audience")
+                .resolve("RS256", EMPTY_STRING_ARRAY, "test issuer", "testAudience")
                 .get();
         assertEquals(0x0001_000000000000L, authorization);
 
@@ -265,7 +265,7 @@ public class ControllerIT
         k3po.start();
 
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "test audience")
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "testAudience")
                 .get();
         assertEquals(0x0001_000000000007L, authorization);
 
@@ -388,7 +388,7 @@ public class ControllerIT
         k3po.start();
 
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", "scope1", "scope2", "scope3")
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"})
                 .get();
         assertEquals(0x0001_000000000007L, authorization);
 

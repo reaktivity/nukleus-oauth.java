@@ -228,6 +228,17 @@ public class StreamsIT
 
     @Test
     @Specification({
+        "${route}/resolve.one.realm.with.set.roles.then.route.proxy/controller",
+        "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/connect/server"
+    })
+    public void shouldForwardRequestWithATokenWithIssuerOrAudienceWithoutThmeOnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/resolve.one.realm.with.set.roles.and.audience.and.no.issuer.then.route.proxy/controller",
         "${streams}/request.with.scopes.and.audience.and.no.issuer.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.and.audience.and.no.issuer.with.signed.jwt.rs256.forwarded/connect/server"
@@ -245,6 +256,17 @@ public class StreamsIT
     })
     public void shouldForwardRequestWithSetScopesAndMultipleAudiencesWithNoIssuerWithValidJwtRS256OnSecuredRoute()
     throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.issuer.and.audience.expect.no.authorization.then.route.proxy/controller",
+        "${streams}/request.without.issuer.and.audience.with.signed.jwt.rs256.forwarded/accept/client",
+        "${streams}/request.without.issuer.and.audience.with.signed.jwt.rs256.forwarded/connect/server"
+    })
+    public void shouldForwardRequestWithoutIssuerOrAudienceWithValidJwtRS256OnSecuredRoute() throws Exception
     {
         k3po.finish();
     }

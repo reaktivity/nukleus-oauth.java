@@ -351,26 +351,29 @@ public class OAuthRealms
                     String[] audienceNames)
                 {
                     return (this.issuerName == null || Objects.equals(this.issuerName, issuerName)) &&
-                            (this.audienceName == null || (audienceNames != null && containsThisAudienceName(audienceNames)));
+                            (this.audienceName == null || containsThisAudienceName(audienceNames));
                 }
 
                 private boolean containsThisAudienceName(
                     String[] audienceNames)
                 {
                     final int index = indexOfThisAudienceName(audienceNames);
-                    return index >= 0 && audienceNames[indexOfThisAudienceName(audienceNames)].equals(this.audienceName);
+                    return index >= 0 && audienceNames[index].equals(this.audienceName);
                 }
 
                 private int indexOfThisAudienceName(
                     String[] audienceNames)
                 {
                     int index = -1;
-                    for(int i = 0; i < audienceNames.length; i++)
+                    if(audienceNames != null)
                     {
-                        if(audienceNames[i].equals(this.audienceName))
+                        for (int i = 0; i < audienceNames.length; i++)
                         {
-                            index = i;
-                            break;
+                            if (audienceNames[i].equals(this.audienceName))
+                            {
+                                index = i;
+                                break;
+                            }
                         }
                     }
                     return index;

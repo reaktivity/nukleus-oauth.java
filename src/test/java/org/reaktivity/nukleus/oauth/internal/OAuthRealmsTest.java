@@ -70,6 +70,47 @@ public class OAuthRealmsTest
     }
 
     @Test
+    public void shouldResolveKnownRealmWithUnspecifiedIssuerAndAudience() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one");
+        realms.resolve("realm two");
+
+        JwtClaims claims1 = new JwtClaims();
+        claims1.setClaim("iss", "test issuer1");
+        claims1.setClaim("aud", "testAudience1");
+        String payload1 = claims1.toJson();
+
+        JwtClaims claims2 = new JwtClaims();
+        claims2.setClaim("iss", "test issuer2");
+        claims2.setClaim("aud", "testAudience2");
+        String payload2 = claims1.toJson();
+
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", payload1, RFC7515_RS256);
+        final JsonWebSignature signatureTwo = newSignedSignature("realm two", "ES256", payload2, RFC7515_ES256);
+
+        assertEquals(0x0001_000000000000L, realms.lookup(signatureOne));
+        assertEquals(0x0002_000000000000L, realms.lookup(signatureTwo));
+    }
+
+    @Test
+    public void shouldFailResolveKnownRealmWithTokenWithUnspecifiedIssuerAndAudience() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one", "test issuer1", "testAudience1", EMPTY_STRING_ARRAY);
+        realms.resolve("realm two", "test issuer2", "testAudience2", EMPTY_STRING_ARRAY);
+
+        JwtClaims claims = new JwtClaims();
+        String emptyPayload = claims.toJson();
+
+        final JsonWebSignature signatureOne = newSignedSignature("realm one", "RS256", emptyPayload, RFC7515_RS256);
+        final JsonWebSignature signatureTwo = newSignedSignature("realm two", "ES256", emptyPayload, RFC7515_ES256);
+
+        assertEquals(0x0000_000000000000L, realms.lookup(signatureOne));
+        assertEquals(0x0000_000000000000L, realms.lookup(signatureTwo));
+    }
+
+    @Test
     public void shouldResolveKnownRealmWithDifferentKidAndDifferentClaims() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();

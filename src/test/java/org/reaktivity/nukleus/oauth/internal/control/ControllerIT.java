@@ -27,7 +27,6 @@ import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
-import org.jose4j.jwt.JwtClaims;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
@@ -40,9 +39,14 @@ import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.nukleus.oauth.internal.OAuthController;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
 public class ControllerIT
 {
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
+    private final Gson gson = new Gson();
 
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
@@ -249,13 +253,13 @@ public class ControllerIT
     {
         k3po.start();
 
-        JwtClaims claims = new JwtClaims();
-        claims.setClaim("issuer", "test issuer");
-        claims.setClaim("audience", "testAudience");
-        String payload = claims.toJson();
+        JsonObject object = new JsonObject();
+        putValueIntoJsonObject(object, "issuer", "test issuer");
+        putValueIntoJsonObject(object, "audience", "testAudience");
+        String extension = object.toString();
 
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", EMPTY_STRING_ARRAY, payload)
+                .resolve("RS256", EMPTY_STRING_ARRAY, extension)
                 .get();
         assertEquals(0x0001_000000000000L, authorization);
 
@@ -270,13 +274,13 @@ public class ControllerIT
     {
         k3po.start();
 
-        JwtClaims claims = new JwtClaims();
-        claims.setClaim("issuer", "test issuer");
-        claims.setClaim("audience", "testAudience");
-        String payload = claims.toJson();
+        JsonObject object = new JsonObject();
+        putValueIntoJsonObject(object, "issuer", "test issuer");
+        putValueIntoJsonObject(object, "audience", "testAudience");
+        String extension = object.toString();
 
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, payload)
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, extension)
                 .get();
         assertEquals(0x0001_000000000007L, authorization);
 
@@ -468,5 +472,13 @@ public class ControllerIT
                .get();
 
         k3po.finish();
+    }
+
+    private void putValueIntoJsonObject(
+        JsonObject object,
+        String key,
+        String value)
+    {
+        object.add(key, gson.toJsonTree(value));
     }
 }

@@ -253,10 +253,10 @@ public class ControllerIT
     {
         k3po.start();
 
-        JsonObject object = new JsonObject();
-        putValueIntoJsonObject(object, "issuer", "test issuer");
-        putValueIntoJsonObject(object, "audience", "testAudience");
-        String extension = object.toString();
+        final JsonObject object = new JsonObject();
+        object.addProperty("issuer", "test issuer");
+        object.addProperty("audience", "testAudience");
+        final String extension = object.toString();
 
         long authorization = reaktor.controller(OAuthController.class)
                 .resolve("RS256", EMPTY_STRING_ARRAY, extension)
@@ -274,10 +274,10 @@ public class ControllerIT
     {
         k3po.start();
 
-        JsonObject object = new JsonObject();
-        putValueIntoJsonObject(object, "issuer", "test issuer");
-        putValueIntoJsonObject(object, "audience", "testAudience");
-        String extension = object.toString();
+        final JsonObject object = new JsonObject();
+        object.addProperty("issuer", "test issuer");
+        object.addProperty("audience", "testAudience");
+        final String extension = object.toString();
 
         long authorization = reaktor.controller(OAuthController.class)
                 .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, extension)
@@ -472,13 +472,5 @@ public class ControllerIT
                .get();
 
         k3po.finish();
-    }
-
-    private void putValueIntoJsonObject(
-        JsonObject object,
-        String key,
-        String value)
-    {
-        object.add(key, gson.toJsonTree(value));
     }
 }

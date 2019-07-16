@@ -18,8 +18,6 @@ package org.reaktivity.nukleus.oauth.internal;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.jose4j.jwt.ReservedClaimNames.AUDIENCE;
-import static org.jose4j.jwt.ReservedClaimNames.ISSUER;
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Arrays;
@@ -119,7 +117,7 @@ public class OAuthController implements Controller
         String extension)
     {
         String issuerName = null;
-        String audienceNames = null;
+        String audienceName = null;
         if(extension != null)
         {
             final JsonParser parser = new JsonParser();
@@ -127,8 +125,8 @@ public class OAuthController implements Controller
             if(element.isJsonObject())
             {
                 final JsonObject object = (JsonObject) element;
-                issuerName = gson.fromJson(object.get(ISSUER), String.class);
-                audienceNames = gson.fromJson(object.get(AUDIENCE), String.class);
+                issuerName = gson.fromJson(object.get("issuer"), String.class);
+                audienceName = gson.fromJson(object.get("audience"), String.class);
             }
         }
 
@@ -138,16 +136,16 @@ public class OAuthController implements Controller
                 .nukleus(name())
                 .realm(realmName)
                 .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))));
-        if (issuerName != null || audienceNames != null)
+        if (issuerName != null || audienceName != null)
         {
             final OAuthResolveExFW resolveEx = resolveExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .issuer(issuerName)
-                    .audience(audienceNames)
+                    .audience(audienceName)
                     .build();
             resolveBuilder.extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof());
         }
         final ResolveFW resolve = resolveBuilder.build();
-        return  controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
+        return controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
     }
 
     public CompletableFuture<Void> unresolve(

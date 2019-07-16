@@ -250,8 +250,8 @@ public class ControllerIT
         k3po.start();
 
         JwtClaims claims = new JwtClaims();
-        claims.setClaim("iss", "test issuer");
-        claims.setClaim("aud", "testAudience");
+        claims.setClaim("issuer", "test issuer");
+        claims.setClaim("audience", "testAudience");
         String payload = claims.toJson();
 
         long authorization = reaktor.controller(OAuthController.class)
@@ -271,8 +271,8 @@ public class ControllerIT
         k3po.start();
 
         JwtClaims claims = new JwtClaims();
-        claims.setClaim("iss", "test issuer");
-        claims.setClaim("aud", "testAudience");
+        claims.setClaim("issuer", "test issuer");
+        claims.setClaim("audience", "testAudience");
         String payload = claims.toJson();
 
         long authorization = reaktor.controller(OAuthController.class)

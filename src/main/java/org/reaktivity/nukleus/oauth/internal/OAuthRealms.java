@@ -358,7 +358,7 @@ public class OAuthRealms
                     String[] audienceNames)
                 {
                     final int index = indexOfThisAudienceName(audienceNames);
-                    return index >= 0 && audienceNames[indexOfThisAudienceName(audienceNames)].equals(this.audienceName);
+                    return index >= 0 && audienceNames[index].equals(this.audienceName);
                 }
 
                 private int indexOfThisAudienceName(

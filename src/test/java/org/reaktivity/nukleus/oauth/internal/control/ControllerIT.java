@@ -39,9 +39,14 @@ import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.nukleus.oauth.internal.OAuthController;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
 public class ControllerIT
 {
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
+    private final Gson gson = new Gson();
 
     private final K3poRule k3po = new K3poRule()
         .addScriptRoot("resolve", "org/reaktivity/specification/nukleus/oauth/control/resolve")
@@ -248,8 +253,12 @@ public class ControllerIT
     {
         k3po.start();
 
+        final JsonObject extension = new JsonObject();
+        extension.addProperty("issuer", "test issuer");
+        extension.addProperty("audience", "testAudience");
+
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", EMPTY_STRING_ARRAY, "test issuer", "testAudience")
+                .resolve("RS256", EMPTY_STRING_ARRAY, gson.toJson(extension))
                 .get();
         assertEquals(0x0001_000000000000L, authorization);
 
@@ -264,8 +273,12 @@ public class ControllerIT
     {
         k3po.start();
 
+        final JsonObject extension = new JsonObject();
+        extension.addProperty("issuer", "test issuer");
+        extension.addProperty("audience", "testAudience");
+
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "testAudience")
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, gson.toJson(extension))
                 .get();
         assertEquals(0x0001_000000000007L, authorization);
 

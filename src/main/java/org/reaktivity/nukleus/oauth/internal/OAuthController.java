@@ -18,6 +18,8 @@ package org.reaktivity.nukleus.oauth.internal;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.jose4j.jwt.ReservedClaimNames.AUDIENCE;
+import static org.jose4j.jwt.ReservedClaimNames.ISSUER;
 import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 
 import java.util.Arrays;
@@ -38,9 +40,16 @@ import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
 import org.reaktivity.nukleus.route.RouteKind;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 public class OAuthController implements Controller
 {
     private static final int MAX_SEND_LENGTH = 1024; // TODO: Configuration and Context
+
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     // TODO: thread-safe flyweights or command queue from public methods
     private final ResolveFW.Builder resolveRW = new ResolveFW.Builder();
@@ -56,12 +65,15 @@ public class OAuthController implements Controller
     private final AtomicBuffer commandBuffer;
     private final AtomicBuffer extensionBuffer;
 
+    private final Gson gson;
+
     public OAuthController(
         ControllerSpi controllerSpi)
     {
         this.controllerSpi = controllerSpi;
         this.commandBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
         this.extensionBuffer = new UnsafeBuffer(allocateDirect(MAX_SEND_LENGTH).order(nativeOrder()));
+        gson = new Gson();
     }
 
     @Override
@@ -89,34 +101,53 @@ public class OAuthController implements Controller
     }
 
     public CompletableFuture<Long> resolve(
-        String realmName,
-        String... roleNames)
+        String realmName)
     {
-        return resolve(realmName, roleNames, null, null);
+        return resolve(realmName, EMPTY_STRING_ARRAY, null);
+    }
+
+    public CompletableFuture<Long> resolve(
+        String realmName,
+        String[] roleNames)
+    {
+        return resolve(realmName, roleNames, null);
     }
 
     public CompletableFuture<Long> resolve(
         String realmName,
         String[] roleNames,
-        String issuerName,
-        String audienceName)
+        String extension)
     {
+        String issuerName = null;
+        String audienceNames = null;
+        if(extension != null)
+        {
+            final JsonParser parser = new JsonParser();
+            final JsonElement element = parser.parse(extension);
+            if(element.isJsonObject())
+            {
+                final JsonObject object = (JsonObject) element;
+                issuerName = gson.fromJson(object.get(ISSUER), String.class);
+                audienceNames = gson.fromJson(object.get(AUDIENCE), String.class);
+            }
+        }
+
         long correlationId = controllerSpi.nextCorrelationId();
         final ResolveFW.Builder resolveBuilder = resolveRW.wrap(commandBuffer, 0, commandBuffer.capacity())
-                                               .correlationId(correlationId)
-                                               .nukleus(name())
-                                               .realm(realmName)
-                                               .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))));
-        if (issuerName != null || audienceName != null)
+                .correlationId(correlationId)
+                .nukleus(name())
+                .realm(realmName)
+                .roles(b -> Arrays.asList(roleNames).forEach(s -> b.item(sb -> sb.set(s, UTF_8))));
+        if (issuerName != null || audienceNames != null)
         {
             final OAuthResolveExFW resolveEx = resolveExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
-                                                          .issuer(issuerName)
-                                                          .audience(audienceName)
-                                                          .build();
+                    .issuer(issuerName)
+                    .audience(audienceNames)
+                    .build();
             resolveBuilder.extension(resolveEx.buffer(), resolveEx.offset(), resolveEx.sizeof());
         }
         final ResolveFW resolve = resolveBuilder.build();
-        return controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
+        return  controllerSpi.doResolve(resolve.typeId(), resolve.buffer(), resolve.offset(), resolve.sizeof());
     }
 
     public CompletableFuture<Void> unresolve(

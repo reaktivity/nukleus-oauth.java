@@ -27,6 +27,7 @@ import static org.reaktivity.nukleus.route.RouteKind.PROXY;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
+import org.jose4j.jwt.JwtClaims;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
@@ -248,8 +249,13 @@ public class ControllerIT
     {
         k3po.start();
 
+        JwtClaims claims = new JwtClaims();
+        claims.setClaim("iss", "test issuer");
+        claims.setClaim("aud", "testAudience");
+        String payload = claims.toJson();
+
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", EMPTY_STRING_ARRAY, "test issuer", "testAudience")
+                .resolve("RS256", EMPTY_STRING_ARRAY, payload)
                 .get();
         assertEquals(0x0001_000000000000L, authorization);
 
@@ -264,8 +270,13 @@ public class ControllerIT
     {
         k3po.start();
 
+        JwtClaims claims = new JwtClaims();
+        claims.setClaim("iss", "test issuer");
+        claims.setClaim("aud", "testAudience");
+        String payload = claims.toJson();
+
         long authorization = reaktor.controller(OAuthController.class)
-                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, "test issuer", "testAudience")
+                .resolve("RS256", new String[]{"scope1", "scope2", "scope3"}, payload)
                 .get();
         assertEquals(0x0001_000000000007L, authorization);
 

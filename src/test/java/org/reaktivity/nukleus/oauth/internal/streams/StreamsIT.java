@@ -228,6 +228,17 @@ public class StreamsIT
 
     @Test
     @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/reauthorize.inflight.request.same.privileges.update.expiration/accept/client",
+        "${streams}/reauthorize.inflight.request.same.privileges.update.expiration/connect/server"
+    })
+    public void shouldReauthorizeInFlightRequest() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/resolve.one.realm.with.set.roles.then.route.proxy/controller",
         "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/accept/client",
         "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/connect/server"

@@ -234,6 +234,9 @@ public class StreamsIT
     })
     public void shouldReauthorizeInFlightRequest() throws Exception
     {
+        k3po.start();
+        Thread.sleep(10000); // let first token expire
+        k3po.notifyBarrier("TOKEN_EXPIRATION");
         k3po.finish();
     }
 

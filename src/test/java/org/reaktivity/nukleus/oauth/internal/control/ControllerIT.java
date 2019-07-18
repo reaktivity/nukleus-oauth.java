@@ -185,6 +185,7 @@ public class ControllerIT
                 .get();
         assertEquals(-0x8000_000000000000L, authorization16);
 
+        @SuppressWarnings("unused")
         long authorization17TooMany = reaktor.controller(OAuthController.class)
                 .resolve("realm17TooMany")
                 .get();

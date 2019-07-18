@@ -63,7 +63,6 @@ public class OAuthProxyFactory implements StreamFactory
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
-    private static final long REALM_MASK = 0xFFFF_000000000000L;
     private static final long TOKEN_EXPIRED_SIGNAL = 1L;
 
     private static final Pattern QUERY_PARAMS = Pattern.compile("(?:\\?|.*?&)access_token=([^&#]+)(?:&.*)?");

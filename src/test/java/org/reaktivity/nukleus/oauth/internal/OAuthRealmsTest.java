@@ -22,6 +22,7 @@ import static org.reaktivity.specification.nukleus.oauth.internal.OAuthJwtKeys.R
 import static org.reaktivity.specification.nukleus.oauth.internal.OAuthJwtKeys.RFC7515_RS256;
 
 import java.security.KeyPair;
+import java.util.Arrays;
 
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
@@ -29,8 +30,6 @@ import org.junit.Test;
 
 public class OAuthRealmsTest
 {
-    private static final String[] EMPTY_STRING_ARRAY = new String[0];
-
     @Test
     public void shouldAddUpToMaximumRealms() throws Exception
     {
@@ -97,8 +96,8 @@ public class OAuthRealmsTest
     public void shouldFailResolveKnownRealmWithTokenWithUnspecifiedIssuerAndAudience() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.resolve("realm one", "test issuer1", "testAudience1", EMPTY_STRING_ARRAY);
-        realms.resolve("realm two", "test issuer2", "testAudience2", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer1", "testAudience1", null);
+        realms.resolve("realm two", "test issuer2", "testAudience2", null);
 
         JwtClaims claims = new JwtClaims();
         String emptyPayload = claims.toJson();
@@ -114,8 +113,8 @@ public class OAuthRealmsTest
     public void shouldResolveKnownRealmWithDifferentKidAndDifferentClaims() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.resolve("realm one", "test issuer1", "testAudience1", EMPTY_STRING_ARRAY);
-        realms.resolve("realm two", "test issuer2", "testAudience2", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer1", "testAudience1", null);
+        realms.resolve("realm two", "test issuer2", "testAudience2", null);
 
         JwtClaims claims1 = new JwtClaims();
         claims1.setClaim("iss", "test issuer1");
@@ -135,11 +134,26 @@ public class OAuthRealmsTest
     }
 
     @Test
+    public void shouldResolveKnownRealmWithIssuerAndMultipleAudiences() throws Exception
+    {
+        OAuthRealms realms = new OAuthRealms();
+        realms.resolve("realm one", "test issuer1", "testAudience1", null);
+
+        JwtClaims claims = new JwtClaims();
+        claims.setClaim("iss", "test issuer1");
+        claims.setClaim("aud", Arrays.asList("testAudience1", "testAudience2"));
+
+        final JsonWebSignature signature = newSignedSignature("realm one", "RS256", claims.toJson(), RFC7515_RS256);
+
+        assertEquals(0x0001_000000000000L, realms.lookup(signature));
+    }
+
+    @Test
     public void shouldResolveKnownRealmWithSameKidButDifferentClaims() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.resolve("realm one", "test issuer1", "testAudience1", EMPTY_STRING_ARRAY);
-        realms.resolve("realm one", "test issuer2", "testAudience2", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer1", "testAudience1", null);
+        realms.resolve("realm one", "test issuer2", "testAudience2", null);
 
         JwtClaims claims1 = new JwtClaims();
         claims1.setClaim("iss", "test issuer1");
@@ -162,8 +176,8 @@ public class OAuthRealmsTest
     public void shouldUnresolveKnownRealmWithSameKidButDifferentClaims() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.resolve("realm one", "test issuer1", "testAudience1", EMPTY_STRING_ARRAY);
-        realms.resolve("realm one", "test issuer2", "testAudience2", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer1", "testAudience1", null);
+        realms.resolve("realm one", "test issuer2", "testAudience2", null);
 
         JwtClaims claims1 = new JwtClaims();
         claims1.setClaim("iss", "test issuer1");
@@ -186,7 +200,7 @@ public class OAuthRealmsTest
     public void shouldFailTooManyUnresolves() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        realms.resolve("realm one", "test issuer", "testAudience", EMPTY_STRING_ARRAY);
+        realms.resolve("realm one", "test issuer", "testAudience", null);
 
         JwtClaims claims = new JwtClaims();
         claims.setClaim("iss", "test issuer");

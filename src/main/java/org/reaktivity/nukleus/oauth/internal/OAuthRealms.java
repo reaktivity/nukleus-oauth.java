@@ -16,6 +16,7 @@
 package org.reaktivity.nukleus.oauth.internal;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.jose4j.jwt.ReservedClaimNames.AUDIENCE;
@@ -24,6 +25,7 @@ import static org.jose4j.jwt.ReservedClaimNames.ISSUER;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,7 +44,7 @@ import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
 
 public class OAuthRealms
 {
-    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+    private static final List<String> EMPTY_STRING_LIST = Collections.emptyList();
     private static final String SCOPE_CLAIM = "scope";
     private static final Long NO_AUTHORIZATION = 0L;
 
@@ -72,7 +74,7 @@ public class OAuthRealms
         String realmName,
         String issuerName,
         String audienceName,
-        String[] scopeNames)
+        List<String> scopeNames)
     {
         long authorization = NO_AUTHORIZATION;
         if(nextRealmBit < MAX_REALMS)
@@ -86,9 +88,10 @@ public class OAuthRealms
     public long resolve(
         String realmName)
     {
-        return resolve(realmName, null, null, EMPTY_STRING_ARRAY);
+        return resolve(realmName, null, null, EMPTY_STRING_LIST);
     }
 
+    @SuppressWarnings("unchecked")
     public long lookup(
         JsonWebSignature verified)
     {
@@ -102,11 +105,25 @@ public class OAuthRealms
                 final Object issuerClaim = claims.getClaimValue(ISSUER);
                 final Object audienceClaim = claims.getClaimValue(AUDIENCE);
                 final Object scopeClaim = claims.getClaimValue(SCOPE_CLAIM);
+
                 final String issuerName = issuerClaim != null ? issuerClaim.toString() : null;
-                final String[] audienceNames = audienceClaim != null ? audienceClaim.toString().split("\\s+") : null;
-                final String[] scopeNames = scopeClaim != null ?
-                        scopeClaim.toString().split("\\s+")
-                        : EMPTY_STRING_ARRAY;
+
+                List<String> audienceNames = EMPTY_STRING_LIST;
+                if (audienceClaim instanceof List)
+                {
+                    audienceNames = (List<String>) audienceClaim;
+                }
+                else if (audienceClaim instanceof String)
+                {
+                    audienceNames = singletonList((String) audienceClaim);
+                }
+
+                List<String> scopeNames = EMPTY_STRING_LIST;
+                if (scopeClaim != null)
+                {
+                    scopeNames = Arrays.asList(scopeClaim.toString().split("\\s+"));
+                }
+
                 authorization = realm.lookup(issuerName, audienceNames, scopeNames);
             }
             catch (JoseException | InvalidJwtException e)
@@ -216,20 +233,21 @@ public class OAuthRealms
         private long resolve(
             String issuerName,
             String audienceName,
-            String[] scopeNames)
+            List<String> scopeNames)
         {
             long authorization = NO_AUTHORIZATION;
             assert nextRealmBit < MAX_REALMS;
-            if (nextScopeBit + scopeNames.length < MAX_SCOPES)
+            final int scopeNamesSize = scopeNames != null ? scopeNames.size() : 0;
+            if (nextScopeBit + scopeNamesSize < MAX_SCOPES)
             {
                 final OAuthRealmInfo realmInfo = realmInfos.stream()
                                                            .filter(r -> r.containsClaims(issuerName, audienceName))
                                                            .findFirst()
                                                            .orElseGet(() -> newRealmInfo(issuerName, audienceName));
                 authorization = realmInfo.realmId;
-                for (int i = 0; i < scopeNames.length; i++)
+                for (int i = 0; i < scopeNamesSize; i++)
                 {
-                    authorization |= realmInfo.supplyScopeBit(scopeNames[i]);
+                    authorization |= realmInfo.supplyScopeBit(scopeNames.get(i));
                 }
             }
             return authorization;
@@ -237,8 +255,8 @@ public class OAuthRealms
 
         private long lookup(
             String issuerName,
-            String[] audienceNames,
-            String[] scopeNames)
+            List<String> audienceNames,
+            List<String> scopeNames)
         {
             final OAuthRealmInfo realmInfo = realmInfos.stream()
                                                        .filter(r -> r.containsClaims(issuerName, audienceNames))
@@ -248,9 +266,9 @@ public class OAuthRealms
             if(realmInfo != null)
             {
                 authorization = realmInfo.realmId;
-                for (int i = 0; i < scopeNames.length; i++)
+                for (int i = 0; i < scopeNames.size(); i++)
                 {
-                    authorization |= realmInfo.scopeBit(scopeNames[i]);
+                    authorization |= realmInfo.scopeBit(scopeNames.get(i));
                 }
             }
             return authorization;
@@ -314,7 +332,14 @@ public class OAuthRealms
 
             private boolean containsClaims(
                 String issuerName,
-                String... audienceNames)
+                String audienceName)
+            {
+                return requiredClaims.containsClaims(issuerName, audienceName);
+            }
+
+            private boolean containsClaims(
+                String issuerName,
+                List<String> audienceNames)
             {
                 return requiredClaims.containsClaims(issuerName, audienceNames);
             }
@@ -348,35 +373,18 @@ public class OAuthRealms
 
                 private boolean containsClaims(
                     String issuerName,
-                    String[] audienceNames)
+                    List<String> audienceNames)
                 {
                     return (this.issuerName == null || Objects.equals(this.issuerName, issuerName)) &&
-                            (this.audienceName == null || containsThisAudienceName(audienceNames));
+                            (this.audienceName == null || audienceNames.contains(audienceName));
                 }
 
-                private boolean containsThisAudienceName(
-                    String[] audienceNames)
+                private boolean containsClaims(
+                    String issuerName,
+                    String audienceName)
                 {
-                    final int index = indexOfThisAudienceName(audienceNames);
-                    return index >= 0 && audienceNames[index].equals(this.audienceName);
-                }
-
-                private int indexOfThisAudienceName(
-                    String[] audienceNames)
-                {
-                    int index = -1;
-                    if(audienceNames != null)
-                    {
-                        for (int i = 0; i < audienceNames.length; i++)
-                        {
-                            if (audienceNames[i].equals(this.audienceName))
-                            {
-                                index = i;
-                                break;
-                            }
-                        }
-                    }
-                    return index;
+                    return (this.issuerName == null || Objects.equals(this.issuerName, issuerName)) &&
+                            (this.audienceName == null || Objects.equals(this.audienceName, audienceName));
                 }
 
                 @Override

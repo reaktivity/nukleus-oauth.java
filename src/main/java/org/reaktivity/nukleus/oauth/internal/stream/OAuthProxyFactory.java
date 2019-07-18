@@ -160,8 +160,6 @@ public class OAuthProxyFactory implements StreamFactory
             connectAuthorization = lookupAuthorization.applyAsLong(verified);
         }
 
-        System.out.println(String.format("connectAuthorization: %d", connectAuthorization));
-
         final long acceptRouteId = begin.routeId();
         final MessagePredicate filter = (t, b, o, l) -> true;
         final RouteFW route = router.resolve(acceptRouteId, connectAuthorization, filter, this::wrapRoute);
@@ -178,7 +176,6 @@ public class OAuthProxyFactory implements StreamFactory
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
             long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
-            System.out.println(String.format("expiresAtMillis: %d", expiresAtMillis));
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);

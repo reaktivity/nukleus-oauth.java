@@ -193,7 +193,6 @@ public class StreamsIT
         k3po.finish();
     }
 
-    @Test
     @Specification({
         "${route}/resolve.one.realm.with.set.roles.then.route.proxy/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",

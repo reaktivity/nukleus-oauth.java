@@ -240,15 +240,28 @@ public class StreamsIT
         k3po.finish();
     }
 
-
     @Test
     @Specification({
         "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
         "${streams}/reject.inflight.request.less.privileges.do.not.update.expiration/accept/client",
         "${streams}/reject.inflight.request.less.privileges.do.not.update.expiration/connect/server"
     })
-    public void shouldNotReauthorizeInFlightRequestWithTokenWithLessIncomingPrivileges() throws Exception
+    public void shouldNotReauthorizeInFlightRequestWithTokenWithLessPrivileges() throws Exception
     {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/reauthorize.inflight.request.more.privileges.update.expiration/accept/client",
+        "${streams}/reauthorize.inflight.request.more.privileges.update.expiration/connect/server"
+    })
+    public void shouldReauthorizeInFlightRequestWithTokenWithMorePrivileges() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(10000); // first token would expire if expiration is not updated.
+        k3po.notifyBarrier("TOKEN_EXPIRATION");
         k3po.finish();
     }
 

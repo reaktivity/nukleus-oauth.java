@@ -43,7 +43,7 @@ public class StreamsIT
             .directory("target/nukleus-itests")
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
-            .counterValuesBufferCapacity(4096)
+            .counterValuesBufferCapacity(8192)
             .nukleus("oauth"::equals)
             .configure(KEYS_NAME, "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
@@ -228,7 +228,7 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.then.route.proxy/controller",
         "${streams}/reauthorize.inflight.request.same.privileges.update.expiration/accept/client",
         "${streams}/reauthorize.inflight.request.same.privileges.update.expiration/connect/server"
     })
@@ -237,6 +237,18 @@ public class StreamsIT
         k3po.start();
         Thread.sleep(10000); // first token would expire if expiration is not updated.
         k3po.notifyBarrier("TOKEN_EXPIRATION");
+        k3po.finish();
+    }
+
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/reject.inflight.request.less.privileges.do.not.update.expiration/accept/client",
+        "${streams}/reject.inflight.request.less.privileges.do.not.update.expiration/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithTokenWithLessIncomingPrivileges() throws Exception
+    {
         k3po.finish();
     }
 

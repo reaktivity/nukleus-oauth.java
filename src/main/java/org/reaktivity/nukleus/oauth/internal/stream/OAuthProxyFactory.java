@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -137,6 +138,10 @@ public class OAuthProxyFactory implements StreamFactory
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
+        for(int i = 0; i < inFlightAuthorizationsByRealm.length; i++)
+        {
+            inFlightAuthorizationsByRealm[i] = new HashMap<>();
+        }
     }
 
     @Override
@@ -208,7 +213,9 @@ public class OAuthProxyFactory implements StreamFactory
                 final int realmId = (int) ((connectAuthorization & REALM_MASK) >> 48);
                 final JwtClaims claims = JwtClaims.parse(signature.getPayload());
                 final String subject = claims.getSubject();
-                incrementInFlightAuthorizationRefCount(realmId, acceptRouteId, subject, connectAuthorization, expiresAtMillis);
+                incrementInFlightAuthorizationRefCount(realmId, acceptRouteId,
+                        subject != null ? subject : "", connectAuthorization, expiresAtMillis);
+                System.out.println("maps: " + Arrays.toString(inFlightAuthorizationsByRealm));
             }
             catch (InvalidJwtException | JoseException | MalformedClaimException e)
             {

@@ -20,6 +20,9 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -67,6 +70,8 @@ public class OAuthProxyFactory implements StreamFactory
 
     private static final long TOKEN_EXPIRED_SIGNAL = 1L;
 
+    private static final long REALM_MASK = 0xFFFF_000000000000L;
+
     private static final Pattern QUERY_PARAMS = Pattern.compile("(?:\\?|.*?&)access_token=([^&#]+)(?:&.*)?");
 
     private static final byte[] BEARER_PREFIX = "Bearer ".getBytes(US_ASCII);
@@ -91,6 +96,8 @@ public class OAuthProxyFactory implements StreamFactory
     private final SignalFW signalRO = new SignalFW();
 
     private final JsonWebSignature signature = new JsonWebSignature();
+
+    private final Map<Long, IdentityHashMap<String, AuthorizationState>>[] inFlightAuthorizationsByRealm = new HashMap[16];
 
     private final OAuthConfiguration config;
     private final RouteManager router;
@@ -195,7 +202,19 @@ public class OAuthProxyFactory implements StreamFactory
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis);
-
+// TODO: implementing capture of in-flight requests
+            try
+            {
+                final int realmId = (int) ((connectAuthorization & REALM_MASK) >> 48);
+                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
+                final String subject = claims.getSubject();
+                incrementInFlightAuthorizationRefCount(realmId, acceptRouteId, subject, connectAuthorization, expiresAtMillis);
+            }
+            catch (InvalidJwtException | JoseException | MalformedClaimException e)
+            {
+                e.printStackTrace();
+            }
+//
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
 
@@ -236,6 +255,32 @@ public class OAuthProxyFactory implements StreamFactory
         return newStream;
     }
 
+    private void incrementInFlightAuthorizationRefCount(
+        int realmId,
+        long groupId,
+        String subject,
+        long authorization,
+        long expiresAt)
+    {
+        inFlightAuthorizationsByRealm[realmId]
+                                     .computeIfAbsent(groupId, g -> new IdentityHashMap<>())
+                                     .computeIfAbsent(subject.intern(), s -> new AuthorizationState(authorization, expiresAt))
+                                     .incrementReferenceCount();
+    }
+
+    private void decrementInFlightAuthorizationRefCount(
+        int realmId,
+        long groupId,
+        String subject,
+        long authorization,
+        long expiresAt)
+    {
+        inFlightAuthorizationsByRealm[realmId]
+                                     .computeIfAbsent(groupId, g -> new IdentityHashMap<>())
+                                     .computeIfAbsent(subject.intern(), s -> new AuthorizationState(authorization, expiresAt))
+                                     .decrementReferenceCount();
+    }
+
     private RouteFW wrapRoute(
         int msgTypeId,
         DirectBuffer buffer,
@@ -268,6 +313,63 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         return expiresAtMillis;
+    }
+
+    private final class AuthorizationState
+    {
+        private long authorization;
+        private long expiresAt;
+        private int referenceCount;
+
+        private AuthorizationState(
+                long authorization,
+                long expiresAt)
+        {
+            this.authorization = authorization;
+            this.expiresAt = expiresAt;
+        }
+
+        // TODO: inc/dec refCount based off of incoming/outgoing resp/req. if reach 0 refCount, then remove this auth from map
+        private int getReferenceCount()
+        {
+            return referenceCount;
+        }
+
+        private void updateAuthorization(
+                long authorization)
+        {
+            this.authorization = authorization;
+        }
+
+        private void updateExpiresAt(
+                long expiresAt)
+        {
+            this.expiresAt = expiresAt;
+        }
+
+        private void incrementReferenceCount()
+        {
+            referenceCount++;
+        }
+
+        private void decrementReferenceCount()
+        {
+            referenceCount--;
+            if(referenceCount == 0)
+            {
+                cleanup();
+            }
+        }
+
+        private void cleanup()
+        {
+            for(int i = 0; i < inFlightAuthorizationsByRealm.length; i++)
+            {
+                inFlightAuthorizationsByRealm[i].values()
+                                                .forEach(im -> im.values()
+                                                                 .removeIf(state -> state == this));
+            }
+        }
     }
 
     final class OAuthProxy

@@ -276,6 +276,17 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/reject.inflight.request.same.privileges.do.not.update.expiration/accept/client",
+        "${streams}/reject.inflight.request.same.privileges.do.not.update.expiration/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithTokenWithSamePrivileges() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
         "${streams}/reauthorize.inflight.request.more.privileges.update.expiration/accept/client",
         "${streams}/reauthorize.inflight.request.more.privileges.update.expiration/connect/server"
     })

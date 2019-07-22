@@ -52,7 +52,7 @@
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>0.28</nukleus.oauth.spec.version>
+    <nukleus.oauth.spec.version>develop-SNAPSHOT</nukleus.oauth.spec.version>
     <reaktor.version>0.94</reaktor.version>
   </properties>
 

@@ -17,7 +17,7 @@ package org.reaktivity.nukleus.oauth.internal.stream;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
+import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
@@ -48,14 +48,14 @@ public class Writer
         long streamId,
         long traceId,
         long authorization,
-        OctetsFW extension)
+        Flyweight extension)
     {
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
                 .authorization(authorization)
-                .extension(e -> e.set(extension))
+                .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
         receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -69,8 +69,8 @@ public class Writer
         long authorization,
         long groupId,
         int padding,
-        OctetsFW payload,
-        OctetsFW extension)
+        Flyweight payload,
+        Flyweight extension)
     {
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
@@ -79,8 +79,8 @@ public class Writer
                 .authorization(authorization)
                 .groupId(groupId)
                 .padding(padding)
-                .payload(payload)
-                .extension(e -> e.set(extension))
+                .payload(payload.buffer(), payload.offset(), payload.sizeof())
+                .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
         receiver.accept(data.typeId(), data.buffer(), data.offset(), data.sizeof());
@@ -92,14 +92,14 @@ public class Writer
         long streamId,
         long traceId,
         long authorization,
-        OctetsFW extension)
+        Flyweight extension)
     {
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
                 .authorization(authorization)
-                .extension(e -> e.set(extension))
+                .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
         receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());

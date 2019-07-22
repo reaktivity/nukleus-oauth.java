@@ -24,6 +24,7 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
+import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +32,7 @@ import java.util.regex.Pattern;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.concurrent.UnsafeBuffer;
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
@@ -78,7 +80,10 @@ public class OAuthProxyFactory implements StreamFactory
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
 
+    private final OctetsFW octetsRO = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
+
     private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
+    private final HttpBeginExFW.Builder httpBeginExRW = new HttpBeginExFW.Builder();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -97,12 +102,15 @@ public class OAuthProxyFactory implements StreamFactory
     private final SignalingExecutor executor;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
     private final Writer writer;
+    private final UnsafeBuffer extensionBuffer;
+    private final int httpTypeId;
 
     public OAuthProxyFactory(
         OAuthConfiguration config,
         MutableDirectBuffer writeBuffer,
         LongUnaryOperator supplyInitialId,
         LongSupplier supplyTrace,
+        ToIntFunction<String> supplyTypeId,
         LongUnaryOperator supplyReplyId,
         Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> lookupKey,
@@ -113,6 +121,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.config = config;
         this.router = requireNonNull(router);
         this.writer = new Writer(writeBuffer);
+        this.extensionBuffer = new UnsafeBuffer(new byte[writeBuffer.capacity()]);
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyTrace = requireNonNull(supplyTrace);
@@ -120,6 +129,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
+        this.httpTypeId = supplyTypeId.applyAsInt("http");
     }
 
     @Override
@@ -171,6 +181,7 @@ public class OAuthProxyFactory implements StreamFactory
             final long traceId = begin.trace();
             final OctetsFW extension = begin.extension();
 
+            long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
             long connectRouteId = route.correlationId();
             long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
             MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
@@ -178,9 +189,15 @@ public class OAuthProxyFactory implements StreamFactory
             long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
-                    connectInitial, connectRouteId, connectInitialId, connectAuthorization, expiresAtMillis);
+                    connectInitial, connectRouteId, connectInitialId, connectAuthorization,
+                    acceptInitialId, connectReplyId, expiresAtMillis);
 
-            correlations.put(connectReplyId, initialStream);
+            OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
+                    acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
+                    acceptInitialId, connectReplyId, expiresAtMillis);
+
+            correlations.put(connectReplyId, replyStream);
+            router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
 
             writer.doBegin(connectInitial, connectRouteId, connectInitialId, traceId,
                     connectAuthorization, extension);
@@ -196,30 +213,22 @@ public class OAuthProxyFactory implements StreamFactory
         final BeginFW begin,
         final MessageConsumer sender)
     {
-        final long connectRouteId = begin.routeId();
         final long connectReplyId = begin.streamId();
         final long traceId = begin.trace();
         final long authorization = begin.authorization();
         final OctetsFW extension = begin.extension();
 
-        OAuthProxy initialStream = correlations.remove(connectReplyId);
+        OAuthProxy replyStream = correlations.remove(connectReplyId);
 
         MessageConsumer newStream = null;
 
-        if (initialStream != null)
+        if (replyStream != null)
         {
-            long acceptRouteId = initialStream.sourceRouteId;
-            MessageConsumer acceptReply = initialStream.source;
-            long expiresAtMillis = initialStream.expiresAtMillis;
-            long acceptReplyId = supplyReplyId.applyAsLong(initialStream.sourceStreamId);
-            long acceptReplyAuthorization = initialStream.sourceAuthorization;
-            long connectReplyAuthorization = initialStream.targetAuthorization;
-
-            OAuthProxy replyStream = new OAuthProxy(sender, connectRouteId, connectReplyId, connectReplyAuthorization,
-                    acceptReply, acceptRouteId, acceptReplyId, acceptReplyAuthorization, expiresAtMillis);
+            MessageConsumer acceptReply = replyStream.target;
+            long acceptRouteId = replyStream.targetRouteId;
+            long acceptReplyId = replyStream.targetStreamId;
 
             writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, authorization, extension);
-            router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
 
             newStream = replyStream::onStreamMessage;
         }
@@ -271,7 +280,8 @@ public class OAuthProxyFactory implements StreamFactory
         private final long targetRouteId;
         private final long targetStreamId;
         private final long targetAuthorization;
-        private final long expiresAtMillis;
+        private final long acceptInitialId;
+        private final long connectReplyId;
 
         private Future<?> expiryFuture;
 
@@ -284,6 +294,8 @@ public class OAuthProxyFactory implements StreamFactory
             long targetRouteId,
             long targetId,
             long targetAuthorization,
+            long acceptInitialId,
+            long connectReplyId,
             long expiresAtMillis)
         {
             this.source = source;
@@ -294,7 +306,15 @@ public class OAuthProxyFactory implements StreamFactory
             this.targetRouteId = targetRouteId;
             this.targetStreamId = targetId;
             this.targetAuthorization = targetAuthorization;
-            this.expiresAtMillis = expiresAtMillis;
+            this.acceptInitialId = acceptInitialId;
+            this.connectReplyId = connectReplyId;
+
+            if (expiresAtMillis != EXPIRES_NEVER)
+            {
+                final long delay = expiresAtMillis - System.currentTimeMillis();
+
+                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+            }
         }
 
         private void onStreamMessage(
@@ -321,10 +341,6 @@ public class OAuthProxyFactory implements StreamFactory
                 final AbortFW abort = abortRO.wrap(buffer, index, index + length);
                 onAbort(abort);
                 break;
-            case SignalFW.TYPE_ID:
-                final SignalFW signal = signalRO.wrap(buffer, index, index + length);
-                onSignal(signal);
-                break;
             default:
                 writer.doReset(source, sourceRouteId, sourceStreamId, supplyTrace.getAsLong(), sourceAuthorization);
                 break;
@@ -347,6 +363,10 @@ public class OAuthProxyFactory implements StreamFactory
                 final ResetFW reset = resetRO.wrap(buffer, index, index + length);
                 onReset(reset);
                 break;
+            case SignalFW.TYPE_ID:
+                final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                onSignal(signal);
+                break;
             default:
                 // ignore
                 break;
@@ -356,14 +376,6 @@ public class OAuthProxyFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            if (expiresAtMillis != EXPIRES_NEVER)
-            {
-                final long delay = this.expiresAtMillis - System.currentTimeMillis();
-                final long routeId = begin.routeId();
-                final long streamId = begin.streamId();
-
-                expiryFuture = executor.schedule(delay, MILLISECONDS, routeId, streamId, TOKEN_EXPIRED_SIGNAL);
-            }
         }
 
         private void onData(
@@ -402,21 +414,6 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
-        private void onSignal(
-            SignalFW signal)
-        {
-            final long signalId = signal.signalId();
-
-            if (signalId == TOKEN_EXPIRED_SIGNAL)
-            {
-                final long traceId = signal.trace();
-                writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
-                writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
-
-                cleanupCorrelationIfNecessary();
-            }
-        }
-
         private void onWindow(
             WindowFW window)
         {
@@ -439,14 +436,45 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
-        private void cleanupCorrelationIfNecessary()
+        private void onSignal(
+            SignalFW signal)
         {
-            final long targetInitialId = targetStreamId | 0x0000_0000_0000_0001L;
-            if (targetStreamId == targetInitialId)
+            final long signalId = signal.signalId();
+
+            if (signalId == TOKEN_EXPIRED_SIGNAL)
             {
-                final long targetReplyId = supplyReplyId.applyAsLong(targetInitialId);
-                correlations.remove(targetReplyId);
+                final long traceId = signal.trace();
+                writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
+
+                final boolean replyNotStarted = cleanupCorrelationIfNecessary();
+
+                if (sourceStreamId == connectReplyId && replyNotStarted)
+                {
+                    final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                            .typeId(httpTypeId)
+                            .headersItem(h -> h.name(":status").value("401"))
+                            .build();
+
+                    writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
+                    writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
+                }
+                else
+                {
+                    writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
+                }
+
             }
+        }
+
+        private boolean cleanupCorrelationIfNecessary()
+        {
+            final OAuthProxy correlated = correlations.remove(connectReplyId);
+            if (correlated != null)
+            {
+                router.clearThrottle(acceptInitialId);
+            }
+
+            return correlated != null;
         }
 
         private void cancelTimerIfNecessary()

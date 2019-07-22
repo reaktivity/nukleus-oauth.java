@@ -21,6 +21,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
@@ -46,6 +47,7 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     private MutableDirectBuffer writeBuffer;
     private LongUnaryOperator supplyInitialId;
     private LongUnaryOperator supplyReplyId;
+    private ToIntFunction<String> supplyTypeId;
     private LongSupplier supplyTrace;
     private SignalingExecutor executor;
 
@@ -73,6 +75,14 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
         LongSupplier supplyTrace)
     {
         this.supplyTrace = supplyTrace;
+        return this;
+    }
+
+    @Override
+    public StreamFactoryBuilder setTypeIdSupplier(
+        ToIntFunction<String> supplyTypeId)
+    {
+        this.supplyTypeId = supplyTypeId;
         return this;
     }
 
@@ -137,6 +147,7 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
             writeBuffer,
             supplyInitialId,
             supplyTrace,
+            supplyTypeId,
             supplyReplyId,
             correlations,
             lookupKey,

@@ -66,10 +66,21 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
-        "${streams}/authorize.then.abort.expiring.response/accept/client",
-        "${streams}/authorize.then.abort.expiring.response/connect/server"
+        "${streams}/authorize.then.reset.expiring.response/accept/client",
+        "${streams}/authorize.then.reset.expiring.response/connect/server"
         })
-    public void shouldAuthorizeThenAbortExpiringResponse() throws Exception
+    public void shouldAuthorizeThenResetExpiringResponse() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
+        "${streams}/authorize.then.reset.expiring.response.early/accept/client",
+        "${streams}/authorize.then.reset.expiring.response.early/connect/server"
+        })
+    public void shouldAuthorizeThenResetExpiringResponseEarly() throws Exception
     {
         k3po.finish();
     }
@@ -103,6 +114,17 @@ public class StreamsIT
         "${streams}/proxy.accept.reply.is.reset/connect/server"
         })
     public void shouldResetClientReplyWhenAcceptReplyIsReset() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/proxy.accept.reply.is.reset.early/accept/client",
+        "${streams}/proxy.accept.reply.is.reset.early/connect/server"
+        })
+    public void shouldResetClientReplyEarlyWhenAcceptReplyIsResetEarly() throws Exception
     {
         k3po.finish();
     }

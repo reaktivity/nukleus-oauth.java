@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -98,7 +97,7 @@ public class OAuthProxyFactory implements StreamFactory
 
     private final JsonWebSignature signature = new JsonWebSignature();
 
-    private final Map<Long, IdentityHashMap<String, AuthorizationState>>[] inFlightAuthorizationsByRealm = new HashMap[16];
+    private final Map<Long, Map<String, AuthorizationState>>[] inFlightAuthorizationsByRealm = new HashMap[16];
 
     private final OAuthConfiguration config;
     private final RouteManager router;
@@ -200,6 +199,46 @@ public class OAuthProxyFactory implements StreamFactory
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
             long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
+            try
+            {
+                final int realmId = (int) ((connectAuthorization & REALM_MASK) >> 48);
+                if(verified != null)
+                {
+                    final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+                    final String subject = claims.getSubject();
+                    if(subject != null)
+                    {
+                        // TODO: groupId should be affinity which will need to be changed as well.
+                        final Map<String, AuthorizationState> authStateMap = inFlightAuthorizationsByRealm[realmId]
+                                .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
+                        final AuthorizationState authState = authStateMap.get(subject.intern());
+                        if(authState != null)
+                        {
+                            final long authStateAuthorization = authState.authorization;
+                            final long authStateExpiration = authState.expiresAt;
+
+                            authState.incrementReferenceCount();
+
+                            if((authStateAuthorization & connectAuthorization) >= authStateAuthorization &&
+                                    expiresAtMillis > authStateExpiration)
+                            {
+                                authState.updateExpiresAt(expiresAtMillis);
+                            }
+                        }
+                        else
+                        {
+                            final AuthorizationState newAuthState = new AuthorizationState(connectAuthorization, expiresAtMillis);
+                            newAuthState.incrementReferenceCount();
+                            authStateMap.put(subject.intern(), newAuthState);
+                        }
+                    }
+                }
+            }
+            catch (InvalidJwtException | JoseException | MalformedClaimException e)
+            {
+                e.printStackTrace();
+            }
+
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis);
@@ -207,21 +246,7 @@ public class OAuthProxyFactory implements StreamFactory
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis);
-// TODO: implementing capture of in-flight requests
-            try
-            {
-                final int realmId = (int) ((connectAuthorization & REALM_MASK) >> 48);
-                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-                final String subject = claims.getSubject();
-                incrementInFlightAuthorizationRefCount(realmId, acceptRouteId,
-                        subject != null ? subject : "", connectAuthorization, expiresAtMillis);
-                System.out.println("maps: " + Arrays.toString(inFlightAuthorizationsByRealm));
-            }
-            catch (InvalidJwtException | JoseException | MalformedClaimException e)
-            {
-                e.printStackTrace();
-            }
-//
+
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
 
@@ -260,32 +285,6 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         return newStream;
-    }
-
-    private void incrementInFlightAuthorizationRefCount(
-        int realmId,
-        long groupId,
-        String subject,
-        long authorization,
-        long expiresAt)
-    {
-        inFlightAuthorizationsByRealm[realmId]
-                                     .computeIfAbsent(groupId, g -> new IdentityHashMap<>())
-                                     .computeIfAbsent(subject.intern(), s -> new AuthorizationState(authorization, expiresAt))
-                                     .incrementReferenceCount();
-    }
-
-    private void decrementInFlightAuthorizationRefCount(
-        int realmId,
-        long groupId,
-        String subject,
-        long authorization,
-        long expiresAt)
-    {
-        inFlightAuthorizationsByRealm[realmId]
-                                     .computeIfAbsent(groupId, g -> new IdentityHashMap<>())
-                                     .computeIfAbsent(subject.intern(), s -> new AuthorizationState(authorization, expiresAt))
-                                     .decrementReferenceCount();
     }
 
     private RouteFW wrapRoute(
@@ -329,27 +328,16 @@ public class OAuthProxyFactory implements StreamFactory
         private int referenceCount;
 
         private AuthorizationState(
-                long authorization,
-                long expiresAt)
+            long authorization,
+            long expiresAt)
         {
             this.authorization = authorization;
             this.expiresAt = expiresAt;
         }
 
         // TODO: inc/dec refCount based off of incoming/outgoing resp/req. if reach 0 refCount, then remove this auth from map
-        private int getReferenceCount()
-        {
-            return referenceCount;
-        }
-
-        private void updateAuthorization(
-                long authorization)
-        {
-            this.authorization = authorization;
-        }
-
         private void updateExpiresAt(
-                long expiresAt)
+            long expiresAt)
         {
             this.expiresAt = expiresAt;
         }
@@ -376,6 +364,13 @@ public class OAuthProxyFactory implements StreamFactory
                                                 .forEach(im -> im.values()
                                                                  .removeIf(state -> state == this));
             }
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.format("AuthorizationState=[authorization=%d, expiresAt=%d, referenceCount=%d]",
+                                  authorization, expiresAt, referenceCount);
         }
     }
 
@@ -552,26 +547,58 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (signalId == TOKEN_EXPIRED_SIGNAL)
             {
-                final long traceId = signal.trace();
-                writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
-
-                final boolean replyNotStarted = cleanupCorrelationIfNecessary();
-
-                if (sourceStreamId == connectReplyId && replyNotStarted)
+                // TODO: Figure out how to extend expiration here.
+                final int sourceRealmId = (int) ((sourceAuthorization & REALM_MASK) >> 48);
+                boolean extendedExpiration = false;
+                try
                 {
-                    final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
-                            .typeId(httpTypeId)
-                            .headersItem(h -> h.name(":status").value("401"))
-                            .build();
-
-                    writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
-                    writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
+                    final JwtClaims claims = JwtClaims.parse(signature.getPayload());
+                    final String subject = claims.getSubject();
+                    final Map<String, AuthorizationState> authStateMap = inFlightAuthorizationsByRealm[sourceRealmId].values()
+                                                                              .stream()
+                                                                              .filter(map -> map.containsKey(subject.intern()))
+                                                                              .findFirst()
+                                                                              .orElse(null);
+                    if(authStateMap != null)
+                    {
+                        final AuthorizationState authState = authStateMap.get(subject.intern());
+                        final long expiresAtMillis = authState.expiresAt;
+                        extendedExpiration = expiresAtMillis > System.currentTimeMillis();
+                        if(extendedExpiration)
+                        {
+                            final long delay = expiresAtMillis - System.currentTimeMillis();
+                            this.expiryFuture = executor.schedule(delay, MILLISECONDS,
+                                    targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+                        }
+                    }
                 }
-                else
+                catch (InvalidJwtException | JoseException | MalformedClaimException e)
                 {
-                    writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
+                    e.printStackTrace();
                 }
 
+                if(!extendedExpiration)
+                {
+                    final long traceId = signal.trace();
+                    writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
+
+                    final boolean replyNotStarted = cleanupCorrelationIfNecessary();
+
+                    if (sourceStreamId == connectReplyId && replyNotStarted)
+                    {
+                        final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                                .typeId(httpTypeId)
+                                .headersItem(h -> h.name(":status").value("401"))
+                                .build();
+
+                        writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
+                        writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
+                    }
+                    else
+                    {
+                        writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
+                    }
+                }
             }
         }
 
@@ -581,6 +608,7 @@ public class OAuthProxyFactory implements StreamFactory
             if (correlated != null)
             {
                 router.clearThrottle(acceptInitialId);
+                // TODO: add authstate cleanup here
             }
 
             return correlated != null;

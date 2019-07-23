@@ -257,7 +257,7 @@ public class StreamsIT
     public void shouldReauthorizeInFlightRequest() throws Exception
     {
         k3po.start();
-        Thread.sleep(10000); // first token would expire if expiration is not updated.
+        Thread.sleep(11000); // first token would expire if expiration is not updated.
         k3po.notifyBarrier("TOKEN_EXPIRATION");
         k3po.finish();
     }

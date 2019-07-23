@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.oauth.internal.stream;
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
+import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
@@ -69,7 +70,7 @@ public class Writer
         long authorization,
         long groupId,
         int padding,
-        Flyweight payload,
+        OctetsFW payload,
         Flyweight extension)
     {
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -79,7 +80,7 @@ public class Writer
                 .authorization(authorization)
                 .groupId(groupId)
                 .padding(padding)
-                .payload(payload.buffer(), payload.offset(), payload.sizeof())
+                .payload(payload)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 

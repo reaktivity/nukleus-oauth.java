@@ -288,19 +288,20 @@ public class OAuthProxyFactory implements StreamFactory
     {
         try
         {
-            final int realmId = (int) ((connectAuthorization & REALM_MASK) >> 48);
             if(verified != null)
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
                 final String subject = claims.getSubject();
                 if(subject != null)
                 {
-                    final Map<String, OAuthAccessGrant> authStateMap = inFlightAuthorizationsByRealm[realmId]
+                    final Map<String, OAuthAccessGrant> authStateMap =
+                            inFlightAuthorizationsByRealm[(int) ((connectAuthorization & REALM_MASK) >> 48)]
                             .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
                     final OAuthAccessGrant authState = supplyAuthState(authStateMap, subject,
                             connectAuthorization, expiresAtMillis);
 
                     authState.referenceCount++;
+                    
                     if(authStateMap.containsKey(subject.intern()))
                     {
                         final long authStateAuthorization = authState.authorization;

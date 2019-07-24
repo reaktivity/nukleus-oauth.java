@@ -585,59 +585,61 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long signalId = signal.signalId();
 
-            if (signalId == TOKEN_EXPIRED_SIGNAL)
+            if (signalId == TOKEN_EXPIRED_SIGNAL &&
+                !tryExtendAuthStateExpiration((int) ((sourceAuthorization & REALM_MASK) >> 48)))
             {
-                final int sourceRealmId = (int) ((sourceAuthorization & REALM_MASK) >> 48);
-                boolean extendedExpiration = false;
-                try
+                final long traceId = signal.trace();
+                writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
+
+                final boolean replyNotStarted = cleanupCorrelationIfNecessary();
+
+                if (sourceStreamId == connectReplyId && replyNotStarted)
                 {
-                    final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-                    final String subject = claims.getSubject();
-                    final Map<String, OAuthAccessGrant> authStateMap = lookupAuthState(sourceRealmId, subject);
+                    final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                            .typeId(httpTypeId)
+                            .headersItem(h -> h.name(":status").value("401"))
+                            .build();
 
-                    if(authStateMap != null)
-                    {
-                        final OAuthAccessGrant authState = authStateMap.get(subject.intern());
-                        final long expiresAtMillis = authState.expiresAt;
-                        final long delay = expiresAtMillis - System.currentTimeMillis();
-
-                        extendedExpiration = delay >= 0;
-
-                        if(extendedExpiration)
-                        {
-                            this.expiryFuture = executor.schedule(delay, MILLISECONDS,
-                                    targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
-                        }
-                    }
+                    writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
+                    writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
                 }
-                catch (InvalidJwtException | JoseException | MalformedClaimException e)
+                else
                 {
-                    e.printStackTrace();
+                    writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
                 }
+            }
+        }
 
-                if(!extendedExpiration)
+        private boolean tryExtendAuthStateExpiration(
+            int sourceRealmId)
+        {
+            boolean extendedExpiration = false;
+
+            try
+            {
+                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
+                final String subject = claims.getSubject();
+                final Map<String, OAuthAccessGrant> authStateMap = lookupAuthState(sourceRealmId, subject);
+
+                if(authStateMap != null)
                 {
-                    final long traceId = signal.trace();
-                    writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
+                    final OAuthAccessGrant authState = authStateMap.get(subject.intern());
+                    final long delay = authState.expiresAt - System.currentTimeMillis();
 
-                    final boolean replyNotStarted = cleanupCorrelationIfNecessary();
+                    extendedExpiration = delay >= 0;
 
-                    if (sourceStreamId == connectReplyId && replyNotStarted)
+                    if(extendedExpiration)
                     {
-                        final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
-                                .typeId(httpTypeId)
-                                .headersItem(h -> h.name(":status").value("401"))
-                                .build();
-
-                        writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
-                        writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
-                    }
-                    else
-                    {
-                        writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
+                        this.expiryFuture = executor.schedule(delay, MILLISECONDS,
+                                targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
                     }
                 }
             }
+            catch (InvalidJwtException | JoseException | MalformedClaimException e)
+            {
+                // TODO: diagnostics?
+            }
+            return extendedExpiration;
         }
 
         private Map<String, OAuthAccessGrant> lookupAuthState(

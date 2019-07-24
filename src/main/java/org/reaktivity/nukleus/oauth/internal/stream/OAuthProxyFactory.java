@@ -239,29 +239,35 @@ public class OAuthProxyFactory implements StreamFactory
             MessageConsumer acceptReply = replyStream.target;
             long acceptRouteId = replyStream.targetRouteId;
             long acceptReplyId = replyStream.targetStreamId;
+
+            try
+            {
+                final long sourceAuthorization = replyStream.sourceAuthorization;
+                final int realmId = (int) ((sourceAuthorization & REALM_MASK) >> 48);
+                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
+                final String subject = claims.getSubject();
+                if(subject != null)
+                {
+                    final Map<String, OAuthAccessGrant> authStateMap = inFlightAuthorizationsByRealm[realmId]
+                            .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
+                    if(authStateMap.containsKey(subject.intern()))
+                    {
+                        final OAuthAccessGrant authState = authStateMap.get(subject.intern());
 // TODO: change to not decrement before token is actually expired or successfully replies
-//            System.out.println("replyStream: " + replyStream);
-//            try
-//            {
-//                final long sourceAuthorization = replyStream.sourceAuthorization;
-//                final int realmId = (int) ((sourceAuthorization & REALM_MASK) >> 48);
-//                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-//                final String subject = claims.getSubject();
-//                if(subject != null)
-//                {
-//                    final Map<String, OAuthAccessGrant> authStateMap = inFlightAuthorizationsByRealm[realmId]
-//                            .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
-//                    final OAuthAccessGrant authState = authStateMap.get(subject.intern());
-//                    if (authState != null)
-//                    {
-//                        System.out.println("Dec ref count");
-//                        authState.decrementReferenceCount();
-//                    }
-//                }
-//            } catch (MalformedClaimException | JoseException | InvalidJwtException e)
-//            {
-//                e.printStackTrace();
-//            }
+//                        else will decrement and cleanup data before onSignal can check for updated expirations, causing errors
+
+//                        authState.referenceCount--;
+                        if(authState.referenceCount == 0)
+                        {
+                            authState.cleanup();
+                        }
+
+                    }
+                }
+            } catch (MalformedClaimException | JoseException | InvalidJwtException e)
+            {
+                e.printStackTrace();
+            }
 
             writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, authorization, extension);
 
@@ -301,7 +307,7 @@ public class OAuthProxyFactory implements StreamFactory
                             connectAuthorization, expiresAtMillis);
 
                     authState.referenceCount++;
-                    
+
                     if(authStateMap.containsKey(subject.intern()))
                     {
                         final long authStateAuthorization = authState.authorization;
@@ -384,20 +390,10 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         // TODO: inc/dec refCount based off of incoming/outgoing resp/req. if reach 0 refCount, then remove this auth from map
-
-//        private void decrementReferenceCount()
-//        {
-//            referenceCount--;
-//            if(referenceCount == 0)
-//            {
-//                cleanup();
-//            }
-//        }
-
-//        private void cleanup()
-//        {
-//        // TODO: do NOT want to cleanup before the token actually expires. need to keep this reference to check if can update
-//            System.out.println("Cleaning up reference.");
+        private void cleanup()
+        {
+        // TODO: do NOT want to cleanup before the token actually expires. need to keep this reference to check if can update
+            System.out.println("Cleaning up reference.");
 //            for(int i = 0; i < inFlightAuthorizationsByRealm.length; i++)
 //            {
 //                inFlightAuthorizationsByRealm[i].values()
@@ -405,7 +401,7 @@ public class OAuthProxyFactory implements StreamFactory
 //                                                                 .removeIf(state -> state == this));
 ////                System.out.println("inFlightAuthorizationsByRealm: " + Arrays.toString(inFlightAuthorizationsByRealm));
 //            }
-//        }
+        }
 
         @Override
         public String toString()

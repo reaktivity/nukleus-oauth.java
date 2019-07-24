@@ -114,6 +114,8 @@ public class OAuthProxyFactory implements StreamFactory
     private final UnsafeBuffer extensionBuffer;
     private final int httpTypeId;
 
+    private OAuthAccessGrant grant;
+
     public OAuthProxyFactory(
         OAuthConfiguration config,
         MutableDirectBuffer writeBuffer,
@@ -201,7 +203,7 @@ public class OAuthProxyFactory implements StreamFactory
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
             long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
-            modifyGrant(begin, verified, connectAuthorization, expiresAtMillis);
+            modifyGrant(verified, begin.affinity(), connectAuthorization, expiresAtMillis);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
@@ -243,35 +245,6 @@ public class OAuthProxyFactory implements StreamFactory
             long acceptRouteId = replyStream.targetRouteId;
             long acceptReplyId = replyStream.targetStreamId;
 
-//            try
-//            {
-//                final long sourceAuthorization = replyStream.sourceAuthorization;
-//                final int realmId = (int) ((sourceAuthorization & REALM_MASK) >> SCOPE_BITS);
-//                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-//                final String subject = claims.getSubject();
-//                if(subject != null)
-//                {
-//                    final Map<String, OAuthAccessGrant> authStateMap = grantsBySubjectByAffinityPerRealm[realmId]
-//                            .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
-//                    if(authStateMap.containsKey(subject.intern()))
-//                    {
-//                        final OAuthAccessGrant authState = authStateMap.get(subject.intern());
-//// TODO: change to not decrement before token is actually expired or successfully replies
-////                        else will decrement and cleanup data before onSignal can check for updated expirations, causing errors
-//
-////                        authState.referenceCount--;
-//                        if(authState.referenceCount == 0)
-//                        {
-//                            authState.cleanup();
-//                        }
-//
-//                    }
-//                }
-//            } catch (MalformedClaimException | JoseException | InvalidJwtException e)
-//            {
-//                e.printStackTrace();
-//            }
-
             writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, authorization, extension);
 
             newStream = replyStream::onStreamMessage;
@@ -290,8 +263,8 @@ public class OAuthProxyFactory implements StreamFactory
     }
 
     private void modifyGrant(
-        BeginFW begin,
         JsonWebSignature verified,
+        long affinity,
         long connectAuthorization,
         long expiresAtMillis)
     {
@@ -305,9 +278,8 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     final Map<String, OAuthAccessGrant> grantsBySubject =
                             grantsBySubjectByAffinityPerRealm[(int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS)]
-                            .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
-                    final OAuthAccessGrant grant = supplyGrant(grantsBySubject, subject,
-                            connectAuthorization, expiresAtMillis);
+                            .computeIfAbsent(affinity, g -> new IdentityHashMap<>());
+                    grant = supplyGrant(grantsBySubject, subject, connectAuthorization, expiresAtMillis);
 
                     grant.referenceCount++;
 
@@ -315,8 +287,7 @@ public class OAuthProxyFactory implements StreamFactory
                     {
                         final long grantAuthorization = grant.authorization;
 
-                        if((grantAuthorization & connectAuthorization) == grantAuthorization &&
-                                expiresAtMillis > grant.expiresAt)
+                        if((grantAuthorization & connectAuthorization) == grantAuthorization && expiresAtMillis > grant.expiresAt)
                         {
                             grant.expiresAt = expiresAtMillis;
                         }
@@ -335,21 +306,20 @@ public class OAuthProxyFactory implements StreamFactory
     }
 
     private OAuthAccessGrant supplyGrant(
-        Map<String, OAuthAccessGrant> grantsBySubjectByAffinity,
+        Map<String, OAuthAccessGrant> grantsBySubject,
         String subject,
         long connectAuthorization,
         long expiresAtMillis)
     {
         final OAuthAccessGrant grant;
-        if(grantsBySubjectByAffinity.containsKey(subject.intern()))
+        if(grantsBySubject.containsKey(subject.intern()))
         {
-            grant = grantsBySubjectByAffinity.get(subject.intern());
+            grant = grantsBySubject.get(subject.intern());
         }
         else
         {
-            grant = new OAuthAccessGrant(connectAuthorization, expiresAtMillis);
+            grant = new OAuthAccessGrant(connectAuthorization, expiresAtMillis, grantsBySubject);
         }
-
         return grant;
     }
 
@@ -383,27 +353,23 @@ public class OAuthProxyFactory implements StreamFactory
         private long authorization;
         private long expiresAt;
         private int referenceCount;
+        private Map<String, OAuthAccessGrant> grantsBySubject;
 
         private OAuthAccessGrant(
             long authorization,
-            long expiresAt)
+            long expiresAt,
+            Map<String, OAuthAccessGrant> grantsBySubject)
         {
             this.authorization = authorization;
             this.expiresAt = expiresAt;
+            this.grantsBySubject = grantsBySubject;
         }
 
-        // TODO: inc/dec refCount based off of incoming/outgoing resp/req. if reach 0 refCount, then remove this auth from map
-        private void cleanup()
+        private void cleanup(
+            String subject)
         {
-        // TODO: do NOT want to cleanup before the token actually expires. need to keep this reference to check if can update
             System.out.println("Cleaning up reference.");
-//            for(int i = 0; i < grantsBySubjectByAffinityPerRealm.length; i++)
-//            {
-//                grantsBySubjectByAffinityPerRealm[i].values()
-//                                                .forEach(im -> im.values()
-//                                                                 .removeIf(state -> state == this));
-////                System.out.println("grantsBySubjectByAffinityPerRealm: " + Arrays.toString(grantsBySubjectByAffinityPerRealm));
-//            }
+            grantsBySubject.remove(subject.intern());
         }
 
         @Override
@@ -534,6 +500,8 @@ public class OAuthProxyFactory implements StreamFactory
 
             writer.doData(target, targetRouteId, targetStreamId, traceId,
                           authorization, groupId, padding, payload, extension);
+
+            tryToDecrementAuthorizationStateReferenceCount();
         }
 
         private void onEnd(
@@ -585,8 +553,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long signalId = signal.signalId();
 
-            if (signalId == TOKEN_EXPIRED_SIGNAL &&
-                !tryExtendGrantExpiration((int) ((sourceAuthorization & REALM_MASK) >> SCOPE_BITS)))
+            if (signalId == TOKEN_EXPIRED_SIGNAL && !tryExtendGrantExpiration())
             {
                 final long traceId = signal.trace();
                 writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
@@ -610,81 +577,59 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        private boolean tryExtendGrantExpiration(
-            int sourceRealmId)
+        private boolean tryExtendGrantExpiration()
         {
             boolean extendedExpiration = false;
 
-            try
+            if(grant != null)
             {
-                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-                final String subject = claims.getSubject();
+                final long delay = grant.expiresAt - System.currentTimeMillis();
 
-                final OAuthAccessGrant grant = lookupGrant(sourceRealmId, subject);
-                if(grant != null)
+                extendedExpiration = delay >= 0;
+
+                if(extendedExpiration)
                 {
-                    final long delay = grant.expiresAt - System.currentTimeMillis();
-
-                    extendedExpiration = delay >= 0;
-
-                    if(extendedExpiration)
-                    {
-                        this.expiryFuture = executor.schedule(delay, MILLISECONDS,
-                                targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
-                    }
+                    this.expiryFuture = executor.schedule(delay, MILLISECONDS,
+                            targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
                 }
             }
-            catch (InvalidJwtException | JoseException | MalformedClaimException e)
-            {
-                // TODO: diagnostics?
-            }
+
             return extendedExpiration;
         }
 
-        private OAuthAccessGrant lookupGrant(
-            int sourceRealmId,
-            String subject)
+        private void tryToDecrementAuthorizationStateReferenceCount()
         {
-            final Map<String, OAuthAccessGrant> grantsBySubject = grantsBySubjectByAffinityPerRealm[sourceRealmId].values()
-                                                                   .stream()
-                                                                   .filter(map -> map.containsKey(subject.intern()))
-                                                                   .findFirst()
-                                                                   .orElse(null);
-            return grantsBySubject != null ? grantsBySubject.get(subject.intern()) : null;
-        }
+            try
+            {
+                if(grant != null)
+                {
+                    final String kid = signature.getKeyIdHeaderValue();
+                    final String algorithm = signature.getAlgorithmHeaderValue();
+                    final JsonWebKey key = lookupKey.apply(kid);
+                    if (algorithm != null && key != null && algorithm.equals(key.getAlgorithm()))
+                    {
+                        signature.setKey(null);
+                        signature.setKey(key.getKey());
 
-//        private void tryToDecrementAuthorizationStateReferenceCount(
-//            OAuthProxy correlated)
-//        {
-//            try
-//            {
-//                final long sourceAuthorization = correlated.sourceAuthorization;
-//                final int realmId = (int) ((sourceAuthorization & REALM_MASK) >> SCOPE_BITS);
-//                final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-//                final String subject = claims.getSubject();
-//                if(subject != null)
-//                {
-//                    final Map<String, OAuthAccessGrant> authStateMap = grantsBySubjectByAffinityPerRealm[realmId]
-//                            .computeIfAbsent(begin.affinity(), g -> new IdentityHashMap<>());
-//                    if(authStateMap.containsKey(subject.intern()))
-//                    {
-//                        final OAuthAccessGrant authState = authStateMap.get(subject.intern());
-//    // TODO: change to not decrement before token is actually expired or successfully replies
-//    //                        else will decrement and cleanup data before onSignal can check for updated expirations, causing errors
-//
-//    //                        authState.referenceCount--;
-//                        if(authState.referenceCount == 0)
-//                        {
-//                            authState.cleanup();
-//                        }
-//
-//                    }
-//                }
-//            } catch (MalformedClaimException | JoseException | InvalidJwtException e)
-//            {
-//                e.printStackTrace();
-//            }
-//        }
+                        final JwtClaims claims = JwtClaims.parse(signature.getPayload());
+                        final String subject = claims.getSubject();
+
+                        if (subject != null)
+                        {
+                            grant.referenceCount--;
+                            if (grant.referenceCount == 0)
+                            {
+                                grant.cleanup(subject);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (JoseException | MalformedClaimException | InvalidJwtException ex)
+            {
+                // TODO: diagnostics?
+            }
+        }
 
         private boolean cleanupCorrelationIfNecessary()
         {
@@ -692,8 +637,7 @@ public class OAuthProxyFactory implements StreamFactory
             if (correlated != null)
             {
                 router.clearThrottle(acceptInitialId);
-                // TODO: add grant cleanup here
-//                tryToDecrementAuthorizationStateReferenceCount(correlated);
+                tryToDecrementAuthorizationStateReferenceCount();
             }
 
             return correlated != null;

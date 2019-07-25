@@ -418,6 +418,7 @@ public class OAuthProxyFactory implements StreamFactory
             this.grant = grant;
             if(this.grant != null)
             {
+                assert (grant.cleaner != null);
                 grant.referenceCount++;
             }
         }
@@ -496,7 +497,6 @@ public class OAuthProxyFactory implements StreamFactory
             writer.doData(target, targetRouteId, targetStreamId, traceId,
                           authorization, groupId, padding, payload, extension);
 
-            tryToDecrementAuthorizationStateReferenceCount();
         }
 
         private void onEnd(
@@ -550,6 +550,7 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (signalId == TOKEN_EXPIRED_SIGNAL && !tryExtendGrantExpiration())
             {
+                decrementGrantReferenceCount();
                 final long traceId = signal.trace();
                 writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -592,44 +593,18 @@ public class OAuthProxyFactory implements StreamFactory
             return extendedExpiration;
         }
 
-        private void tryToDecrementAuthorizationStateReferenceCount()
+        private void decrementGrantReferenceCount()
         {
-            try
+            if(grant != null)
             {
-                if(grant != null)
+                assert (grant.cleaner != null);
+                grant.referenceCount--;
+                if (grant.referenceCount == 0)
                 {
-                    final String kid = signature.getKeyIdHeaderValue();
-                    final String algorithm = signature.getAlgorithmHeaderValue();
-                    final JsonWebKey key = lookupKey.apply(kid);
-                    if (algorithm != null && key != null && algorithm.equals(key.getAlgorithm()))
-                    {
-                        signature.setKey(null);
-                        signature.setKey(key.getKey());
-
-                        final JwtClaims claims = JwtClaims.parse(signature.getPayload());
-                        final String subject = claims.getSubject();
-
-                        if (subject != null)
-                        {
-                            for(int i = 0; i < 2; i++)
-                            {
-                                if(grant.referenceCount > 0)
-                                {
-                                    grant.referenceCount--;
-                                }
-                                if (grant.referenceCount == 0 && grant.cleaner != null)
-                                {
-                                    grant.cleaner.accept(subject);
-                                    grant.cleaner = null;
-                                }
-                            }
-                        }
-                    }
+                    grant.cleaner.accept(grant.subject);
+                    grant.cleaner = null;
                 }
-            }
-            catch (JoseException | MalformedClaimException | InvalidJwtException ex)
-            {
-                // TODO: diagnostics?
+
             }
         }
 
@@ -639,7 +614,6 @@ public class OAuthProxyFactory implements StreamFactory
             if (correlated != null)
             {
                 router.clearThrottle(acceptInitialId);
-                tryToDecrementAuthorizationStateReferenceCount();
             }
 
             return correlated != null;
@@ -651,6 +625,7 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 expiryFuture.cancel(true);
                 expiryFuture = null;
+                decrementGrantReferenceCount();
             }
         }
 

@@ -303,11 +303,11 @@ public class OAuthProxyFactory implements StreamFactory
         }
         else
         {
-            return new OAuthAccessGrant(this::emptyCleaner);
+            return new OAuthAccessGrant(this::noOp);
         }
     }
 
-    private void emptyCleaner(
+    private void noOp(
         String subject)
     {
     }
@@ -383,6 +383,15 @@ public class OAuthProxyFactory implements StreamFactory
             referenceCount++;
         }
 
+        private void release()
+        {
+            if(subject != null)
+            {
+                cleaner.accept(subject.intern());
+            }
+            cleaner = null;
+        }
+
         @Override
         public String toString()
         {
@@ -404,7 +413,7 @@ public class OAuthProxyFactory implements StreamFactory
         private final long acceptInitialId;
         private final long connectReplyId;
 
-        private OAuthAccessGrant grant;
+        private final OAuthAccessGrant grant;
 
         private Future<?> expiryFuture;
 
@@ -598,7 +607,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long delay = grant.expiresAt - System.currentTimeMillis();
 
-            boolean extendedExpiration = delay >= 0;
+            final boolean extendedExpiration = delay >= 0;
 
             if(extendedExpiration)
             {
@@ -613,11 +622,9 @@ public class OAuthProxyFactory implements StreamFactory
         {
             assert (grant.cleaner != null && grant.referenceCount > 0);
             grant.referenceCount--;
-            final String subject = grant.subject;
-            if (grant.referenceCount == 0 && subject != null)
+            if (grant.referenceCount == 0)
             {
-                grant.cleaner.accept(subject.intern());
-                grant.cleaner = null;
+                grant.release();
             }
         }
 

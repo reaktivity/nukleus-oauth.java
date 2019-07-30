@@ -265,31 +265,15 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
-        "${streams}/earlier.expiring.authorization.with.more.roles.does.not.reauthorize.then.later.expiring.authorization.same." +
-                "roles.does.reauthorize.inflight.request/accept/client",
-        "${streams}/earlier.expiring.authorization.with.more.roles.does.not.reauthorize.then.later.expiring.authorization.same." +
-                "roles.does.reauthorize.inflight.request/connect/server"
+        "${streams}/later.expiring.authorization.with.more.roles.reauthorizes.then.later.expiring.authorization.same.roles." +
+                "reauthorizes.inflight.request.again/accept/client",
+        "${streams}/later.expiring.authorization.with.more.roles.reauthorizes.then.later.expiring.authorization.same.roles." +
+                "reauthorizes.inflight.request.again/connect/server"
     })
     public void shouldNotReauthorizeWithEarlierExpiringUpgradedTokenThenReauthorizeLaterExpiringDowngradedToken() throws Exception
     {
         k3po.start();
-        Thread.sleep(5000); // first token would expire if expiration is not updated.
-        k3po.notifyBarrier("TOKEN_EXPIRATION");
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
-        "${streams}/earlier.expiring.authorization.with.fewer.roles.does.not.reauthorize.then.later.expiring.authorization." +
-                "same.roles.does.reauthorize.inflight.request/accept/client",
-        "${streams}/earlier.expiring.authorization.with.fewer.roles.does.not.reauthorize.then.later.expiring.authorization." +
-                "same.roles.does.reauthorize.inflight.request/connect/server"
-    })
-    public void shouldNotReauthorizeWithEarlierExpiringDowngradedTokenThenReauthorizeLaterExpiringUpgradedToken() throws Exception
-    {
-        k3po.start();
-        Thread.sleep(5000); // first token would expire if expiration is not updated.
+        Thread.sleep(8500); // first token would expire if expiration is not updated.
         k3po.notifyBarrier("TOKEN_EXPIRATION");
         k3po.finish();
     }

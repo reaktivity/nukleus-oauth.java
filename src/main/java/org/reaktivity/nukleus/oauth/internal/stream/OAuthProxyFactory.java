@@ -70,7 +70,7 @@ public class OAuthProxyFactory implements StreamFactory
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
-    private static final long TOKEN_EXPIRED_SIGNAL = 1L;
+    private static final int TOKEN_EXPIRED_SIGNAL = 1;
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
 
@@ -101,8 +101,7 @@ public class OAuthProxyFactory implements StreamFactory
 
     private final JsonWebSignature signature = new JsonWebSignature();
 
-    private final Long2ObjectHashMap<Map<String, OAuthAccessGrant>>[] grantsBySubjectByAffinityPerRealm =
-            new Long2ObjectHashMap[16];
+    private final Long2ObjectHashMap<Map<String, OAuthAccessGrant>>[] grantsBySubjectByAffinityPerRealm;
 
     private final OAuthConfiguration config;
     private final RouteManager router;
@@ -142,6 +141,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
+        this.grantsBySubjectByAffinityPerRealm = new Long2ObjectHashMap[16];
         Arrays.setAll(grantsBySubjectByAffinityPerRealm, i -> new Long2ObjectHashMap<>());
     }
 
@@ -192,6 +192,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long acceptInitialId = begin.streamId();
             final long traceId = begin.trace();
+            final long affinity = begin.affinity();
             final OctetsFW extension = begin.extension();
 
             long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
@@ -201,15 +202,21 @@ public class OAuthProxyFactory implements StreamFactory
             long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
             long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
 
-            final OAuthAccessGrant grant = modifyGrant(verified, begin.affinity(), connectAuthorization, expiresAtMillis);
+            final String subject = resolveSubject(verified);
+            final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
+
+            final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
+            grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis, grant);
+            initialStream.grant.acquire();
 
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis, grant);
+            replyStream.grant.acquire();
 
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
@@ -260,16 +267,13 @@ public class OAuthProxyFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
-    private OAuthAccessGrant modifyGrant(
-        JsonWebSignature verified,
-        long affinity,
-        long connectAuthorization,
-        long expiresAtMillis)
+    private String resolveSubject(
+        JsonWebSignature verified)
     {
         String subject = null;
         try
         {
-            if(verified != null)
+            if (verified != null)
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
                 subject = claims.getSubject();
@@ -279,11 +283,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             // TODO: diagnostics?
         }
-        final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
-
-        final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
-        grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
-        return grant;
+        return subject;
     }
 
     private OAuthAccessGrant supplyGrant(
@@ -296,7 +296,7 @@ public class OAuthProxyFactory implements StreamFactory
         final Map<String, OAuthAccessGrant> grantsBySubject =
                 grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
 
-        if(subject != null)
+        if (subject != null)
         {
             final String subjectKey = subject.intern();
             return grantsBySubject.computeIfAbsent(subjectKey, s -> new OAuthAccessGrant(grantsBySubject::remove));
@@ -357,12 +357,12 @@ public class OAuthProxyFactory implements StreamFactory
             long expiresAtMillis)
         {
             final boolean reauthorized;
-            if(referenceCount > 0)
+            if (referenceCount > 0)
             {
                 final long grantAuthorization = authorization;
                 reauthorized = (grantAuthorization & connectAuthorization) == grantAuthorization && expiresAtMillis > expiresAt;
 
-                if(reauthorized)
+                if (reauthorized)
                 {
                     expiresAt = expiresAtMillis;
                 }
@@ -385,11 +385,16 @@ public class OAuthProxyFactory implements StreamFactory
 
         private void release()
         {
-            if(subject != null)
+            assert (cleaner != null && referenceCount > 0);
+            referenceCount--;
+            if (referenceCount == 0)
             {
-                cleaner.accept(subject.intern());
+                if (subject != null)
+                {
+                    cleaner.accept(subject.intern());
+                }
+                cleaner = null;
             }
-            cleaner = null;
         }
 
         @Override
@@ -450,7 +455,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
 
             this.grant = Objects.requireNonNull(grant);
-            grant.acquire();
         }
 
         private void onStreamMessage(
@@ -578,9 +582,28 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long signalId = signal.signalId();
 
-            if (signalId == TOKEN_EXPIRED_SIGNAL && !tryExtendGrantExpiration())
+            switch ((int) signalId) {
+                case TOKEN_EXPIRED_SIGNAL:
+                    onTokenExpiredSignal(signal);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void onTokenExpiredSignal(
+            SignalFW signal)
+        {
+            final long delay = grant.expiresAt - System.currentTimeMillis();
+
+            if (delay >= 0)
             {
-                decrementGrantReferenceCount();
+                this.expiryFuture = executor.schedule(delay, MILLISECONDS,
+                        targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+            }
+            else
+            {
+                grant.release();
                 final long traceId = signal.trace();
                 writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -603,31 +626,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        private boolean tryExtendGrantExpiration()
-        {
-            final long delay = grant.expiresAt - System.currentTimeMillis();
-
-            final boolean extendedExpiration = delay >= 0;
-
-            if(extendedExpiration)
-            {
-                this.expiryFuture = executor.schedule(delay, MILLISECONDS,
-                        targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
-            }
-
-            return extendedExpiration;
-        }
-
-        private void decrementGrantReferenceCount()
-        {
-            assert (grant.cleaner != null && grant.referenceCount > 0);
-            grant.referenceCount--;
-            if (grant.referenceCount == 0)
-            {
-                grant.release();
-            }
-        }
-
         private boolean cleanupCorrelationIfNecessary()
         {
             final OAuthProxy correlated = correlations.remove(connectReplyId);
@@ -645,7 +643,7 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 expiryFuture.cancel(true);
                 expiryFuture = null;
-                decrementGrantReferenceCount();
+                grant.release();
             }
         }
 

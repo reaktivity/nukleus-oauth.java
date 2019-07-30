@@ -582,7 +582,8 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long signalId = signal.signalId();
 
-            switch ((int) signalId) {
+            switch ((int) signalId)
+            {
                 case TOKEN_EXPIRED_SIGNAL:
                     onTokenExpiredSignal(signal);
                     break;
@@ -603,7 +604,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
             else
             {
-                grant.release();
                 final long traceId = signal.trace();
                 writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -623,6 +623,8 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
                 }
+
+                grant.release();
             }
         }
 

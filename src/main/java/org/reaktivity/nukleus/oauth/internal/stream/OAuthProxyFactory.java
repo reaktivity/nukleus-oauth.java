@@ -64,6 +64,7 @@ import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
 import org.reaktivity.nukleus.oauth.internal.util.BufferUtil;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
+import org.reaktivity.specification.oauth.internal.types.control.OAuthBeginExFW;
 
 public class OAuthProxyFactory implements StreamFactory
 {
@@ -71,6 +72,9 @@ public class OAuthProxyFactory implements StreamFactory
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
     private static final int TOKEN_EXPIRED_SIGNAL = 1;
+    private static final int TOKEN_EXPIRING_SIGNAL = 2;
+
+    private static final String ADVANCED_NOTIFICATION_BUFFER_CLAIM = "anb";
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
 
@@ -93,6 +97,8 @@ public class OAuthProxyFactory implements StreamFactory
 
     private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
     private final HttpBeginExFW.Builder httpBeginExRW = new HttpBeginExFW.Builder();
+
+    private final OAuthBeginExFW beginExRO = new OAuthBeginExFW();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -205,17 +211,31 @@ public class OAuthProxyFactory implements StreamFactory
             final String subject = resolveSubject(verified);
             final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
 
+            final long notificationBuffer = resolveAdvancedNotificationBuffer(begin, verified);
+
+            // TODO: get nbuff/anb claim: advanced notification buffer for expiration
+            //       possibly store in grant as well: schedule an advancedExpiryNotificationFuture that would trigger
+            //          trying to send a challenge upstream: includes checking list of streams that support CHALLENGE
+            //          also checks to make sure original stream isnt closed, else check if already reauthorized, else
+            //          need to choose a different stream. else will expire as normal
+
+            // TODO: create OAuthBeginEx from begin.extension() to see if valid extension that supports CHALLENGE
+            //       if so, then add stream to list. what adding here: correlationId???
+            //          - difference between declaring support in BEGIN vs claim?
+            //              - claim is token specific: NUKLEUS STILL MAY NOT SUPPORT CHALLENGE
+            //              - this is why we need to declare support in BEGIN as it comes from that upstream nukleus
+
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, grant);
+                    acceptInitialId, connectReplyId, expiresAtMillis, notificationBuffer, grant);
             initialStream.grant.acquire();
 
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, grant);
+                    acceptInitialId, connectReplyId, expiresAtMillis, notificationBuffer, grant);
             replyStream.grant.acquire();
 
             correlations.put(connectReplyId, replyStream);
@@ -225,7 +245,13 @@ public class OAuthProxyFactory implements StreamFactory
                     connectAuthorization, extension);
             router.setThrottle(connectInitialId, initialStream::onThrottleMessage);
 
+            System.out.println("initialStream.sourceStreamId: " + initialStream.sourceStreamId);
             newStream = initialStream::onStreamMessage;
+            // TODO: maybe store newStream in list? how to keep list of streams to be issued the challenge?
+            //       how does a stream know where to send challenge request? is there a shared data structure to send to?
+            //          would use existing maps
+            //       or does each stream have their own list of other streams?
+            //       does stream pick one randomly from the list?
         }
 
         return newStream;
@@ -286,6 +312,54 @@ public class OAuthProxyFactory implements StreamFactory
         return subject;
     }
 
+    private long resolveAdvancedNotificationBuffer(
+        BeginFW begin,
+        JsonWebSignature verified)
+    {
+        long bufferMillis = 0;
+        final boolean supportsChallenge = resolveChallengeSupport(begin);
+
+        if(supportsChallenge)
+        {
+            try
+            {
+                if (verified != null)
+                {
+                    final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+                    final NumericDate buffer = claims.getNumericDateClaimValue(ADVANCED_NOTIFICATION_BUFFER_CLAIM);
+                    if (buffer != null)
+                    {
+                        bufferMillis = buffer.getValueInMillis();
+                    }
+                }
+            }
+            catch (InvalidJwtException | JoseException | MalformedClaimException e)
+            {
+                // TODO: diagnostics?
+            }
+        }
+        return bufferMillis;
+    }
+
+    private boolean resolveChallengeSupport(
+        BeginFW begin)
+    {
+        boolean supportsChallenge = false;
+        if(begin.extension().sizeof() > 0)
+        {
+            final OAuthBeginExFW beginEx = beginExRO.tryWrap(begin.buffer(),
+                                                             begin.extension().offset(),
+                                                             begin.extension().limit());
+            // TODO: what about false positive? what if extension isn't OAuthBeginEx but still gives 1?
+            System.out.println("beginEx - " + beginEx);
+            if(beginEx != null)
+            {
+                supportsChallenge = beginEx.supportsChallenge() == 1;
+            }
+        }
+        return supportsChallenge;
+    }
+
     private OAuthAccessGrant supplyGrant(
         final int realmIndex,
         final long affinityId,
@@ -337,6 +411,7 @@ public class OAuthProxyFactory implements StreamFactory
         return expiresAtMillis;
     }
 
+    // TODO: Maybe grants can also hold a variable to tell if its stream supports challenges
     private final class OAuthAccessGrant
     {
         private String subject;
@@ -344,6 +419,7 @@ public class OAuthProxyFactory implements StreamFactory
         private long expiresAt;
         private int referenceCount;
         private Consumer<String> cleaner;
+        // private boolean supportsChallenge;
 
         private OAuthAccessGrant(
             Consumer<String> cleaner)
@@ -421,6 +497,11 @@ public class OAuthProxyFactory implements StreamFactory
         private final OAuthAccessGrant grant;
 
         private Future<?> expiryFuture;
+        private Future<?> advancedExpiryNotificationFuture;
+        // TODO: For notifying client of soon to expire tokens if applicable.
+        //       Perhaps pass time buffer into constructor to let proxy know if claim was present for the notification
+        //       If claim isn't present, 0 will be passed in.
+        //          0 will be treated as no advanced notification needed.
 
         private OAuthProxy(
             MessageConsumer source,
@@ -434,6 +515,7 @@ public class OAuthProxyFactory implements StreamFactory
             long acceptInitialId,
             long connectReplyId,
             long expiresAtMillis,
+            long advancedNotificationBuffer,
             OAuthAccessGrant grant)
         {
             this.source = source;
@@ -452,6 +534,15 @@ public class OAuthProxyFactory implements StreamFactory
                 final long delay = expiresAtMillis - System.currentTimeMillis();
 
                 this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+            }
+
+            // TODO:
+            if (advancedNotificationBuffer > 0)
+            {
+                final long delay = advancedNotificationBuffer - System.currentTimeMillis();
+
+                this.advancedExpiryNotificationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                        TOKEN_EXPIRING_SIGNAL);
             }
 
             this.grant = Objects.requireNonNull(grant);
@@ -516,6 +607,7 @@ public class OAuthProxyFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
+            System.out.println("Begin: " + begin);
         }
 
         private void onData(
@@ -587,6 +679,13 @@ public class OAuthProxyFactory implements StreamFactory
                 case TOKEN_EXPIRED_SIGNAL:
                     onTokenExpiredSignal(signal);
                     break;
+                case TOKEN_EXPIRING_SIGNAL:
+                    onTokenExpiringSignal(signal);
+                    // TODO: advanced notification stuff here. check if stream is still open, try to send challenge to it.
+                    //       else, check if already reauthorized.
+                    //       else, check if other streams are available and send to them if applicable.
+                    //       else, do nothing and let expire as normal.
+                    break;
                 default:
                     break;
             }
@@ -628,6 +727,13 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
+        private void onTokenExpiringSignal(
+            SignalFW signal)
+        {
+            // TODO: writer.doFrame(target, ...) - this will let oauth write a frame to a specific target which in this
+            //       case will be a stream that isn't expire and supports challenges
+        }
+
         private boolean cleanupCorrelationIfNecessary()
         {
             final OAuthProxy correlated = correlations.remove(connectReplyId);
@@ -645,6 +751,8 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 expiryFuture.cancel(true);
                 expiryFuture = null;
+                advancedExpiryNotificationFuture.cancel(true);
+                advancedExpiryNotificationFuture = null;
                 grant.release();
             }
         }

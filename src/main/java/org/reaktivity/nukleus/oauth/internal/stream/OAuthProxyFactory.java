@@ -52,6 +52,8 @@ import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
+import org.reaktivity.nukleus.oauth.internal.types.control.OAuthBeginExFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.OAuthSignalExFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
@@ -64,7 +66,7 @@ import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
 import org.reaktivity.nukleus.oauth.internal.util.BufferUtil;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
-import org.reaktivity.specification.oauth.internal.types.control.OAuthBeginExFW;
+import org.reaktivity.specification.nukleus.oauth.internal.OAuthFunctions;
 
 public class OAuthProxyFactory implements StreamFactory
 {
@@ -99,6 +101,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final HttpBeginExFW.Builder httpBeginExRW = new HttpBeginExFW.Builder();
 
     private final OAuthBeginExFW beginExRO = new OAuthBeginExFW();
+    private final OAuthSignalExFW signalExRO = new OAuthSignalExFW();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -213,6 +216,9 @@ public class OAuthProxyFactory implements StreamFactory
             final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
 
             final long notificationBuffer = resolveAdvancedNotificationBuffer(begin, verified);
+
+            // TODO: acceptReply is the source MessageConsumer. maybe keep references to these to send challenge events to?
+            //       what to map them to to save them and reference later?
 
             // TODO: get nbuff/anb claim: advanced notification buffer for expiration
             //       possibly store in grant as well: schedule an advancedExpiryNotificationFuture that would trigger
@@ -737,13 +743,27 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (delay >= 0)
             {
-                final OAuthProxy currentCorrelatedStream = correlations.get(connectReplyId);
+                OAuthProxy currentCorrelatedStream = correlations.get(acceptInitialId);
+//                if (currentCorrelatedStream == null)
+//                {
+//                    // pick a different stream from list?
+//                }
+
                 // sufficient time to notify client. doStuff()
                 // need to send challenge request to sse stream. (which will then make the reauthorization request to the client
                 //                                                who will send the reauthorization back down)
-                final long traceId = signal.trace();
                 // need writer.doSignal()? to send signal to sse to trigger the challenge event?
-//                writer.doSignal(target, targetRouteId, targetStreamId, traceId, targetAuthorization, oauthSignalEx);
+                byte[] build = OAuthFunctions.signalEx()
+                                             .challenge("{ \":method\":\"post\", \"headers\": { \"correlation\": \"<base64>\" } }")
+                                             .build();
+
+                extensionBuffer.wrap(build);
+
+                final OAuthSignalExFW oauthSignalEx = new OAuthSignalExFW().wrap(extensionBuffer, 0,
+                                                                                 extensionBuffer.capacity());
+                final long traceId = signal.trace();
+                writer.doSignal(currentCorrelatedStream::onStreamMessage, sourceRouteId, sourceStreamId, traceId,
+                                sourceAuthorization, oauthSignalEx);
             }
             else
             {

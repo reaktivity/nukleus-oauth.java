@@ -26,7 +26,6 @@ import org.reaktivity.nukleus.oauth.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
-import sun.misc.Signal;
 
 public class Writer
 {

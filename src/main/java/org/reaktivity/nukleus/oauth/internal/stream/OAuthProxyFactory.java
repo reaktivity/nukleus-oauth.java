@@ -180,6 +180,7 @@ public class OAuthProxyFactory implements StreamFactory
         final BeginFW begin,
         final MessageConsumer acceptReply)
     {
+        System.out.println("newInitialStream - BEGIN: " + begin);
         final long acceptAuthorization = begin.authorization();
         final JsonWebSignature verified = verifiedSignature(begin);
 
@@ -417,6 +418,7 @@ public class OAuthProxyFactory implements StreamFactory
         private String subject;
         private long authorization;
         private long expiresAt;
+        private long advancedNotificationBuffer;
         private int referenceCount;
         private Consumer<String> cleaner;
         // private boolean supportsChallenge;
@@ -536,7 +538,6 @@ public class OAuthProxyFactory implements StreamFactory
                 this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
             }
 
-            // TODO:
             if (advancedNotificationBuffer > 0)
             {
                 final long delay = advancedNotificationBuffer - System.currentTimeMillis();
@@ -607,7 +608,7 @@ public class OAuthProxyFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            System.out.println("Begin: " + begin);
+            System.out.println("onBegin: " + begin);
         }
 
         private void onData(
@@ -732,6 +733,22 @@ public class OAuthProxyFactory implements StreamFactory
         {
             // TODO: writer.doFrame(target, ...) - this will let oauth write a frame to a specific target which in this
             //       case will be a stream that isn't expire and supports challenges
+            final long delay = grant.advancedNotificationBuffer - System.currentTimeMillis();
+
+            if (delay >= 0)
+            {
+                final OAuthProxy currentCorrelatedStream = correlations.get(connectReplyId);
+                // sufficient time to notify client. doStuff()
+                // need to send challenge request to sse stream. (which will then make the reauthorization request to the client
+                //                                                who will send the reauthorization back down)
+                final long traceId = signal.trace();
+                // need writer.doSignal()? to send signal to sse to trigger the challenge event?
+//                writer.doSignal(target, targetRouteId, targetStreamId, traceId, targetAuthorization, oauthSignalEx);
+            }
+            else
+            {
+                // expired before could notify...
+            }
         }
 
         private boolean cleanupCorrelationIfNecessary()
@@ -751,9 +768,13 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 expiryFuture.cancel(true);
                 expiryFuture = null;
+                grant.release();
+            }
+
+            if (advancedExpiryNotificationFuture != null)
+            {
                 advancedExpiryNotificationFuture.cancel(true);
                 advancedExpiryNotificationFuture = null;
-                grant.release();
             }
         }
 

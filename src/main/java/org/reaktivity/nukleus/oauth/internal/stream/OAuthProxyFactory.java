@@ -252,7 +252,7 @@ public class OAuthProxyFactory implements StreamFactory
                     connectAuthorization, extension);
             router.setThrottle(connectInitialId, initialStream::onThrottleMessage);
 
-            System.out.println("initialStream.sourceStreamId: " + initialStream.sourceStreamId);
+//            System.out.println("initialStream.sourceStreamId: " + initialStream.sourceStreamId);
             newStream = initialStream::onStreamMessage;
             // TODO: maybe store newStream in list? how to keep list of streams to be issued the challenge?
             //       how does a stream know where to send challenge request? is there a shared data structure to send to?
@@ -352,13 +352,14 @@ public class OAuthProxyFactory implements StreamFactory
         BeginFW begin)
     {
         boolean supportsChallenge = false;
-        if(begin.extension().sizeof() > 0)
+        System.out.println("begin.extension().limit() vs. beginExRO.limit(): \t" + begin.extension().limit() +
+                           " :: " + beginExRO.limit());
+        if(begin.extension().sizeof() > 0 && begin.extension().limit() == beginExRO.limit())
         {
             final OAuthBeginExFW beginEx = beginExRO.tryWrap(begin.buffer(),
                                                              begin.extension().offset(),
                                                              begin.extension().limit());
-            // TODO: what about false positive? what if extension isn't OAuthBeginEx but still gives 1?
-            System.out.println("beginEx - " + beginEx);
+            System.out.println("extension was valid: beginEx - " + beginEx);
             if(beginEx != null)
             {
                 supportsChallenge = beginEx.supportsChallenge() == 1;
@@ -743,7 +744,8 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (delay >= 0)
             {
-                OAuthProxy currentCorrelatedStream = correlations.get(acceptInitialId);
+                long correlation = acceptInitialId;
+                OAuthProxy currentCorrelatedStream = correlations.get(correlation);
 //                if (currentCorrelatedStream == null)
 //                {
 //                    // pick a different stream from list?
@@ -753,8 +755,10 @@ public class OAuthProxyFactory implements StreamFactory
                 // need to send challenge request to sse stream. (which will then make the reauthorization request to the client
                 //                                                who will send the reauthorization back down)
                 // need writer.doSignal()? to send signal to sse to trigger the challenge event?
+                // base64 correlation?
                 byte[] build = OAuthFunctions.signalEx()
-                                             .challenge("{ \":method\":\"post\", \"headers\": { \"correlation\": \"<base64>\" } }")
+                                             .challenge("{ \":method\":\"post\", \"headers\": { \"correlation\": \"" +
+                                                     correlation + "\" } }")
                                              .build();
 
                 extensionBuffer.wrap(build);

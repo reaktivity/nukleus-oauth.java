@@ -121,6 +121,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
+    private final Long2ObjectHashMap<OAuthProxy> challengeCapableStreams;
     private final Writer writer;
     private final UnsafeBuffer extensionBuffer;
     private final int httpTypeId;
@@ -150,6 +151,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
+        this.challengeCapableStreams = new Long2ObjectHashMap<>();
         this.grantsBySubjectByAffinityPerRealm = new Long2ObjectHashMap[16];
         Arrays.setAll(grantsBySubjectByAffinityPerRealm, i -> new Long2ObjectHashMap<>());
     }
@@ -215,8 +217,6 @@ public class OAuthProxyFactory implements StreamFactory
             final String subject = resolveSubject(verified);
             final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
 
-            final long notificationBuffer = resolveAdvancedNotificationBuffer(begin, verified);
-
             // TODO: acceptReply is the source MessageConsumer. maybe keep references to these to send challenge events to?
             //       what to map them to to save them and reference later?
 
@@ -232,6 +232,9 @@ public class OAuthProxyFactory implements StreamFactory
             //              - claim is token specific: NUKLEUS STILL MAY NOT SUPPORT CHALLENGE
             //              - this is why we need to declare support in BEGIN as it comes from that upstream nukleus
 
+            final boolean streamSupportsChallenge = resolveChallengeSupport(begin);
+            final long notificationBuffer = resolveAdvancedNotificationBuffer(verified, streamSupportsChallenge);
+
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
 
@@ -239,6 +242,12 @@ public class OAuthProxyFactory implements StreamFactory
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis, notificationBuffer, grant);
             initialStream.grant.acquire();
+
+            // if stream supports challenge, add to list for future reference
+            if (streamSupportsChallenge)
+            {
+                challengeCapableStreams.put(connectReplyId, initialStream);
+            }
 
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
@@ -274,6 +283,8 @@ public class OAuthProxyFactory implements StreamFactory
         final OctetsFW extension = begin.extension();
 
         OAuthProxy replyStream = correlations.remove(connectReplyId);
+        // remove challenge capable stream from list
+        challengeCapableStreams.remove(connectReplyId);
 
         MessageConsumer newStream = null;
 
@@ -320,13 +331,12 @@ public class OAuthProxyFactory implements StreamFactory
     }
 
     private long resolveAdvancedNotificationBuffer(
-        BeginFW begin,
-        JsonWebSignature verified)
+        JsonWebSignature verified,
+        boolean streamSupportsChallenge)
     {
         long bufferMillis = 0;
-        final boolean supportsChallenge = resolveChallengeSupport(begin);
 
-        if(supportsChallenge)
+        if(streamSupportsChallenge)
         {
             try
             {
@@ -663,6 +673,24 @@ public class OAuthProxyFactory implements StreamFactory
             final int padding = window.padding();
             final long groupId = window.groupId();
 
+            // TODO: OAuthWindowExFW which contains uint8 for challenge support
+            //       windows are the responses back; if get challenge capable window, must be getting response back from client
+            OAuthProxy stream = challengeCapableStreams.get(connectReplyId);
+            if (stream == null)
+            {
+                // choose another stream
+                // reissue challenge
+            }
+
+            // token will already have been given in BEGIN
+            //      will also have already reauthorized with new expiration
+            //      no need to immediately update authorization:
+            //          grant will have updated expiration
+            //          expiryFuture will then trigger the reauthorization
+            //      if token has anb again, will then create another advanced notice future to trigger another chalenge event
+            
+            // got response back from client, should send 200 OK to inform client that reauthorization was successful
+
             writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
         }
 
@@ -744,11 +772,10 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (delay >= 0)
             {
-                long correlation = acceptInitialId;
-                OAuthProxy currentCorrelatedStream = correlations.get(correlation);
-//                if (currentCorrelatedStream == null)
+                OAuthProxy challengeStream = challengeCapableStreams.get(connectReplyId);
+//                if (challengeStream == null)
 //                {
-//                    // pick a different stream from list?
+//                    // pick a different correlation and stream
 //                }
 
                 // sufficient time to notify client. doStuff()
@@ -758,7 +785,7 @@ public class OAuthProxyFactory implements StreamFactory
                 // base64 correlation?
                 byte[] build = OAuthFunctions.signalEx()
                                              .challenge("{ \":method\":\"post\", \"headers\": { \"correlation\": \"" +
-                                                     correlation + "\" } }")
+                                                     connectReplyId + "\" } }")
                                              .build();
 
                 extensionBuffer.wrap(build);
@@ -766,17 +793,15 @@ public class OAuthProxyFactory implements StreamFactory
                 final OAuthSignalExFW oauthSignalEx = new OAuthSignalExFW().wrap(extensionBuffer, 0,
                                                                                  extensionBuffer.capacity());
                 final long traceId = signal.trace();
-                writer.doSignal(currentCorrelatedStream::onStreamMessage, sourceRouteId, sourceStreamId, traceId,
+                writer.doSignal(challengeStream::onStreamMessage, sourceRouteId, sourceStreamId, traceId,
                                 sourceAuthorization, oauthSignalEx);
             }
-            else
-            {
-                // expired before could notify...
-            }
+            // else, expired before could notify...
         }
 
         private boolean cleanupCorrelationIfNecessary()
         {
+            challengeCapableStreams.remove(connectReplyId);
             final OAuthProxy correlated = correlations.remove(connectReplyId);
             if (correlated != null)
             {

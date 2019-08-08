@@ -236,7 +236,7 @@ public class OAuthProxyFactory implements StreamFactory
             final long notificationBuffer = resolveAdvancedNotificationBuffer(verified, streamSupportsChallenge);
 
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
-            grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
+            grant.reauthorize(subject, connectAuthorization, expiresAtMillis, notificationBuffer);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
@@ -263,11 +263,6 @@ public class OAuthProxyFactory implements StreamFactory
 
 //            System.out.println("initialStream.sourceStreamId: " + initialStream.sourceStreamId);
             newStream = initialStream::onStreamMessage;
-            // TODO: maybe store newStream in list? how to keep list of streams to be issued the challenge?
-            //       how does a stream know where to send challenge request? is there a shared data structure to send to?
-            //          would use existing maps
-            //       or does each stream have their own list of other streams?
-            //       does stream pick one randomly from the list?
         }
 
         return newStream;
@@ -438,7 +433,6 @@ public class OAuthProxyFactory implements StreamFactory
         private long advancedNotificationBuffer;
         private int referenceCount;
         private Consumer<String> cleaner;
-        // private boolean supportsChallenge;
 
         private OAuthAccessGrant(
             Consumer<String> cleaner)
@@ -449,7 +443,8 @@ public class OAuthProxyFactory implements StreamFactory
         private boolean reauthorize(
             String subject,
             long connectAuthorization,
-            long expiresAtMillis)
+            long expiresAtMillis,
+            long advancedNotificationBuffer)
         {
             final boolean reauthorized;
             if (referenceCount > 0)
@@ -467,6 +462,7 @@ public class OAuthProxyFactory implements StreamFactory
                 this.subject = subject != null ? subject.intern() : null;
                 this.authorization = connectAuthorization;
                 this.expiresAt = expiresAtMillis;
+                this.advancedNotificationBuffer = advancedNotificationBuffer;
                 reauthorized = false;
             }
             return reauthorized;
@@ -751,9 +747,9 @@ public class OAuthProxyFactory implements StreamFactory
                 if (sourceStreamId == connectReplyId && replyNotStarted)
                 {
                     final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
-                            .typeId(httpTypeId)
-                            .headersItem(h -> h.name(":status").value("401"))
-                            .build();
+                                                                   .typeId(httpTypeId)
+                                                                   .headersItem(h -> h.name(":status").value("401"))
+                                                                   .build();
 
                     writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
                     writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
@@ -777,10 +773,6 @@ public class OAuthProxyFactory implements StreamFactory
             if (delay >= 0)
             {
                 OAuthProxy challengeStream = challengeCapableStreams.get(connectReplyId);
-//                if (challengeStream == null)
-//                {
-//                    // pick a different correlation and stream
-//                }
 
                 // sufficient time to notify client. doStuff()
                 // need to send challenge request to sse stream. (which will then make the reauthorization request to the client

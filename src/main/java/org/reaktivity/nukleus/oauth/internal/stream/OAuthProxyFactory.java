@@ -284,7 +284,7 @@ public class OAuthProxyFactory implements StreamFactory
 
         OAuthProxy replyStream = correlations.remove(connectReplyId);
         // remove challenge capable stream from list
-        challengeCapableStreams.remove(connectReplyId);
+//        challengeCapableStreams.remove(connectReplyId);
 
         MessageConsumer newStream = null;
 
@@ -675,12 +675,12 @@ public class OAuthProxyFactory implements StreamFactory
 
             // TODO: OAuthWindowExFW which contains uint8 for challenge support
             //       windows are the responses back; if get challenge capable window, must be getting response back from client
-            OAuthProxy stream = challengeCapableStreams.get(connectReplyId);
-            if (stream == null)
-            {
-                // choose another stream
-                // reissue challenge
-            }
+//            OAuthProxy stream = challengeCapableStreams.get(connectReplyId);
+//            if (stream == null)
+//            {
+//                // choose another stream
+//                // reissue challenge
+//            }
 
             // token will already have been given in BEGIN
             //      will also have already reauthorized with new expiration
@@ -688,7 +688,7 @@ public class OAuthProxyFactory implements StreamFactory
             //          grant will have updated expiration
             //          expiryFuture will then trigger the reauthorization
             //      if token has anb again, will then create another advanced notice future to trigger another chalenge event
-            
+
             // got response back from client, should send 200 OK to inform client that reauthorization was successful
 
             writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
@@ -705,6 +705,10 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
+        // How would know when challenge response is not received?
+        //      maybe token expired signal is triggered?
+        //          but maybe its too late at that point?
+        //          maybe schedule another future for another signal in case we want to expect a timeout
         private void onSignal(
             SignalFW signal)
         {
@@ -824,6 +828,12 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 advancedExpiryNotificationFuture.cancel(true);
                 advancedExpiryNotificationFuture = null;
+            }
+
+            // remove challenge capable stream from list
+            if (challengeCapableStreams.containsKey(connectReplyId))
+            {
+                challengeCapableStreams.remove(connectReplyId);
             }
         }
 

@@ -148,6 +148,31 @@ public class Writer
         sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
+    public void doWindow(
+        final MessageConsumer sender,
+        final long routeId,
+        final long streamId,
+        final long traceId,
+        final long authorization,
+        final int credit,
+        final int padding,
+        final long groupId,
+        Flyweight extension)
+    {
+        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .trace(traceId)
+                .authorization(authorization)
+                .credit(credit)
+                .padding(padding)
+                .groupId(groupId)
+                .extension(extension.buffer(), extension.offset(), extension.sizeof())
+                .build();
+
+        sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+    }
+
     public void doReset(
         final MessageConsumer sender,
         final long routeId,

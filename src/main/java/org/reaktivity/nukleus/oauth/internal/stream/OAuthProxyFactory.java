@@ -77,6 +77,7 @@ public class OAuthProxyFactory implements StreamFactory
     private static final int TOKEN_EXPIRED_SIGNAL = 1;
     private static final int TOKEN_EXPIRING_SIGNAL = 2;
 
+    // anb: possible alternatives - nbuff, buf, anbuf
     private static final String ADVANCED_NOTIFICATION_BUFFER_CLAIM = "anb";
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
@@ -123,7 +124,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
-    private final Long2ObjectHashMap<OAuthProxy> challengeCapableStreams;
+    private final Long2ObjectHashMap<MessageConsumer> challengeCapableStreams;
     private final Writer writer;
     private final UnsafeBuffer extensionBuffer;
     private final int httpTypeId;
@@ -187,7 +188,7 @@ public class OAuthProxyFactory implements StreamFactory
         final BeginFW begin,
         final MessageConsumer acceptReply)
     {
-        System.out.println("newInitialStream - BEGIN: " + begin);
+//        System.out.println("newInitialStream - BEGIN: " + begin);
         final long acceptAuthorization = begin.authorization();
         final JsonWebSignature verified = verifiedSignature(begin);
 
@@ -245,7 +246,7 @@ public class OAuthProxyFactory implements StreamFactory
             // if stream supports challenge, add to list for future reference
             if (streamSupportsChallenge)
             {
-                challengeCapableStreams.put(connectReplyId, initialStream);
+                challengeCapableStreams.put(connectReplyId, acceptReply);
             }
 
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
@@ -356,14 +357,14 @@ public class OAuthProxyFactory implements StreamFactory
         BeginFW begin)
     {
         boolean supportsChallenge = false;
-        System.out.println("begin.extension().limit() vs. beginExRO.limit(): \t" + begin.extension().sizeof() +
-                           " :: " + beginExRO.limit());
+//        System.out.println("begin.extension().limit() vs. beginExRO.limit(): \t" + begin.extension().sizeof() +
+//                           " :: " + beginExRO.limit());
         if (begin.extension().sizeof() > 0 && begin.extension().sizeof() == beginExRO.limit())
         {
             final OAuthBeginExFW beginEx = beginExRO.tryWrap(begin.buffer(),
                                                              begin.extension().offset(),
                                                              begin.extension().limit());
-            System.out.println("extension was valid: beginEx - " + beginEx);
+//            System.out.println("extension was valid: beginEx - " + beginEx);
             if (beginEx != null)
             {
                 supportsChallenge = beginEx.supportsChallenge() == 1;
@@ -616,7 +617,7 @@ public class OAuthProxyFactory implements StreamFactory
         private void onBegin(
             BeginFW begin)
         {
-            System.out.println("onBegin: " + begin);
+//            System.out.println("onBegin: " + begin);
         }
 
         private void onData(
@@ -664,9 +665,9 @@ public class OAuthProxyFactory implements StreamFactory
             final int padding = window.padding();
             final long groupId = window.groupId();
 
-            System.out.println("onWindow() - " + window);
-            System.out.println("window.extension().limit() vs. windowExRO.limit(): \t" + window.extension().sizeof() +
-                    " :: " + windowExRO.limit());
+//            System.out.println("onWindow() - " + window);
+//            System.out.println("window.extension().limit() vs. windowExRO.limit(): \t" + window.extension().sizeof() +
+//                    " :: " + windowExRO.limit());
             // TODO: OAuthWindowExFW which contains uint8 for challenge support
             //       windows are the responses back; if get challenge capable window, must be getting response back from client
 
@@ -677,7 +678,7 @@ public class OAuthProxyFactory implements StreamFactory
                 windowEx = windowExRO.tryWrap(window.buffer(),
                                               window.extension().offset(),
                                               window.extension().limit());
-                System.out.println("extension was valid: windowEx - " + windowEx);
+//                System.out.println("extension was valid: windowEx - " + windowEx);
                 if (windowEx != null)
                 {
                     supportsChallenge = windowEx.supportsChallenge() == 1;
@@ -699,10 +700,16 @@ public class OAuthProxyFactory implements StreamFactory
 
         }
 
+        // maybe this where we wend up if challenge response was not received.
+        //      how to know was not received?
+        //          - stream expired means that was never reauthorized
+        //          - stream found to be closed too early
         private void onReset(
             ResetFW reset)
         {
             final long traceId = reset.trace();
+
+            // TODO: do challenge reissue here
 
             writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -732,10 +739,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        // maybe this where we wend up if challenge response was not received.
-        //      how to know was not received?
-        //          - stream expired means that was never reauthorized
-        //          - stream found to be closed too early
         private void onTokenExpiredSignal(
             SignalFW signal)
         {
@@ -781,7 +784,7 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (delay >= 0)
             {
-                OAuthProxy challengeStream = challengeCapableStreams.get(connectReplyId);
+                MessageConsumer challengeStream = challengeCapableStreams.get(connectReplyId);
 
                 // sufficient time to notify client. doStuff()
                 // need to send challenge request to sse stream. (which will then make the reauthorization request to the client
@@ -790,6 +793,7 @@ public class OAuthProxyFactory implements StreamFactory
                 // base64 correlation?
                 if (challengeStream != null)
                 {
+                    // TODO: some sort of challenge payload would be nice here
                     byte[] build = OAuthFunctions.signalEx()
                             .challenge("{ \":method\":\"post\", \"headers\": { \"correlation\": \"" +
                                     connectReplyId + "\" } }")
@@ -800,8 +804,8 @@ public class OAuthProxyFactory implements StreamFactory
                     final OAuthSignalExFW oauthSignalEx = new OAuthSignalExFW().wrap(extensionBuffer, 0,
                             extensionBuffer.capacity());
                     final long traceId = signal.trace();
-                    writer.doSignal(challengeStream::onStreamMessage, sourceRouteId, sourceStreamId, traceId,
-                            sourceAuthorization, oauthSignalEx);
+
+                    writer.doSignal(challengeStream, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, oauthSignalEx);
                 }
                 // what do if expired before could notify?
             }

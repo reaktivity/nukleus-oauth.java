@@ -49,19 +49,18 @@ import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
-import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
-import org.reaktivity.nukleus.oauth.internal.types.control.OAuthBeginExFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.OAuthSignalExFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.OAuthWindowExFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.HttpBeginExFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.OAuthBeginExFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.OAuthSignalExFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.OAuthWindowExFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
@@ -219,9 +218,6 @@ public class OAuthProxyFactory implements StreamFactory
 
             final String subject = resolveSubject(verified);
             final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
-
-            // TODO: acceptReply is the source MessageConsumer. maybe keep references to these to send challenge events to?
-            //       what to map them to to save them and reference later?
 
             // TODO: get nbuff/anb claim: advanced notification buffer for expiration
             //       possibly store in grant as well: schedule an advancedExpiryNotificationFuture that would trigger
@@ -669,22 +665,10 @@ public class OAuthProxyFactory implements StreamFactory
             final long groupId = window.groupId();
 
             System.out.println("onWindow() - " + window);
-
-            // TODO: OAuthWindowExFW which contains uint8 for challenge support
-            //       windows are the responses back; if get challenge capable window, must be getting response back from client
-            // token will already have been given in BEGIN
-            //      will also have already reauthorized with new expiration
-            //      no need to immediately update authorization:
-            //          grant will have updated expiration
-            //          expiryFuture will then trigger the reauthorization
-            //      if token has anb again, will then create another advanced notice future to trigger another chalenge event
-
-            // got response back from client, should send 200 OK to inform client that reauthorization was successful
-            // maybe check window.extension() against OAuthWindowEx to see if this is a response to the challenge event
-            //  if gotten, can send 200 OK to client
-
             System.out.println("window.extension().limit() vs. windowExRO.limit(): \t" + window.extension().sizeof() +
                     " :: " + windowExRO.limit());
+            // TODO: OAuthWindowExFW which contains uint8 for challenge support
+            //       windows are the responses back; if get challenge capable window, must be getting response back from client
 
             boolean supportsChallenge = false;
             OAuthWindowExFW windowEx = null;
@@ -748,6 +732,10 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
+        // maybe this where we wend up if challenge response was not received.
+        //      how to know was not received?
+        //          - stream expired means that was never reauthorized
+        //          - stream found to be closed too early
         private void onTokenExpiredSignal(
             SignalFW signal)
         {

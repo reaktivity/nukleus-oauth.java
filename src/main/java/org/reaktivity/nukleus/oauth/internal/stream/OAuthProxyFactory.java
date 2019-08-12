@@ -681,17 +681,18 @@ public class OAuthProxyFactory implements StreamFactory
             }
 
             // send 200 OK to client
-            // how would sse know to relay to client? would windoEx from oauth trigger that?
+            // how would sse know to relay to client? would windowEx from oauth trigger that?
             //      as signalEx should trigger the challenge event in the client
-            if (supportsChallenge)
-            {
-                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId,
-                        windowEx);
-            }
-            else
-            {
-                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
-            }
+//            if (supportsChallenge)
+//            {
+//                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId,
+//                        windowEx);
+//            }
+//            else
+//            {
+//                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
+//            }
+            writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
         }
 
         // maybe this where we wend up if challenge response was not received.
@@ -740,8 +741,7 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (delay >= 0)
             {
-                this.expiryFuture = executor.schedule(delay, MILLISECONDS,
-                        targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
             }
             else
             {
@@ -778,6 +778,9 @@ public class OAuthProxyFactory implements StreamFactory
             this.expiryFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
 
             final long delay = grant.advancedNotificationBuffer - System.currentTimeMillis();
+            // TODO: need to check if has already been reauthorized before sending the challenge?
+            //       NO! - because if has already been successfully reauthorized then future will be cleaned up, meaning will
+            //             never reach this signal!
 
             if (delay >= 0)
             {

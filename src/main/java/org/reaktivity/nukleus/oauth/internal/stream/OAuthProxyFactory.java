@@ -75,7 +75,7 @@ public class OAuthProxyFactory implements StreamFactory
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
     private static final int TOKEN_EXPIRED_SIGNAL = 1;
-    private static final int TOKEN_EXPIRING_SIGNAL = 2;
+    private static final int TOKEN_EXPIRING_SOON_SIGNAL = 2;
 
     // anb: possible alternatives - nbuff, buf, anbuf
     private static final String ADVANCED_NOTIFICATION_BUFFER_CLAIM = "anb";
@@ -278,8 +278,6 @@ public class OAuthProxyFactory implements StreamFactory
         final OctetsFW extension = begin.extension();
 
         OAuthProxy replyStream = correlations.remove(connectReplyId);
-        // remove challenge capable stream from list
-//        challengeCapableStreams.remove(connectReplyId);
 
         MessageConsumer newStream = null;
 
@@ -512,7 +510,6 @@ public class OAuthProxyFactory implements StreamFactory
         private final OAuthAccessGrant grant;
 
         private Future<?> expiryFuture;
-        private Future<?> advancedExpiryNotificationFuture;
 
         private OAuthProxy(
             MessageConsumer source,
@@ -538,23 +535,21 @@ public class OAuthProxyFactory implements StreamFactory
             this.targetAuthorization = targetAuthorization;
             this.acceptInitialId = acceptInitialId;
             this.connectReplyId = connectReplyId;
+            this.grant = Objects.requireNonNull(grant);
 
-            if (expiresAtMillis != EXPIRES_NEVER)
+            final long notificationBuffer = grant.advancedNotificationBuffer;
+
+            if (expiresAtMillis != EXPIRES_NEVER && notificationBuffer == 0)
             {
                 final long delay = expiresAtMillis - System.currentTimeMillis();
 
                 this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
             }
-
-            this.grant = Objects.requireNonNull(grant);
-            final long notificationBuffer = grant.advancedNotificationBuffer;
-
-            if (notificationBuffer > 0)
+            else if (notificationBuffer > 0)
             {
                 final long delay = notificationBuffer - System.currentTimeMillis();
 
-                this.advancedExpiryNotificationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
-                        TOKEN_EXPIRING_SIGNAL);
+                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRING_SOON_SIGNAL);
             }
         }
 
@@ -697,7 +692,6 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
             }
-
         }
 
         // maybe this where we wend up if challenge response was not received.
@@ -709,7 +703,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long traceId = reset.trace();
 
-            // TODO: do challenge reissue here
+            // TODO: do challenge reissue here - if necessary
 
             writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -731,8 +725,8 @@ public class OAuthProxyFactory implements StreamFactory
                 case TOKEN_EXPIRED_SIGNAL:
                     onTokenExpiredSignal(signal);
                     break;
-                case TOKEN_EXPIRING_SIGNAL:
-                    onTokenExpiringSignal(signal);
+                case TOKEN_EXPIRING_SOON_SIGNAL:
+                    onTokenExpiringSoonSignal(signal);
                     break;
                 default:
                     break;
@@ -775,11 +769,14 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        private void onTokenExpiringSignal(
+        private void onTokenExpiringSoonSignal(
             SignalFW signal)
         {
             // TODO: writer.doFrame(target, ...) - this will let oauth write a frame to a specific target which in this
             //       case will be a stream that isn't expire and supports challenges
+            final long finalDelay = grant.expiresAt - System.currentTimeMillis();
+            this.expiryFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+
             final long delay = grant.advancedNotificationBuffer - System.currentTimeMillis();
 
             if (delay >= 0)
@@ -831,12 +828,6 @@ public class OAuthProxyFactory implements StreamFactory
                 expiryFuture.cancel(true);
                 expiryFuture = null;
                 grant.release();
-            }
-
-            if (advancedExpiryNotificationFuture != null)
-            {
-                advancedExpiryNotificationFuture.cancel(true);
-                advancedExpiryNotificationFuture = null;
             }
 
             // remove challenge capable stream from list

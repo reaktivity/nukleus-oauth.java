@@ -753,15 +753,6 @@ public class OAuthProxyFactory implements StreamFactory
             this.grantValidationFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId,
                     GRANT_VALIDATION_SIGNAL);
 
-            // ":method", "post"
-            // "content-type", "application|x-challenge-response"
-//            byte[] build = HttpFunctions.signalEx()
-//                    .header(":method", "post")
-//                    .header("content-type", "application|x-challenge-response")
-//                    .build();
-//            extensionBuffer.wrap(build);
-//            final HttpSignalExFW oauthSignalEx = new HttpSignalExFW().wrap(extensionBuffer, 0, extensionBuffer.capacity());
-
             final HttpSignalExFW httpSignalEx = httpSignalExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .typeId(httpTypeId)
                     .headersItem(h -> h.name(":method").value("post"))

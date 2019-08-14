@@ -80,8 +80,6 @@ public class OAuthProxyFactory implements StreamFactory
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
 
-    private static final Consumer<String> NOOP_CLEANER = s -> {};
-
     private static final int SCOPE_BITS = 48;
 
     private static final Consumer<String> NOOP_CLEANER = s -> {};
@@ -313,7 +311,6 @@ public class OAuthProxyFactory implements StreamFactory
         return subject;
     }
 
-    // Challenge after - caf
     private long resolveAdvancedNotificationBuffer(
         JsonWebSignature verified,
         int capabilities,
@@ -400,7 +397,6 @@ public class OAuthProxyFactory implements StreamFactory
         return expiresAtMillis;
     }
 
-    // TODO: Maybe grants can also hold a variable to tell if its stream supports challenges
     private final class OAuthAccessGrant
     {
         private String subject;
@@ -665,10 +661,6 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
-        // How would know when challenge response is not received?
-        //      maybe token expired signal is triggered?
-        //          but maybe its too late at that point?
-        //          maybe schedule another future for another signal in case we want to expect a timeout
         private void onSignal(
             SignalFW signal)
         {

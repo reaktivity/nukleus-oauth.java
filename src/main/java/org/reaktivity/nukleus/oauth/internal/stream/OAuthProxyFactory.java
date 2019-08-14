@@ -295,11 +295,7 @@ public class OAuthProxyFactory implements StreamFactory
     {
         if (subject != null)
         {
-            final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
-                    grantsBySubjectByAffinityPerRealm[realmIndex];
-            final Map<String, OAuthAccessGrant> grantsBySubject =
-                    grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
-
+            final Map<String, OAuthAccessGrant> grantsBySubject = supplyGrantsBySubject(realmIndex, affinityId);
             final String subjectKey = subject.intern();
             return grantsBySubject.computeIfAbsent(subjectKey, s -> new OAuthAccessGrant(grantsBySubject::remove));
         }
@@ -307,6 +303,15 @@ public class OAuthProxyFactory implements StreamFactory
         {
             return new OAuthAccessGrant();
         }
+    }
+
+    private Map<String, OAuthAccessGrant> supplyGrantsBySubject(
+        final int realmIndex,
+        final long affinityId)
+    {
+        final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
+                grantsBySubjectByAffinityPerRealm[realmIndex];
+        return grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
     }
 
     private static long expiresAtMillis(
@@ -694,7 +699,7 @@ public class OAuthProxyFactory implements StreamFactory
             }
             catch (JoseException | MalformedClaimException | InvalidJwtException ex)
             {
-                // TODO: diagnostics?
+                // invalid token
             }
         }
 

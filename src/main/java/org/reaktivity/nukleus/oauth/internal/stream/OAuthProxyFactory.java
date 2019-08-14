@@ -283,7 +283,7 @@ public class OAuthProxyFactory implements StreamFactory
         }
         catch (InvalidJwtException | JoseException | MalformedClaimException e)
         {
-            // TODO: diagnostics?
+            // invalid token
         }
         return subject;
     }
@@ -293,7 +293,6 @@ public class OAuthProxyFactory implements StreamFactory
         final long affinityId,
         final String subject)
     {
-
         if (subject != null)
         {
             final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =

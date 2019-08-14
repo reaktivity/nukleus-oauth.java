@@ -190,7 +190,6 @@ public class Writer
         sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
-    // TODO: is this needed?
     public void doSignal(
         MessageConsumer receiver,
         long routeId,

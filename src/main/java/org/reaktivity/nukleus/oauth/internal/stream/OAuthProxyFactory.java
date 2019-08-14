@@ -58,25 +58,24 @@ import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.HttpBeginExFW;
-import org.reaktivity.nukleus.oauth.internal.types.stream.OAuthBeginExFW;
-import org.reaktivity.nukleus.oauth.internal.types.stream.OAuthSignalExFW;
-import org.reaktivity.nukleus.oauth.internal.types.stream.OAuthWindowExFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.HttpSignalExFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
 import org.reaktivity.nukleus.oauth.internal.util.BufferUtil;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
-import org.reaktivity.specification.nukleus.oauth.internal.OAuthFunctions;
 
 public class OAuthProxyFactory implements StreamFactory
 {
     private static final long EXPIRES_NEVER = Long.MAX_VALUE;
     private static final long EXPIRES_IMMEDIATELY = 0L;
 
-    private static final int TOKEN_CHALLENGE_SIGNAL = 1;
+    private static final int CHALLENGE_MASK = 0x01;
+    private static final int CHALLENGE_BIT = 1;
 
-    // anb: possible alternatives - nbuff, buf, anbuf
+    private static final int GRANT_VALIDATION_SIGNAL = 1;
+
     private static final String CHALLENGE_AFTER_CLAIM = "caf";
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
@@ -101,9 +100,8 @@ public class OAuthProxyFactory implements StreamFactory
     private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
     private final HttpBeginExFW.Builder httpBeginExRW = new HttpBeginExFW.Builder();
 
-    private final OAuthBeginExFW beginExRO = new OAuthBeginExFW();
-    private final OAuthWindowExFW windowExRO = new OAuthWindowExFW();
-//    private final OAuthSignalExFW signalExRO = new OAuthSignalExFW();
+    private final HttpSignalExFW httpSignalExRO = new HttpSignalExFW();
+    private final HttpSignalExFW.Builder httpSignalExRW = new HttpSignalExFW.Builder();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -186,7 +184,7 @@ public class OAuthProxyFactory implements StreamFactory
         final BeginFW begin,
         final MessageConsumer acceptReply)
     {
-//        System.out.println("newInitialStream - BEGIN: " + begin);
+        System.out.println("newInitialStream - BEGIN: " + begin);
         final long acceptAuthorization = begin.authorization();
         final JsonWebSignature verified = verifiedSignature(begin);
 
@@ -218,39 +216,34 @@ public class OAuthProxyFactory implements StreamFactory
             final String subject = resolveSubject(verified);
             final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
 
-            // TODO: get nbuff/anb claim: advanced notification buffer for expiration
-            //       possibly store in grant as well: schedule an advancedExpiryNotificationFuture that would trigger
-            //          trying to send a challenge upstream: includes checking list of streams that support CHALLENGE
-            //          also checks to make sure original stream isnt closed, else check if already reauthorized, else
-            //          need to choose a different stream. else will expire as normal
+            // TODO NOW - possibly make changes to core.idl,
+            //  ~            - capabilities uint8 bits; looks like authorization
+            //  ~            - ${core:capabilities("challenge")} to write the correct bits to capabilities
+            //          - read/write signal in k3po
+            //          - SseEventFW
+            //                      .type = "challenge"
+            //                      .payload = "{}"
+            //  ~        - Window capabilities will set the capabilities of the streams
+            // TODO LATER: get HttpBeginEx to check headers to check if reauthorization was triggered by me.
+            //  ~        - content-type application|x-challenge-response
 
-            // TODO: create OAuthBeginEx from begin.extension() to see if valid extension that supports CHALLENGE
-            //       if so, then add stream to list. what adding here: correlationId???
-            //          - difference between declaring support in BEGIN vs claim?
-            //              - claim is token specific: NUKLEUS STILL MAY NOT SUPPORT CHALLENGE
-            //              - this is why we need to declare support in BEGIN as it comes from that upstream nukleus
-
-            final boolean streamSupportsChallenge = resolveChallengeSupport(begin);
-            final long challengeDelta = resolveAdvancedNotificationBuffer(verified, streamSupportsChallenge, expiresAtMillis);
+            final int capabilities = begin.capabilities();
+            final long challengeDelta = resolveAdvancedNotificationBuffer(verified, capabilities, expiresAtMillis);
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
+            System.out.println("grant - " + grant);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, 0, grant);
+                    acceptInitialId, connectReplyId, expiresAtMillis, 0, capabilities, grant);
             initialStream.grant.acquire();
 
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, challengeDelta, grant);
+                    acceptInitialId, connectReplyId, expiresAtMillis, challengeDelta, capabilities, grant);
             replyStream.grant.acquire();
 
-            // if stream supports challenge, add to list for future reference
-//            if (streamSupportsChallenge)
-//            {
-////                challengeCapableStreams.put(connectReplyId, acceptReply);
-//                challengeCapableStreams.put(connectInitialId, connectInitial);
-//            }
+            System.out.println("replyStream - " + replyStream);
 
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
@@ -259,7 +252,6 @@ public class OAuthProxyFactory implements StreamFactory
                     connectAuthorization, extension);
             router.setThrottle(connectInitialId, initialStream::onThrottleMessage);
 
-//            System.out.println("initialStream.sourceStreamId: " + initialStream.sourceStreamId);
             newStream = initialStream::onStreamMessage;
         }
 
@@ -324,12 +316,12 @@ public class OAuthProxyFactory implements StreamFactory
     // Challenge after - caf
     private long resolveAdvancedNotificationBuffer(
         JsonWebSignature verified,
-        boolean streamSupportsChallenge,
+        int capabilities,
         long expiresAtMillis)
     {
         long bufferDelta = 0;
 
-        if (streamSupportsChallenge)
+        if (hasChallengeCapability(capabilities))
         {
             try
             {
@@ -351,24 +343,10 @@ public class OAuthProxyFactory implements StreamFactory
         return bufferDelta;
     }
 
-    private boolean resolveChallengeSupport(
-        BeginFW begin)
+    private boolean hasChallengeCapability(
+        int capabilities)
     {
-        boolean supportsChallenge = false;
-//        System.out.println("begin.extension().limit() vs. beginExRO.limit(): \t" + begin.extension().sizeof() +
-//                           " :: " + beginExRO.limit());
-        if (begin.extension().sizeof() > 0 && begin.extension().sizeof() == beginExRO.limit())
-        {
-            final OAuthBeginExFW beginEx = beginExRO.tryWrap(begin.buffer(),
-                                                             begin.extension().offset(),
-                                                             begin.extension().limit());
-//            System.out.println("extension was valid: beginEx - " + beginEx);
-            if (beginEx != null)
-            {
-                supportsChallenge = beginEx.supportsChallenge() == 1;
-            }
-        }
-        return supportsChallenge;
+        return (capabilities & CHALLENGE_MASK) == CHALLENGE_BIT;
     }
 
     private OAuthAccessGrant supplyGrant(
@@ -507,6 +485,8 @@ public class OAuthProxyFactory implements StreamFactory
 
         private final OAuthAccessGrant grant;
 
+        private int capabilities;
+
         private Future<?> expiryFuture;
 
         private OAuthProxy(
@@ -522,6 +502,7 @@ public class OAuthProxyFactory implements StreamFactory
             long connectReplyId,
             long expiresAtMillis,
             long challengeDelta,
+            int capabilities,
             OAuthAccessGrant grant)
         {
             this.source = source;
@@ -535,20 +516,24 @@ public class OAuthProxyFactory implements StreamFactory
             this.acceptInitialId = acceptInitialId;
             this.connectReplyId = connectReplyId;
             this.grant = Objects.requireNonNull(grant);
+            this.capabilities = capabilities;
             this.challengeDelta = challengeDelta;
 
+            final boolean hasChallengeCapabilities = !hasChallengeCapability(capabilities);
             final long delay;
-            if (expiresAtMillis != EXPIRES_NEVER && challengeDelta == 0)
+            if (expiresAtMillis != EXPIRES_NEVER && !hasChallengeCapabilities && challengeDelta == 0)
             {
                 delay = expiresAtMillis - System.currentTimeMillis();
 
-                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_CHALLENGE_SIGNAL);
+                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                        GRANT_VALIDATION_SIGNAL);
             }
-            else if (challengeDelta > 0)
+            else if (hasChallengeCapabilities && challengeDelta > 0)
             {
                 delay = expiresAtMillis - challengeDelta;
 
-                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_CHALLENGE_SIGNAL);
+                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                        GRANT_VALIDATION_SIGNAL);
             }
         }
 
@@ -643,6 +628,7 @@ public class OAuthProxyFactory implements StreamFactory
             AbortFW abort)
         {
             final long traceId = abort.trace();
+            System.out.println("aborted - " + abort);
 
             writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
 
@@ -658,35 +644,10 @@ public class OAuthProxyFactory implements StreamFactory
             final int padding = window.padding();
             final long groupId = window.groupId();
 
-//            System.out.println("onWindow() - " + window);
-//            System.out.println("window.extension().limit() vs. windowExRO.limit(): \t" + window.extension().sizeof() +
-//                    " :: " + windowExRO.limit());
-//            boolean supportsChallenge = false;
-//            OAuthWindowExFW windowEx = null;
-//            if (window.extension().sizeof() > 0 && window.extension().limit() == windowExRO.limit())
-//            {
-//                windowEx = windowExRO.tryWrap(window.buffer(),
-//                                              window.extension().offset(),
-//                                              window.extension().limit());
-////                System.out.println("extension was valid: windowEx - " + windowEx);
-//                if (windowEx != null)
-//                {
-//                    supportsChallenge = windowEx.supportsChallenge() == 1;
-//                }
-//            }
+            System.out.println("onWindow() - " + window);
+            // whatever capabilities you get, set this streams capabilities to that
+            this.capabilities = window.capabilities();
 
-            // send 200 OK to client
-            // how would sse know to relay to client? would windowEx from oauth trigger that?
-            //      as signalEx should trigger the challenge event in the client
-//            if (supportsChallenge)
-//            {
-//                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId,
-//                        windowEx);
-//            }
-//            else
-//            {
-//                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
-//            }
             writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId);
         }
 
@@ -694,6 +655,7 @@ public class OAuthProxyFactory implements StreamFactory
             ResetFW reset)
         {
             final long traceId = reset.trace();
+            System.out.println("reset - " + reset);
 
             writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -712,7 +674,7 @@ public class OAuthProxyFactory implements StreamFactory
 
             switch ((int) signalId)
             {
-                case TOKEN_CHALLENGE_SIGNAL:
+                case GRANT_VALIDATION_SIGNAL:
                     onTokenExpiredSignal(signal);
                     break;
                 default:
@@ -728,21 +690,24 @@ public class OAuthProxyFactory implements StreamFactory
             if (delay >= 0)
             {
                 final long challengeAfter = grant.expiresAt - challengeDelta;
+                final boolean hasChallengeCapability = hasChallengeCapability(capabilities);
 
-                // TODO: check if inside buffer, if earlier, then reschedule the buffer check
-                if (withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))  // not reauthorized and inside buffer
+                if (hasChallengeCapability && withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))
                 {
+                    System.out.println("issuing challenge request to client");
                     onTokenExpiringSoonSignal(signal);
                 }
-                else if (System.currentTimeMillis() < challengeAfter)   // reauthorized and is outside (before) the buffer
+                else if (hasChallengeCapability && System.currentTimeMillis() < challengeAfter)
                 {
+                    System.out.println("rescheduling advanced notificaiton");
                     this.expiryFuture = executor.schedule(challengeAfter, MILLISECONDS, targetRouteId, targetStreamId,
-                            TOKEN_CHALLENGE_SIGNAL);
+                            GRANT_VALIDATION_SIGNAL);
                 }
-                else    // was expiring but then was reauthorized
+                else
                 {
+                    System.out.println("extending expiration");
                     this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
-                            TOKEN_CHALLENGE_SIGNAL);
+                            GRANT_VALIDATION_SIGNAL);
                 }
             }
             else
@@ -778,29 +743,30 @@ public class OAuthProxyFactory implements StreamFactory
             return currentTimeMillis >= challengeAfter && currentTimeMillis < grant.expiresAt;
         }
 
-        // COULD MOVE TO SAME SIGNAL ID; GRANT_VALIDATION_SIGNAL = 1;
         private void onTokenExpiringSoonSignal(
             SignalFW signal)
         {
-            // TODO: writer.doFrame(target, ...) - this will let oauth write a frame to a specific target which in this
-            //       case will be a stream that isn't expire and supports challenges
             final long finalDelay = grant.expiresAt - System.currentTimeMillis();
-            this.expiryFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_CHALLENGE_SIGNAL);
+            this.expiryFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId,
+                    GRANT_VALIDATION_SIGNAL);
 
-            // base64 correlation?
-            // TODO: some sort of challenge payload would be nice here
-            byte[] build = OAuthFunctions.signalEx()
-                    .challenge("{ \":method\":\"post\", \"headers\": { \"correlation\": \"" +
-                            connectReplyId + "\" } }")
+            // ":method", "post"
+            // "content-type", "application|x-challenge-response"
+//            byte[] build = HttpFunctions.signalEx()
+//                    .header(":method", "post")
+//                    .header("content-type", "application|x-challenge-response")
+//                    .build();
+//            extensionBuffer.wrap(build);
+//            final HttpSignalExFW oauthSignalEx = new HttpSignalExFW().wrap(extensionBuffer, 0, extensionBuffer.capacity());
+
+            final HttpSignalExFW httpSignalEx = httpSignalExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                    .typeId(httpTypeId)
+                    .headersItem(h -> h.name(":method").value("post"))
+                    .headersItem(h -> h.name("content-type").value("application/x-challenge-response"))
                     .build();
-
-            extensionBuffer.wrap(build);
-
-            final OAuthSignalExFW oauthSignalEx = new OAuthSignalExFW().wrap(extensionBuffer, 0,
-                    extensionBuffer.capacity());
             final long traceId = signal.trace();
 
-            writer.doSignal(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, oauthSignalEx);
+            writer.doSignal(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, httpSignalEx);
         }
 
         private boolean cleanupCorrelationIfNecessary()
@@ -828,9 +794,10 @@ public class OAuthProxyFactory implements StreamFactory
         public String toString()
         {
             return String.format("OAuthProxy - {sourceRouteId=%d, sourceStreamId=%d, sourceAuthorization=%d, targetRouteId=%d, " +
-                    "targetStreamId=%d, targetAuthorization=%d, acceptInitialId=%d, connectReplyId=%d}",
+                    "targetStreamId=%d, targetAuthorization=%d, acceptInitialId=%d, connectReplyId=%d, capabilities=%d, " +
+                            "challengeDelta=%d}",
                     sourceRouteId, sourceStreamId, sourceAuthorization, targetRouteId, targetStreamId, targetAuthorization,
-                    acceptInitialId, connectReplyId);
+                    acceptInitialId, connectReplyId, capabilities, challengeDelta);
         }
     }
 

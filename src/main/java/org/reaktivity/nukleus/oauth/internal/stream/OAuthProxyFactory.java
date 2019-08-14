@@ -76,6 +76,8 @@ public class OAuthProxyFactory implements StreamFactory
 
     private static final int SCOPE_BITS = 48;
 
+    private static final Consumer<String> NOOP_CLEANER = s -> {};
+
     private static final Pattern QUERY_PARAMS = Pattern.compile("(?:\\?|.*?&)access_token=([^&#]+)(?:&.*)?");
 
     private static final byte[] BEARER_PREFIX = "Bearer ".getBytes(US_ASCII);
@@ -291,25 +293,21 @@ public class OAuthProxyFactory implements StreamFactory
         final long affinityId,
         final String subject)
     {
-        final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
-                grantsBySubjectByAffinityPerRealm[realmIndex];
-        final Map<String, OAuthAccessGrant> grantsBySubject =
-                grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
 
         if (subject != null)
         {
+            final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
+                    grantsBySubjectByAffinityPerRealm[realmIndex];
+            final Map<String, OAuthAccessGrant> grantsBySubject =
+                    grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
+
             final String subjectKey = subject.intern();
             return grantsBySubject.computeIfAbsent(subjectKey, s -> new OAuthAccessGrant(grantsBySubject::remove));
         }
         else
         {
-            return new OAuthAccessGrant(this::noOp);
+            return new OAuthAccessGrant();
         }
-    }
-
-    private void noOp(
-        String subject)
-    {
     }
 
     private static long expiresAtMillis(
@@ -349,6 +347,11 @@ public class OAuthProxyFactory implements StreamFactory
             Consumer<String> cleaner)
         {
             this.cleaner = cleaner;
+        }
+
+        private OAuthAccessGrant()
+        {
+            this.cleaner = NOOP_CLEANER;
         }
 
         private boolean reauthorize(
@@ -391,7 +394,7 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 if (subject != null)
                 {
-                    cleaner.accept(subject.intern());
+                    cleaner.accept(subject);
                 }
                 cleaner = null;
             }
@@ -597,7 +600,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long delay = grant.expiresAt - System.currentTimeMillis();
 
-            if (delay >= 0)
+            if (delay > 0)
             {
                 this.expiryFuture = executor.schedule(delay, MILLISECONDS,
                         targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);

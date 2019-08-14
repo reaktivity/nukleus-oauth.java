@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-oauth</artifactId>
-  <version>0.46</version>
+  <version>0.47</version>
   <name>OAuth Nukleus Implementation</name>
   <description>OAuth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-oauth.java</url>
@@ -42,7 +42,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
-    <jacoco.coverage.ratio>0.44</jacoco.coverage.ratio>
+    <jacoco.coverage.ratio>0.45</jacoco.coverage.ratio>
     <jacoco.missed.count>41</jacoco.missed.count>
 
     <junit.version>4.12</junit.version>
@@ -52,7 +52,7 @@
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>0.28</nukleus.oauth.spec.version>
+    <nukleus.oauth.spec.version>0.29</nukleus.oauth.spec.version>
     <reaktor.version>0.94</reaktor.version>
   </properties>
 

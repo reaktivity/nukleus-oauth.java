@@ -80,6 +80,8 @@ public class OAuthProxyFactory implements StreamFactory
 
     private static final long REALM_MASK = 0xFFFF_000000000000L;
 
+    private static final Consumer<String> NOOP_CLEANER = s -> {};
+
     private static final int SCOPE_BITS = 48;
 
     private static final Pattern QUERY_PARAMS = Pattern.compile("(?:\\?|.*?&)access_token=([^&#]+)(?:&.*)?");
@@ -100,7 +102,6 @@ public class OAuthProxyFactory implements StreamFactory
     private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
     private final HttpBeginExFW.Builder httpBeginExRW = new HttpBeginExFW.Builder();
 
-    private final HttpSignalExFW httpSignalExRO = new HttpSignalExFW();
     private final HttpSignalExFW.Builder httpSignalExRW = new HttpSignalExFW.Builder();
 
     private final WindowFW windowRO = new WindowFW();
@@ -184,7 +185,7 @@ public class OAuthProxyFactory implements StreamFactory
         final BeginFW begin,
         final MessageConsumer acceptReply)
     {
-        System.out.println("newInitialStream - BEGIN: " + begin);
+//        System.out.println("newInitialStream - BEGIN: " + begin);
         final long acceptAuthorization = begin.authorization();
         final JsonWebSignature verified = verifiedSignature(begin);
 
@@ -231,7 +232,6 @@ public class OAuthProxyFactory implements StreamFactory
             final long challengeDelta = resolveAdvancedNotificationBuffer(verified, capabilities, expiresAtMillis);
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
-            System.out.println("grant - " + grant);
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
@@ -242,8 +242,6 @@ public class OAuthProxyFactory implements StreamFactory
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
                     acceptInitialId, connectReplyId, expiresAtMillis, challengeDelta, capabilities, grant);
             replyStream.grant.acquire();
-
-            System.out.println("replyStream - " + replyStream);
 
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
@@ -308,7 +306,7 @@ public class OAuthProxyFactory implements StreamFactory
         }
         catch (InvalidJwtException | JoseException | MalformedClaimException e)
         {
-            // TODO: diagnostics?
+            // invalid token
         }
         return subject;
     }
@@ -337,7 +335,7 @@ public class OAuthProxyFactory implements StreamFactory
             }
             catch (InvalidJwtException | JoseException | MalformedClaimException e)
             {
-                // TODO: diagnostics?
+                // invalid token
             }
         }
         return bufferDelta;
@@ -354,25 +352,25 @@ public class OAuthProxyFactory implements StreamFactory
         final long affinityId,
         final String subject)
     {
-        final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
-                grantsBySubjectByAffinityPerRealm[realmIndex];
-        final Map<String, OAuthAccessGrant> grantsBySubject =
-                grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
-
         if (subject != null)
         {
+            final Map<String, OAuthAccessGrant> grantsBySubject = supplyGrantsBySubject(realmIndex, affinityId);
             final String subjectKey = subject.intern();
             return grantsBySubject.computeIfAbsent(subjectKey, s -> new OAuthAccessGrant(grantsBySubject::remove));
         }
         else
         {
-            return new OAuthAccessGrant(this::noOp);
+            return new OAuthAccessGrant();
         }
     }
 
-    private void noOp(
-        String subject)
+    private Map<String, OAuthAccessGrant> supplyGrantsBySubject(
+        final int realmIndex,
+        final long affinityId)
     {
+        final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
+                grantsBySubjectByAffinityPerRealm[realmIndex];
+        return grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
     }
 
     private static long expiresAtMillis(
@@ -415,6 +413,11 @@ public class OAuthProxyFactory implements StreamFactory
             this.cleaner = cleaner;
         }
 
+        private OAuthAccessGrant()
+        {
+            this.cleaner = NOOP_CLEANER;
+        }
+
         private boolean reauthorize(
             String subject,
             long connectAuthorization,
@@ -455,7 +458,7 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 if (subject != null)
                 {
-                    cleaner.accept(subject.intern());
+                    cleaner.accept(subject);
                 }
                 cleaner = null;
             }
@@ -487,7 +490,7 @@ public class OAuthProxyFactory implements StreamFactory
 
         private int capabilities;
 
-        private Future<?> expiryFuture;
+        private Future<?> grantValidationFuture;
 
         private OAuthProxy(
             MessageConsumer source,
@@ -521,18 +524,18 @@ public class OAuthProxyFactory implements StreamFactory
 
             final boolean hasChallengeCapabilities = !hasChallengeCapability(capabilities);
             final long delay;
-            if (expiresAtMillis != EXPIRES_NEVER && !hasChallengeCapabilities && challengeDelta == 0)
-            {
-                delay = expiresAtMillis - System.currentTimeMillis();
-
-                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
-                        GRANT_VALIDATION_SIGNAL);
-            }
-            else if (hasChallengeCapabilities && challengeDelta > 0)
+            if (hasChallengeCapabilities && challengeDelta > 0)
             {
                 delay = expiresAtMillis - challengeDelta;
 
-                this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                this.grantValidationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                        GRANT_VALIDATION_SIGNAL);
+            }
+            else if (expiresAtMillis != EXPIRES_NEVER)
+            {
+                delay = expiresAtMillis - System.currentTimeMillis();
+
+                this.grantValidationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
                         GRANT_VALIDATION_SIGNAL);
             }
         }
@@ -628,7 +631,6 @@ public class OAuthProxyFactory implements StreamFactory
             AbortFW abort)
         {
             final long traceId = abort.trace();
-            System.out.println("aborted - " + abort);
 
             writer.doAbort(target, targetRouteId, targetStreamId, traceId, targetAuthorization);
 
@@ -644,7 +646,6 @@ public class OAuthProxyFactory implements StreamFactory
             final int padding = window.padding();
             final long groupId = window.groupId();
 
-            System.out.println("onWindow() - " + window);
             // whatever capabilities you get, set this streams capabilities to that
             this.capabilities = window.capabilities();
 
@@ -655,7 +656,6 @@ public class OAuthProxyFactory implements StreamFactory
             ResetFW reset)
         {
             final long traceId = reset.trace();
-            System.out.println("reset - " + reset);
 
             writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
 
@@ -687,26 +687,35 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long delay = grant.expiresAt - System.currentTimeMillis();
 
-            if (delay >= 0)
+            if (delay > 0)
             {
                 final long challengeAfter = grant.expiresAt - challengeDelta;
                 final boolean hasChallengeCapability = hasChallengeCapability(capabilities);
 
-                if (hasChallengeCapability && withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))
+                if (hasChallengeCapability)
                 {
-                    System.out.println("issuing challenge request to client");
-                    onTokenExpiringSoonSignal(signal);
-                }
-                else if (hasChallengeCapability && System.currentTimeMillis() < challengeAfter)
-                {
-                    System.out.println("rescheduling advanced notificaiton");
-                    this.expiryFuture = executor.schedule(challengeAfter, MILLISECONDS, targetRouteId, targetStreamId,
-                            GRANT_VALIDATION_SIGNAL);
+                    if (withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))
+                    {
+//                        System.out.println("issuing challenge request to client");
+                        onTokenExpiringSoonSignal(signal);
+                    }
+                    else if (System.currentTimeMillis() < challengeAfter)
+                    {
+//                        System.out.println("rescheduling advanced notificaiton");
+                        this.grantValidationFuture = executor.schedule(challengeAfter, MILLISECONDS, targetRouteId, targetStreamId,
+                                GRANT_VALIDATION_SIGNAL);
+                    }
+                    else
+                    {
+//                        System.out.println("extending expiration");
+                        this.grantValidationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                                GRANT_VALIDATION_SIGNAL);
+                    }
                 }
                 else
                 {
-                    System.out.println("extending expiration");
-                    this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+//                    System.out.println("extending expiration");
+                    this.grantValidationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
                             GRANT_VALIDATION_SIGNAL);
                 }
             }
@@ -747,7 +756,7 @@ public class OAuthProxyFactory implements StreamFactory
             SignalFW signal)
         {
             final long finalDelay = grant.expiresAt - System.currentTimeMillis();
-            this.expiryFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId,
+            this.grantValidationFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId,
                     GRANT_VALIDATION_SIGNAL);
 
             // ":method", "post"
@@ -782,10 +791,10 @@ public class OAuthProxyFactory implements StreamFactory
 
         private void cancelTimerIfNecessary()
         {
-            if (expiryFuture != null)
+            if (grantValidationFuture != null)
             {
-                expiryFuture.cancel(true);
-                expiryFuture = null;
+                grantValidationFuture.cancel(true);
+                grantValidationFuture = null;
                 grant.release();
             }
         }
@@ -834,7 +843,7 @@ public class OAuthProxyFactory implements StreamFactory
             }
             catch (JoseException | MalformedClaimException | InvalidJwtException ex)
             {
-                // TODO: diagnostics?
+                // invalid token
             }
         }
 

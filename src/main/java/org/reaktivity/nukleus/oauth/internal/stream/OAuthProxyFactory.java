@@ -84,6 +84,8 @@ public class OAuthProxyFactory implements StreamFactory
 
     private static final int SCOPE_BITS = 48;
 
+    private static final Consumer<String> NOOP_CLEANER = s -> {};
+
     private static final Pattern QUERY_PARAMS = Pattern.compile("(?:\\?|.*?&)access_token=([^&#]+)(?:&.*)?");
 
     private static final byte[] BEARER_PREFIX = "Bearer ".getBytes(US_ASCII);

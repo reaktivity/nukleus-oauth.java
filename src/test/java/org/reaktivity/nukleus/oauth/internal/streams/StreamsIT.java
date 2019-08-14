@@ -43,10 +43,11 @@ public class StreamsIT
             .directory("target/nukleus-itests")
             .commandBufferCapacity(4096)
             .responseBufferCapacity(4096)
-            .counterValuesBufferCapacity(4096)
+            .counterValuesBufferCapacity(8192)
             .nukleus("oauth"::equals)
             .configure(KEYS_NAME, "keys/keys.jwk")
             .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
+            .affinityMask("target#1", EXTERNAL_AFFINITY_MASK)
             .clean();
 
     @Rule
@@ -215,7 +216,6 @@ public class StreamsIT
         k3po.finish();
     }
 
-    @Test
     @Specification({
         "${route}/resolve.one.realm.with.set.roles.then.route.proxy/controller",
         "${streams}/request.with.scopes.with.signed.jwt.rs256.forwarded/accept/client",
@@ -244,6 +244,67 @@ public class StreamsIT
         "${streams}/request.with.scopes.issuer.and.audience.with.signed.jwt.rs256.forwarded/connect/server"
     })
     public void shouldForwardRequestWithSetScopesIssuerAndAudienceWithValidJwtRS256OnSecuredRoute() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.then.route.proxy/controller",
+        "${streams}/later.expiring.authorization.reauthorizes.inflight.request/accept/client",
+        "${streams}/later.expiring.authorization.reauthorizes.inflight.request/connect/server"
+    })
+    public void shouldReauthorizeInFlightRequestWithLaterExpiringToken() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(5000); // first token would expire if expiration is not updated.
+        k3po.notifyBarrier("TOKEN_EXPIRATION");
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/later.expiring.authorization.with.fewer.roles.does.not.reauthorize.inflight.request/accept/client",
+        "${streams}/later.expiring.authorization.with.fewer.roles.does.not.reauthorize.inflight.request/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithLaterExpiringTokenWithLessPrivileges() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/earlier.expiring.authorization.does.not.reauthorize.inflight.request/accept/client",
+        "${streams}/earlier.expiring.authorization.does.not.reauthorize.inflight.request/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithEarlierExpiringTokenWithSamePrivileges() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/later.expiring.authorization.with.more.roles.reauthorizes.inflight.request/accept/client",
+        "${streams}/later.expiring.authorization.with.more.roles.reauthorizes.inflight.request/connect/server"
+    })
+    public void shouldReauthorizeInFlightRequestWithTokenWithLaterExpiringMorePrivileges() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(5000); // first token would expire if expiration is not updated.
+        k3po.notifyBarrier("TOKEN_EXPIRATION");
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/later.expiring.authorization.with.different.subject.does.not.reauthorize.inflight.request/accept/client",
+        "${streams}/later.expiring.authorization.with.different.subject.does.not.reauthorize.inflight.request/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithLaterExpiringTokenWithDifferentSubject() throws Exception
     {
         k3po.finish();
     }

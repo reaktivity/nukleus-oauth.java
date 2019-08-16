@@ -18,7 +18,6 @@ package org.reaktivity.nukleus.oauth.internal.stream;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_DELTA_CLAIM_NAME;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
 import java.util.Arrays;
@@ -322,7 +321,7 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     final JwtClaims claims = JwtClaims.parse(verified.getPayload());
                     final NumericDate challengeAfterDate = claims.getNumericDateClaimValue(
-                            config.getChallengeDeltaClaimNamespace() + CHALLENGE_DELTA_CLAIM_NAME);
+                            config.getChallengeDeltaClaimNamespace() + config.getChallengeDeltaClaimName());
                     if (challengeAfterDate != null)
                     {
                         challengeDelta = expiresAtMillis - challengeAfterDate.getValueInMillis();
@@ -465,8 +464,9 @@ public class OAuthProxyFactory implements StreamFactory
         @Override
         public String toString()
         {
-            return String.format("OAuthAccessGrant=[subject=%s, authorization=%d, expiresAt=%d, challengeDelta=%d, referenceCount=%d]",
-                                 subject, authorization, expiresAt, challengeDelta, referenceCount);
+            return String.format(
+                    "OAuthAccessGrant=[subject=%s, authorization=%d, expiresAt=%d, challengeDelta=%d, referenceCount=%d]",
+                    subject, authorization, expiresAt, challengeDelta, referenceCount);
         }
     }
 
@@ -694,8 +694,8 @@ public class OAuthProxyFactory implements StreamFactory
                     else if (System.currentTimeMillis() < challengeAfter)
                     {
 //                        System.out.println("rescheduling advanced notificaiton");
-                        this.grantValidationFuture = executor.schedule(challengeAfter, MILLISECONDS, targetRouteId, targetStreamId,
-                                GRANT_VALIDATION_SIGNAL);
+                        this.grantValidationFuture = executor.schedule(challengeAfter, MILLISECONDS, targetRouteId,
+                                targetStreamId, GRANT_VALIDATION_SIGNAL);
                     }
                     else
                     {
@@ -737,7 +737,9 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        // TODO: when receive begin, check headers and see if have application/x-challenge-response, then can terminate challenge!
+        // TODO - when receive begin, check headers and see if have application/x-challenge-response,
+        //          then can terminate challenge!
+        //      - maybe write an begin to terminate the challenge: :status, 204 success; :status, 401 if fails
         private void onTokenExpiringSoonSignal(
             SignalFW signal)
         {
@@ -756,8 +758,8 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         private boolean withinChallengeBuffer(
-                long currentTimeMillis,
-                long challengeAfter)
+            long currentTimeMillis,
+            long challengeAfter)
         {
             return currentTimeMillis >= challengeAfter && currentTimeMillis < grant.expiresAt;
         }

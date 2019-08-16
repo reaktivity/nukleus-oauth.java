@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -51,6 +52,7 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.oauth.internal.Capabilities;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
+import org.reaktivity.nukleus.oauth.internal.types.ListFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
@@ -81,6 +83,8 @@ public class OAuthProxyFactory implements StreamFactory
     private static final Consumer<String> NOOP_CLEANER = s -> {};
 
     private static final Pattern QUERY_PARAMS = Pattern.compile("(?:\\?|.*?&)access_token=([^&#]+)(?:&.*)?");
+
+    private static final String END_CHALLENGE_TYPE = "application/x-challenge-response";
 
     private static final byte[] BEARER_PREFIX = "Bearer ".getBytes(US_ASCII);
     private static final byte[] QUERY_PREFIX = "?".getBytes(US_ASCII);
@@ -181,7 +185,6 @@ public class OAuthProxyFactory implements StreamFactory
         final BeginFW begin,
         final MessageConsumer acceptReply)
     {
-//        System.out.println("newInitialStream - BEGIN: " + begin);
         final long acceptAuthorization = begin.authorization();
         final JsonWebSignature verified = verifiedSignature(begin);
 
@@ -592,9 +595,40 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
+        // TODO - when receive begin, check headers and see if have application/x-challenge-response,
+        //          then can terminate challenge!
+        //      - maybe write an begin to terminate the challenge: :status, 204 success; :status, 401 if fails
         private void onBegin(
             BeginFW begin)
         {
+            if (begin.extension().sizeof() == httpBeginExRO.limit())
+            {
+                final HttpBeginExFW httpBeginEx = httpBeginExRO.tryWrap(begin.buffer(), begin.extension().offset(),
+                        begin.extension().limit());
+                if (httpBeginEx != null)
+                {
+                    final ListFW<HttpHeaderFW> httpHeaders = httpBeginEx.headers();
+                    final Map<String, String> collectedHeaders = new HashMap<>();
+                    httpHeaders.forEach(header -> collectedHeaders.put(header.name().asString(), header.value().asString()));
+
+                    final HttpBeginExFW httpBeginExReply;
+                    if (collectedHeaders.get("content-type").equals(END_CHALLENGE_TYPE))
+                    {
+                        httpBeginExReply = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                                .typeId(httpTypeId)
+                                .headersItem(h -> h.name(":status").value("204"))
+                                .build();
+                    }
+                    else
+                    {
+                        httpBeginExReply = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                                .typeId(httpTypeId)
+                                .headersItem(h -> h.name(":status").value("401"))
+                                .build();
+                    }
+                    writer.doBegin(source, sourceRouteId, sourceStreamId, begin.trace(), sourceAuthorization, httpBeginExReply);
+                }
+            }
         }
 
         private void onData(
@@ -688,25 +722,21 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     if (withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))
                     {
-//                        System.out.println("issuing challenge request to client");
                         onTokenExpiringSoonSignal(signal);
                     }
                     else if (System.currentTimeMillis() < challengeAfter)
                     {
-//                        System.out.println("rescheduling advanced notificaiton");
                         this.grantValidationFuture = executor.schedule(challengeAfter, MILLISECONDS, targetRouteId,
                                 targetStreamId, GRANT_VALIDATION_SIGNAL);
                     }
                     else
                     {
-//                        System.out.println("extending expiration");
                         this.grantValidationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
                                 GRANT_VALIDATION_SIGNAL);
                     }
                 }
                 else
                 {
-//                    System.out.println("extending expiration");
                     this.grantValidationFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
                             GRANT_VALIDATION_SIGNAL);
                 }
@@ -737,9 +767,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        // TODO - when receive begin, check headers and see if have application/x-challenge-response,
-        //          then can terminate challenge!
-        //      - maybe write an begin to terminate the challenge: :status, 204 success; :status, 401 if fails
         private void onTokenExpiringSoonSignal(
             SignalFW signal)
         {
@@ -750,7 +777,7 @@ public class OAuthProxyFactory implements StreamFactory
             final HttpSignalExFW httpSignalEx = httpSignalExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .typeId(httpTypeId)
                     .headersItem(h -> h.name(":method").value("post"))
-                    .headersItem(h -> h.name("content-type").value("application/x-challenge-response"))
+                    .headersItem(h -> h.name("content-type").value(END_CHALLENGE_TYPE))
                     .build();
             final long traceId = signal.trace();
 

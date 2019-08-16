@@ -21,11 +21,13 @@ public class OAuthConfiguration extends Configuration
 {
     public static final String KEYS_NAME = "nukleus.oauth.keys";
     public static final String AUTO_DISCOVER_REALMS_NAME = "nukleus.oauth.auto.discover.realms";
+    public static final String CHALLENGE_DELTA_CLAIM_NAME = "challenge_response_delta";
 
     static final ConfigurationDef OAUTH_CONFIG;
     static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
     static final PropertyDef<String> KEYS;
     static final BooleanPropertyDef AUTO_DISCOVER_REALMS;
+    static final PropertyDef<String> CHALLENGE_DELTA_CLAIM_NAMESPACE;
 
     static
     {
@@ -33,6 +35,7 @@ public class OAuthConfiguration extends Configuration
         KEYS = config.property("keys", "keys.jwk");
         EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
         AUTO_DISCOVER_REALMS = config.property("auto.discover.realms", false);
+        CHALLENGE_DELTA_CLAIM_NAMESPACE = config.property("namespace", "https://reaktivity.org/");
         OAUTH_CONFIG = config;
     }
 
@@ -55,5 +58,10 @@ public class OAuthConfiguration extends Configuration
     public boolean autoDiscoverRealms()
     {
         return AUTO_DISCOVER_REALMS.getAsBoolean(this);
+    }
+
+    public String getChallengeDeltaClaimNamespace()
+    {
+        return CHALLENGE_DELTA_CLAIM_NAMESPACE.get(this);
     }
 }

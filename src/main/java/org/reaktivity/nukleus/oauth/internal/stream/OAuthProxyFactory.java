@@ -212,12 +212,12 @@ public class OAuthProxyFactory implements StreamFactory
 
             OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, grant);
+                    acceptReplyId, connectReplyId, expiresAtMillis, grant);
             initialStream.grant.acquire();
 
             OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, grant);
+                    acceptReplyId, connectReplyId, expiresAtMillis, grant);
             replyStream.grant.acquire();
 
             correlations.put(connectReplyId, replyStream);
@@ -422,7 +422,7 @@ public class OAuthProxyFactory implements StreamFactory
         private final long targetRouteId;
         private final long targetStreamId;
         private final long targetAuthorization;
-        private final long acceptInitialId;
+        private final long acceptReplyId;
         private final long connectReplyId;
 
         private final OAuthAccessGrant grant;
@@ -438,7 +438,7 @@ public class OAuthProxyFactory implements StreamFactory
             long targetRouteId,
             long targetId,
             long targetAuthorization,
-            long acceptInitialId,
+            long acceptReplyId,
             long connectReplyId,
             long expiresAtMillis,
             OAuthAccessGrant grant)
@@ -451,7 +451,7 @@ public class OAuthProxyFactory implements StreamFactory
             this.targetRouteId = targetRouteId;
             this.targetStreamId = targetId;
             this.targetAuthorization = targetAuthorization;
-            this.acceptInitialId = acceptInitialId;
+            this.acceptReplyId = acceptReplyId;
             this.connectReplyId = connectReplyId;
 
             if (expiresAtMillis != EXPIRES_NEVER)
@@ -640,7 +640,7 @@ public class OAuthProxyFactory implements StreamFactory
             final OAuthProxy correlated = correlations.remove(connectReplyId);
             if (correlated != null)
             {
-                router.clearThrottle(acceptInitialId);
+                router.clearThrottle(acceptReplyId);
             }
 
             return correlated != null;
@@ -660,9 +660,9 @@ public class OAuthProxyFactory implements StreamFactory
         public String toString()
         {
             return String.format("OAuthProxy - {sourceRouteId=%d, sourceStreamId=%d, sourceAuthorization=%d, targetRouteId=%d, " +
-                    "targetStreamId=%d, targetAuthorization=%d, acceptInitialId=%d, connectReplyId=%d}",
+                    "targetStreamId=%d, targetAuthorization=%d, acceptReplyId=%d, connectReplyId=%d}",
                     sourceRouteId, sourceStreamId, sourceAuthorization, targetRouteId, targetStreamId, targetAuthorization,
-                    acceptInitialId, connectReplyId);
+                    acceptReplyId, connectReplyId);
         }
     }
 

@@ -55,6 +55,27 @@ public class StreamsIT
 
     @Test
     @Specification({
+        "${route}/controller",
+        "${streams}/default.cors.preflight/accept/client"
+        })
+    public void shouldDefaultCorsPreflight() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/proxy.cors.preflight/accept/client",
+        "${streams}/proxy.cors.preflight/connect/server"
+        })
+    public void shouldProxyCorsPreflight() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.then.abort.expiring.request/accept/client",
         "${streams}/authorize.then.abort.expiring.request/connect/server"

@@ -25,13 +25,11 @@ import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
-import org.agrona.collections.Long2ObjectHashMap;
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jws.JsonWebSignature;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
-import org.reaktivity.nukleus.oauth.internal.stream.OAuthProxyFactory.OAuthProxy;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -41,7 +39,6 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     private final OAuthConfiguration config;
     private final Function<String, JsonWebKey> lookupKey;
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
-    private final Long2ObjectHashMap<OAuthProxy> correlations;
 
     private RouteManager router;
     private MutableDirectBuffer writeBuffer;
@@ -59,7 +56,6 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
         this.config = config;
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
-        this.correlations = new Long2ObjectHashMap<>();
     }
 
     @Override
@@ -149,7 +145,6 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
             supplyTrace,
             supplyTypeId,
             supplyReplyId,
-            correlations,
             lookupKey,
             lookupAuthorization,
             executor,

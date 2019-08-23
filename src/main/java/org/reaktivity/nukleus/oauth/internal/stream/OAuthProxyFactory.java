@@ -16,6 +16,7 @@
 package org.reaktivity.nukleus.oauth.internal.stream;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
@@ -51,10 +52,12 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.oauth.internal.Capabilities;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
+import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.ListFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
+import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
@@ -91,6 +94,25 @@ public class OAuthProxyFactory implements StreamFactory
     private static final byte[] AUTHORIZATION = "authorization".getBytes(US_ASCII);
     private static final byte[] PATH = ":path".getBytes(US_ASCII);
 
+    private static final StringFW HEADER_NAME_METHOD = initStringFW(":method");
+    private static final StringFW HEADER_NAME_CONTENT_TYPE = initStringFW("content-type");
+    private static final StringFW HEADER_NAME_STATUS = initStringFW(":status");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_METHODS = initStringFW("access-control-allow-methods");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_HEADERS = initStringFW("access-control-allow-headers");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_METHOD = initStringFW("access-control-request-method");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_HEADERS = initStringFW("access-control-request-headers");
+
+    private static final String16FW HEADER_VALUE_STATUS_204 = initString16FW("204");
+    private static final String16FW HEADER_VALUE_METHOD_OPTIONS = initString16FW("OPTIONS");
+    private static final String16FW HEADER_VALUE_METHOD_POST = initString16FW("POST");
+
+    private static final String16FW CHALLENGE_RESPONSE_METHOD = HEADER_VALUE_METHOD_POST;
+    private static final String16FW CHALLENGE_RESPONSE_CONTENT_TYPE = initString16FW("application/x-challenge-response");
+
+    private static final String16FW CORS_PREFLIGHT_METHOD = HEADER_VALUE_METHOD_OPTIONS;
+    private static final String16FW CORS_ALLOWED_METHODS = HEADER_VALUE_METHOD_POST;
+    private static final String16FW CORS_ALLOWED_HEADERS = initString16FW("authorization,content-type");
+
     private final RouteFW routeRO = new RouteFW();
 
     private final BeginFW beginRO = new BeginFW();
@@ -122,7 +144,6 @@ public class OAuthProxyFactory implements StreamFactory
     private final ToLongFunction<JsonWebSignature> lookupAuthorization;
     private final SignalingExecutor executor;
     private final Long2ObjectHashMap<OAuthProxy> correlations;
-
     private final Writer writer;
     private final UnsafeBuffer extensionBuffer;
     private final int httpTypeId;
@@ -134,7 +155,6 @@ public class OAuthProxyFactory implements StreamFactory
         LongSupplier supplyTrace,
         ToIntFunction<String> supplyTypeId,
         LongUnaryOperator supplyReplyId,
-        Long2ObjectHashMap<OAuthProxy> correlations,
         Function<String, JsonWebKey> lookupKey,
         ToLongFunction<JsonWebSignature> lookupAuthorization,
         SignalingExecutor executor,
@@ -147,13 +167,12 @@ public class OAuthProxyFactory implements StreamFactory
         this.supplyInitialId = requireNonNull(supplyInitialId);
         this.supplyReplyId = requireNonNull(supplyReplyId);
         this.supplyTrace = requireNonNull(supplyTrace);
-        this.correlations = correlations;
+        this.correlations = new Long2ObjectHashMap<>();
         this.lookupKey = lookupKey;
         this.lookupAuthorization = lookupAuthorization;
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
-        this.grantsBySubjectByAffinityPerRealm = new Long2ObjectHashMap[16];
-        Arrays.setAll(grantsBySubjectByAffinityPerRealm, i -> new Long2ObjectHashMap<>());
+        this.grantsBySubjectByAffinityPerRealm = initGrantsBySubjectByAffinityPerRealm();
     }
 
     @Override
@@ -186,6 +205,12 @@ public class OAuthProxyFactory implements StreamFactory
         final MessageConsumer acceptReply)
     {
         final long acceptAuthorization = begin.authorization();
+        final long acceptRouteId = begin.routeId();
+        final long acceptInitialId = begin.streamId();
+        final long affinity = begin.affinity();
+        final OctetsFW extension = begin.extension();
+        final HttpBeginExFW httpBeginEx = extension.get(httpBeginExRO::tryWrap);
+
         final JsonWebSignature verified = verifiedSignature(begin);
 
         long connectAuthorization = acceptAuthorization;
@@ -194,9 +219,13 @@ public class OAuthProxyFactory implements StreamFactory
             connectAuthorization = lookupAuthorization.applyAsLong(verified);
         }
 
-        final long acceptRouteId = begin.routeId();
+        final String subject = resolveSubject(verified);
+        final long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
+        final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
+
         final MessagePredicate filter = (t, b, o, l) -> true;
         final RouteFW route = router.resolve(acceptRouteId, connectAuthorization, filter, this::wrapRoute);
+
         MessageConsumer newStream = null;
 
         // TODO NOW - possibly make changes to core.idl,
@@ -209,36 +238,53 @@ public class OAuthProxyFactory implements StreamFactory
         //  ~        - Window capabilities will set the capabilities of the streams
         // TODO LATER: get HttpBeginEx to check headers to check if reauthorization was triggered by me.
         //  ~        - content-type application|x-challenge-response
-        if (route != null)
+
+        if (isChallengeResponseRequest(httpBeginEx))
         {
-            final long acceptInitialId = begin.streamId();
+            final long traceId = supplyTrace.getAsLong();
+            final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
+
+            final OAuthAccessGrant grant = lookupGrant(realmId, affinity, subject);
+            if (grant != null)
+            {
+                grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
+            }
+
+            final HttpBeginExFW newHttpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                    .typeId(httpTypeId)
+                    .headers(OAuthProxyFactory::setChallengeResponseHeaders)
+                    .build();
+
+            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, 0L, newHttpBeginEx);
+            writer.doEnd(acceptReply, acceptRouteId, acceptReplyId, traceId, 0L, octetsRO);
+
+            newStream = (t, b, i, l) -> {};
+        }
+        else if (route != null)
+        {
             final long traceId = begin.trace();
-            final long affinity = begin.affinity();
-            final OctetsFW extension = begin.extension();
 
-            long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
-            long connectRouteId = route.correlationId();
-            long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
-            MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
-            long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
-            long expiresAtMillis = config.expireInFlightRequests() ? expiresAtMillis(verified) : EXPIRES_NEVER;
+            final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
+            final long connectRouteId = route.correlationId();
+            final long connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
+            final MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
+            final long connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
 
-            final String subject = resolveSubject(verified);
-            final int realmId = (int) ((connectAuthorization & REALM_MASK) >> SCOPE_BITS);
+            final boolean isCorsPreflight = isCorsPreflightRequest(extension.get(httpBeginExRO::tryWrap));
 
             final int capabilities = begin.capabilities();
             final long challengeDelta = resolveChallengeDelta(verified, capabilities, expiresAtMillis);
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis, challengeDelta);
 
-            OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
+            final OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, 0, capabilities, grant);
+                    acceptReplyId, connectReplyId, expiresAtMillis, 0, capabilities, grant, isCorsPreflight);
             initialStream.grant.acquire();
 
-            OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
+            final OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
-                    acceptInitialId, connectReplyId, expiresAtMillis, challengeDelta, capabilities, grant);
+                    acceptReplyId, connectReplyId, expiresAtMillis, challengeDelta, capabilities, grant, isCorsPreflight);
             replyStream.grant.acquire();
 
             correlations.put(connectReplyId, replyStream);
@@ -262,6 +308,7 @@ public class OAuthProxyFactory implements StreamFactory
         final long traceId = begin.trace();
         final long authorization = begin.authorization();
         final OctetsFW extension = begin.extension();
+        final HttpBeginExFW httpBeginEx = extension.get(httpBeginExRO::tryWrap);
 
         OAuthProxy replyStream = correlations.remove(connectReplyId);
 
@@ -273,7 +320,24 @@ public class OAuthProxyFactory implements StreamFactory
             long acceptRouteId = replyStream.targetRouteId;
             long acceptReplyId = replyStream.targetStreamId;
 
-            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, authorization, extension);
+            Flyweight beginEx = extension;
+            if (replyStream.isCorsPreflight)
+            {
+                final HttpBeginExFW.Builder newHttpBeginEx =
+                        httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                                     .typeId(httpTypeId);
+
+                if (httpBeginEx != null)
+                {
+                    httpBeginEx.headers().forEach(h -> newHttpBeginEx.headersItem(i -> i.name(h.name()).value(h.value())));
+                }
+
+                setCorsPreflightResponseHeaders(newHttpBeginEx);
+
+                beginEx = newHttpBeginEx.build();
+            }
+
+            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, authorization, beginEx);
 
             newStream = replyStream::onStreamMessage;
         }
@@ -288,25 +352,6 @@ public class OAuthProxyFactory implements StreamFactory
         int length)
     {
         return routeRO.wrap(buffer, index, index + length);
-    }
-
-    private String resolveSubject(
-        JsonWebSignature verified)
-    {
-        String subject = null;
-        try
-        {
-            if (verified != null)
-            {
-                final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                subject = claims.getSubject();
-            }
-        }
-        catch (InvalidJwtException | JoseException | MalformedClaimException e)
-        {
-            // invalid token
-        }
-        return subject;
     }
 
     private long resolveChallengeDelta(
@@ -344,16 +389,20 @@ public class OAuthProxyFactory implements StreamFactory
         final long affinityId,
         final String subject)
     {
+        OAuthAccessGrant grant;
+
         if (subject != null)
         {
             final Map<String, OAuthAccessGrant> grantsBySubject = supplyGrantsBySubject(realmIndex, affinityId);
             final String subjectKey = subject.intern();
-            return grantsBySubject.computeIfAbsent(subjectKey, s -> new OAuthAccessGrant(grantsBySubject::remove));
+            grant = grantsBySubject.computeIfAbsent(subjectKey, s -> new OAuthAccessGrant(grantsBySubject::remove));
         }
         else
         {
-            return new OAuthAccessGrant();
+            grant = new OAuthAccessGrant();
         }
+
+        return grant;
     }
 
     private Map<String, OAuthAccessGrant> supplyGrantsBySubject(
@@ -365,29 +414,33 @@ public class OAuthProxyFactory implements StreamFactory
         return grantsBySubjectByAffinity.computeIfAbsent(affinityId, a -> new IdentityHashMap<>());
     }
 
-    private static long expiresAtMillis(
-        JsonWebSignature verified)
+    private OAuthAccessGrant lookupGrant(
+        final int realmIndex,
+        final long affinityId,
+        final String subject)
     {
-        long expiresAtMillis = EXPIRES_NEVER;
+        OAuthAccessGrant grant = null;
 
-        if (verified != null)
+        if (subject != null)
         {
-            try
+            final Map<String, OAuthAccessGrant> grantsBySubject = lookupGrantsBySubject(realmIndex, affinityId);
+            if (grantsBySubject != null)
             {
-                JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                NumericDate expirationTime = claims.getExpirationTime();
-                if (expirationTime != null)
-                {
-                    expiresAtMillis = expirationTime.getValueInMillis();
-                }
-            }
-            catch (MalformedClaimException | InvalidJwtException | JoseException ex)
-            {
-                expiresAtMillis = EXPIRES_IMMEDIATELY;
+                final String subjectKey = subject.intern();
+                grant = grantsBySubject.get(subjectKey);
             }
         }
 
-        return expiresAtMillis;
+        return grant;
+    }
+
+    private Map<String, OAuthAccessGrant> lookupGrantsBySubject(
+        final int realmIndex,
+        final long affinityId)
+    {
+        final Long2ObjectHashMap<Map<String, OAuthAccessGrant>> grantsBySubjectByAffinity =
+                grantsBySubjectByAffinityPerRealm[realmIndex];
+        return grantsBySubjectByAffinity.get(affinityId);
     }
 
     private final class OAuthAccessGrant
@@ -473,7 +526,7 @@ public class OAuthProxyFactory implements StreamFactory
         }
     }
 
-    final class OAuthProxy
+    private final class OAuthProxy
     {
         private final MessageConsumer source;
         private final long sourceRouteId;
@@ -483,10 +536,10 @@ public class OAuthProxyFactory implements StreamFactory
         private final long targetRouteId;
         private final long targetStreamId;
         private final long targetAuthorization;
-        private final long acceptInitialId;
+        private final long acceptReplyId;
         private final long connectReplyId;
-
         private final OAuthAccessGrant grant;
+        private final boolean isCorsPreflight;
 
         private int capabilities;
 
@@ -501,12 +554,13 @@ public class OAuthProxyFactory implements StreamFactory
             long targetRouteId,
             long targetId,
             long targetAuthorization,
-            long acceptInitialId,
+            long acceptReplyId,
             long connectReplyId,
             long expiresAtMillis,
             long challengeDelta,
             int capabilities,
-            OAuthAccessGrant grant)
+            OAuthAccessGrant grant,
+            boolean isCorsPreflight)
         {
             this.source = source;
             this.sourceRouteId = sourceRouteId;
@@ -516,10 +570,11 @@ public class OAuthProxyFactory implements StreamFactory
             this.targetRouteId = targetRouteId;
             this.targetStreamId = targetId;
             this.targetAuthorization = targetAuthorization;
-            this.acceptInitialId = acceptInitialId;
+            this.acceptReplyId = acceptReplyId;
             this.connectReplyId = connectReplyId;
             this.grant = Objects.requireNonNull(grant);
             this.capabilities = capabilities;
+            this.isCorsPreflight = isCorsPreflight;
 
             final boolean canChallenge = Capabilities.canChallenge(capabilities);
             final long delay;
@@ -595,9 +650,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
-        // TODO - when receive begin, check headers and see if have application/x-challenge-response,
-        //          then can terminate challenge!
-        //      - maybe write an begin to terminate the challenge: :status, 204 success; :status, 401 if fails
         private void onBegin(
             BeginFW begin)
         {
@@ -643,7 +695,6 @@ public class OAuthProxyFactory implements StreamFactory
 
             writer.doData(target, targetRouteId, targetStreamId, traceId,
                           authorization, groupId, padding, payload, extension);
-
         }
 
         private void onEnd(
@@ -687,9 +738,24 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long traceId = reset.trace();
 
-            writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
+            final boolean replyNotStarted = cleanupCorrelationIfNecessary();
 
-            cleanupCorrelationIfNecessary();
+            if (isCorsPreflight && sourceStreamId != connectReplyId && replyNotStarted)
+            {
+                final HttpBeginExFW.Builder httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+                        .typeId(httpTypeId);
+
+                setCorsPreflightResponse(httpBeginEx);
+
+                final long sourceReplyId = supplyReplyId.applyAsLong(sourceStreamId);
+                writer.doBegin(source, sourceRouteId, sourceReplyId, traceId, 0L, httpBeginEx.build());
+                writer.doEnd(source, sourceRouteId, sourceReplyId, traceId, 0L, octetsRO);
+            }
+            else
+            {
+                writer.doReset(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization);
+            }
+
             cancelTimerIfNecessary();
         }
 
@@ -751,9 +817,9 @@ public class OAuthProxyFactory implements StreamFactory
                 if (sourceStreamId == connectReplyId && replyNotStarted)
                 {
                     final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
-                                                                   .typeId(httpTypeId)
-                                                                   .headersItem(h -> h.name(":status").value("401"))
-                                                                   .build();
+                            .typeId(httpTypeId)
+                            .headersItem(h -> h.name(":status").value("401"))
+                            .build();
 
                     writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
                     writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, octetsRO);
@@ -796,7 +862,7 @@ public class OAuthProxyFactory implements StreamFactory
             final OAuthProxy correlated = correlations.remove(connectReplyId);
             if (correlated != null)
             {
-                router.clearThrottle(acceptInitialId);
+                router.clearThrottle(acceptReplyId);
             }
 
             return correlated != null;
@@ -816,19 +882,21 @@ public class OAuthProxyFactory implements StreamFactory
         public String toString()
         {
             return String.format("OAuthProxy - {sourceRouteId=%d, sourceStreamId=%d, sourceAuthorization=%d, targetRouteId=%d, " +
-                    "targetStreamId=%d, targetAuthorization=%d, acceptInitialId=%d, connectReplyId=%d, capabilities=%d, " +
+                    "targetStreamId=%d, targetAuthorization=%d, acceptReplyId=%d, connectReplyId=%d, capabilities=%d, " +
                             "grant=%s}",
                     sourceRouteId, sourceStreamId, sourceAuthorization, targetRouteId, targetStreamId, targetAuthorization,
-                    acceptInitialId, connectReplyId, capabilities, grant);
+                    acceptReplyId, connectReplyId, capabilities, grant);
         }
     }
 
     private JsonWebSignature verifiedSignature(
         BeginFW begin)
     {
+        final HttpBeginExFW httpBeginEx = begin.extension().get(httpBeginExRO::tryWrap);
+
         JsonWebSignature verified = null;
 
-        final String token = bearerToken(begin);
+        final String token = bearerToken(httpBeginEx);
         if (token != null)
         {
             try
@@ -863,15 +931,16 @@ public class OAuthProxyFactory implements StreamFactory
         return verified;
     }
 
-    private String bearerToken(
-        BeginFW begin)
+    private static String bearerToken(
+        HttpBeginExFW httpBeginEx)
     {
         String token = null;
 
-        final HttpBeginExFW beginEx = begin.extension().get(httpBeginExRO::tryWrap);
-        if (beginEx != null)
+        if (httpBeginEx != null)
         {
-            final HttpHeaderFW path = beginEx.headers().matchFirst(h -> BufferUtil.equals(h.name(), PATH));
+            final ListFW<HttpHeaderFW> headers = httpBeginEx.headers();
+
+            final HttpHeaderFW path = headers.matchFirst(h -> BufferUtil.equals(h.name(), PATH));
             if (path != null)
             {
                 final String16FW value = path.value();
@@ -887,7 +956,7 @@ public class OAuthProxyFactory implements StreamFactory
                 }
             }
 
-            final HttpHeaderFW authorization = beginEx.headers().matchFirst(h -> BufferUtil.equals(h.name(), AUTHORIZATION));
+            final HttpHeaderFW authorization = headers.matchFirst(h -> BufferUtil.equals(h.name(), AUTHORIZATION));
             if (authorization != null)
             {
                 final String16FW value = authorization.value();
@@ -904,5 +973,113 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         return token;
+    }
+
+    private static String resolveSubject(
+        JsonWebSignature verified)
+    {
+        String subject = null;
+        try
+        {
+            if (verified != null)
+            {
+                final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+                subject = claims.getSubject();
+            }
+        }
+        catch (InvalidJwtException | JoseException | MalformedClaimException e)
+        {
+            // invalid token
+        }
+        return subject;
+    }
+
+    private static long expiresAtMillis(
+        JsonWebSignature verified)
+    {
+        long expiresAtMillis = EXPIRES_NEVER;
+
+        if (verified != null)
+        {
+            try
+            {
+                JwtClaims claims = JwtClaims.parse(verified.getPayload());
+                NumericDate expirationTime = claims.getExpirationTime();
+                if (expirationTime != null)
+                {
+                    expiresAtMillis = expirationTime.getValueInMillis();
+                }
+            }
+            catch (MalformedClaimException | InvalidJwtException | JoseException ex)
+            {
+                expiresAtMillis = EXPIRES_IMMEDIATELY;
+            }
+        }
+
+        return expiresAtMillis;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Long2ObjectHashMap<Map<String, OAuthAccessGrant>>[] initGrantsBySubjectByAffinityPerRealm()
+    {
+        final Long2ObjectHashMap<Map<String, OAuthAccessGrant>>[] grantsBySubjectByAffinityPerRealm = new Long2ObjectHashMap[16];
+        Arrays.setAll(grantsBySubjectByAffinityPerRealm, i -> new Long2ObjectHashMap<>());
+        return grantsBySubjectByAffinityPerRealm;
+    }
+
+    private static boolean isCorsPreflightRequest(
+        HttpBeginExFW httpBeginEx)
+    {
+        return httpBeginEx != null &&
+               httpBeginEx.headers().anyMatch(h -> HEADER_NAME_METHOD.equals(h.name()) &&
+                                                   CORS_PREFLIGHT_METHOD.equals(h.value())) &&
+               httpBeginEx.headers().anyMatch(h -> HEADER_NAME_ACCESS_CONTROL_REQUEST_METHOD.equals(h.name()) ||
+                                                   HEADER_NAME_ACCESS_CONTROL_REQUEST_HEADERS.equals(h.name()));
+    }
+
+    private static void setCorsPreflightResponse(
+        HttpBeginExFW.Builder httpBeginEx)
+    {
+        httpBeginEx.headersItem(h -> h.name(HEADER_NAME_STATUS).value(HEADER_VALUE_STATUS_204));
+        setCorsPreflightResponseHeaders(httpBeginEx);
+    }
+
+    private static void setCorsPreflightResponseHeaders(
+        HttpBeginExFW.Builder httpBeginEx)
+    {
+        httpBeginEx.headersItem(h -> h.name(HEADER_NAME_ACCESS_CONTROL_ALLOW_METHODS).value(CORS_ALLOWED_METHODS))
+                   .headersItem(h -> h.name(HEADER_NAME_ACCESS_CONTROL_ALLOW_HEADERS).value(CORS_ALLOWED_HEADERS));
+    }
+
+    private static boolean isChallengeResponseRequest(
+        HttpBeginExFW httpBeginEx)
+    {
+        return httpBeginEx != null &&
+               httpBeginEx.headers().anyMatch(h -> HEADER_NAME_METHOD.equals(h.name()) &&
+                                                   CHALLENGE_RESPONSE_METHOD.equals(h.value())) &&
+               httpBeginEx.headers().anyMatch(h -> HEADER_NAME_CONTENT_TYPE.equals(h.name()) &&
+                                                   CHALLENGE_RESPONSE_CONTENT_TYPE.equals(h.value()));
+    }
+
+    private static void setChallengeResponseHeaders(
+        ListFW.Builder<HttpHeaderFW.Builder, HttpHeaderFW> headers)
+    {
+        headers.item(h -> h.name(HEADER_NAME_STATUS).value(HEADER_VALUE_STATUS_204));
+    }
+
+    private static StringFW initStringFW(
+        String value)
+    {
+        return new StringFW.Builder().wrap(new UnsafeBuffer(new byte[256]), 0, 256)
+                .set(value, UTF_8)
+                .build();
+    }
+
+    private static String16FW initString16FW(
+        String value)
+    {
+        return new String16FW.Builder().wrap(new UnsafeBuffer(new byte[256]), 0, 256)
+                .set(value, UTF_8)
+                .build();
     }
 }

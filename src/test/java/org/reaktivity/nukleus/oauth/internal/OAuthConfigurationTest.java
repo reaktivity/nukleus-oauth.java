@@ -21,9 +21,9 @@ import static org.junit.Assert.assertEquals;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS_NAME;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_DELTA_CLAIM_NAME;
-import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_DELTA_CLAIM_NAMESPACE;
-import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_DELTA_CLAIM_NAMESPACE_NAME;
-import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_DELTA_CLAIM_NAME_NAME;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE_NAME;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAME_NAME;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
@@ -45,13 +45,13 @@ public class OAuthConfigurationTest
     @Test
     public void shouldMatchChallengeResponseDeltaNamespaceConfigName()
     {
-        assertEquals(CHALLENGE_DELTA_CLAIM_NAMESPACE_NAME, CHALLENGE_DELTA_CLAIM_NAMESPACE.name());
+        assertEquals(CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE_NAME, CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE.name());
     }
 
     @Test
     public void shouldMatchChallengeResponseDeltaNameConfigName()
     {
-        assertEquals(CHALLENGE_DELTA_CLAIM_NAME_NAME, CHALLENGE_DELTA_CLAIM_NAME.name());
+        assertEquals(CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAME_NAME, CHALLENGE_DELTA_CLAIM_NAME.name());
     }
 
 }

@@ -243,11 +243,11 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long traceId = supplyTrace.getAsLong();
             final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
-
+            final long challengeDelta = resolveChallengeDelta(verified, begin.capabilities(), expiresAtMillis);
             final OAuthAccessGrant grant = lookupGrant(realmId, affinity, subject);
             if (grant != null)
             {
-                grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
+                grant.reauthorize(subject, connectAuthorization, expiresAtMillis, challengeDelta);
             }
 
             final HttpBeginExFW newHttpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
@@ -369,7 +369,7 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     final JwtClaims claims = JwtClaims.parse(verified.getPayload());
                     final NumericDate challengeAfterDate = claims.getNumericDateClaimValue(
-                            config.getChallengeDeltaClaimNamespace() + config.getChallengeDeltaClaimName());
+                            config.getChallengeDeltaClaimNamespace() + config.getChallengeResponseTimeoutClaimName());
                     if (challengeAfterDate != null)
                     {
                         challengeDelta = expiresAtMillis - challengeAfterDate.getValueInMillis();

@@ -43,13 +43,13 @@ public class OAuthConfigurationTest
     }
 
     @Test
-    public void shouldMatchChallengeResponseDeltaNamespaceConfigName()
+    public void shouldMatchClaimNamespaceConfigName()
     {
         assertEquals(CLAIM_NAMESPACE_NAME, CLAIM_NAMESPACE.name());
     }
 
     @Test
-    public void shouldMatchChallengeResponseDeltaNameConfigName()
+    public void shouldMatchClaimNameChallengeResponseTimeoutConfigName()
     {
         assertEquals(CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT_NAME, CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT.name());
     }

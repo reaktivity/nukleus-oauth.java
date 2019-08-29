@@ -21,15 +21,15 @@ public class OAuthConfiguration extends Configuration
 {
     public static final String KEYS_NAME = "nukleus.oauth.keys";
     public static final String AUTO_DISCOVER_REALMS_NAME = "nukleus.oauth.auto.discover.realms";
-    public static final String CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE_NAME = "nukleus.oauth.claim.namespace";
-    public static final String CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAME_NAME = "nukleus.oauth.claim.name.challenge.response.timeout";
+    public static final String CLAIM_NAMESPACE_NAME = "nukleus.oauth.claim.namespace";
+    public static final String CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT_NAME = "nukleus.oauth.claim.name.challenge.response.timeout";
 
     static final ConfigurationDef OAUTH_CONFIG;
     static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
     static final PropertyDef<String> KEYS;
     static final BooleanPropertyDef AUTO_DISCOVER_REALMS;
-    static final PropertyDef<String> CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE;
-    static final PropertyDef<String> CHALLENGE_DELTA_CLAIM_NAME;
+    static final PropertyDef<String> CLAIM_NAMESPACE;
+    static final PropertyDef<String> CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT;
 
     static
     {
@@ -37,8 +37,9 @@ public class OAuthConfiguration extends Configuration
         KEYS = config.property("keys", "keys.jwk");
         EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
         AUTO_DISCOVER_REALMS = config.property("auto.discover.realms", false);
-        CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE = config.property("claim.namespace", "https://reaktivity.org/");
-        CHALLENGE_DELTA_CLAIM_NAME = config.property("claim.name.challenge.response.timeout", "challenge_response_timeout");
+        CLAIM_NAMESPACE = config.property("claim.namespace", "https://reaktivity.org/");
+        CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT = config.property("claim.name.challenge.response.timeout",
+                "challenge_response_timeout");
         OAUTH_CONFIG = config;
     }
 
@@ -63,13 +64,13 @@ public class OAuthConfiguration extends Configuration
         return AUTO_DISCOVER_REALMS.getAsBoolean(this);
     }
 
-    public String getChallengeDeltaClaimNamespace()
+    public String geClaimNamespace()
     {
-        return CHALLENGE_RESPONSE_TIMEOUT_CLAIM_NAMESPACE.get(this);
+        return CLAIM_NAMESPACE.get(this);
     }
 
-    public String getChallengeResponseTimeoutClaimName()
+    public String getClaimNameChallengeResponseTimeout()
     {
-        return CHALLENGE_DELTA_CLAIM_NAME.get(this);
+        return CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT.get(this);
     }
 }

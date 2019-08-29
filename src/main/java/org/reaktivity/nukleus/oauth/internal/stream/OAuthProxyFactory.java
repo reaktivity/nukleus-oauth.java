@@ -227,17 +227,6 @@ public class OAuthProxyFactory implements StreamFactory
 
         MessageConsumer newStream = null;
 
-        // TODO NOW - possibly make changes to core.idl,
-        //  ~            - capabilities uint8 bits; looks like authorization
-        //  ~            - ${core:capabilities("challenge")} to write the correct bits to capabilities
-        //          - read/write signal in k3po
-        //          - SseEventFW
-        //                      .type = "challenge"
-        //                      .payload = "{}"
-        //  ~        - Window capabilities will set the capabilities of the streams
-        // TODO LATER: get HttpBeginEx to check headers to check if reauthorization was triggered by me.
-        //  ~        - content-type application|x-challenge-response
-
         if (isChallengeResponseRequest(httpBeginEx))
         {
             final long traceId = supplyTrace.getAsLong();
@@ -368,7 +357,7 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     final JwtClaims claims = JwtClaims.parse(verified.getPayload());
                     final NumericDate challengeAfterDate = claims.getNumericDateClaimValue(
-                            config.getChallengeDeltaClaimNamespace() + config.getChallengeResponseTimeoutClaimName());
+                            config.geClaimNamespace() + config.getClaimNameChallengeResponseTimeout());
                     if (challengeAfterDate != null)
                     {
                         challengeDelta = expiresAtMillis - challengeAfterDate.getValueInMillis();

@@ -76,6 +76,16 @@ public class StreamsIT
 
     @Test
     @Specification({
+        "${route}/controller",
+        "${streams}/authorize.challenge.response/accept/client"
+        })
+    public void shouldAuthorizeChallengeResponse() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${route}/resolve.one.realm.with.no.roles.then.route.proxy/controller",
         "${streams}/authorize.then.abort.expiring.request/accept/client",
         "${streams}/authorize.then.abort.expiring.request/connect/server"

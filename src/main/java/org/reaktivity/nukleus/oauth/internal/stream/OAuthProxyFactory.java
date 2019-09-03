@@ -16,7 +16,6 @@
 package org.reaktivity.nukleus.oauth.internal.stream;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
@@ -89,24 +88,24 @@ public class OAuthProxyFactory implements StreamFactory
     private static final byte[] AUTHORIZATION = "authorization".getBytes(US_ASCII);
     private static final byte[] PATH = ":path".getBytes(US_ASCII);
 
-    private static final StringFW HEADER_NAME_METHOD = initStringFW(":method");
-    private static final StringFW HEADER_NAME_CONTENT_TYPE = initStringFW("content-type");
-    private static final StringFW HEADER_NAME_STATUS = initStringFW(":status");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_METHODS = initStringFW("access-control-allow-methods");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_HEADERS = initStringFW("access-control-allow-headers");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_METHOD = initStringFW("access-control-request-method");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_HEADERS = initStringFW("access-control-request-headers");
+    private static final StringFW HEADER_NAME_METHOD = new StringFW(":method");
+    private static final StringFW HEADER_NAME_CONTENT_TYPE = new StringFW("content-type");
+    private static final StringFW HEADER_NAME_STATUS = new StringFW(":status");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_METHODS = new StringFW("access-control-allow-methods");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_HEADERS = new StringFW("access-control-allow-headers");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_METHOD = new StringFW("access-control-request-method");
+    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_HEADERS = new StringFW("access-control-request-headers");
 
-    private static final String16FW HEADER_VALUE_STATUS_204 = initString16FW("204");
-    private static final String16FW HEADER_VALUE_METHOD_OPTIONS = initString16FW("OPTIONS");
-    private static final String16FW HEADER_VALUE_METHOD_POST = initString16FW("POST");
+    private static final String16FW HEADER_VALUE_STATUS_204 = new String16FW("204");
+    private static final String16FW HEADER_VALUE_METHOD_OPTIONS = new String16FW("OPTIONS");
+    private static final String16FW HEADER_VALUE_METHOD_POST = new String16FW("POST");
 
     private static final String16FW CHALLENGE_RESPONSE_METHOD = HEADER_VALUE_METHOD_POST;
-    private static final String16FW CHALLENGE_RESPONSE_CONTENT_TYPE = initString16FW("application/x-challenge-response");
+    private static final String16FW CHALLENGE_RESPONSE_CONTENT_TYPE = new String16FW("application/x-challenge-response");
 
     private static final String16FW CORS_PREFLIGHT_METHOD = HEADER_VALUE_METHOD_OPTIONS;
     private static final String16FW CORS_ALLOWED_METHODS = HEADER_VALUE_METHOD_POST;
-    private static final String16FW CORS_ALLOWED_HEADERS = initString16FW("authorization,content-type");
+    private static final String16FW CORS_ALLOWED_HEADERS = new String16FW("authorization,content-type");
 
     private final RouteFW routeRO = new RouteFW();
 
@@ -223,7 +222,7 @@ public class OAuthProxyFactory implements StreamFactory
 
         if (isChallengeResponseRequest(httpBeginEx))
         {
-            final long traceId = supplyTrace.getAsLong();
+            final long newTraceId = supplyTrace.getAsLong();
             final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
 
             final OAuthAccessGrant grant = lookupGrant(realmId, affinity, subject);
@@ -232,13 +231,15 @@ public class OAuthProxyFactory implements StreamFactory
                 grant.reauthorize(subject, connectAuthorization, expiresAtMillis);
             }
 
+            writer.doWindow(acceptReply, acceptRouteId, acceptInitialId, newTraceId, 0L, 0, 0, 0);
+
             final HttpBeginExFW newHttpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .typeId(httpTypeId)
                     .headers(OAuthProxyFactory::setChallengeResponseHeaders)
                     .build();
 
-            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, 0L, newHttpBeginEx);
-            writer.doEnd(acceptReply, acceptRouteId, acceptReplyId, traceId, 0L, octetsRO);
+            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, newTraceId, 0L, newHttpBeginEx);
+            writer.doEnd(acceptReply, acceptRouteId, acceptReplyId, newTraceId, 0L, octetsRO);
 
             newStream = (t, b, i, l) -> {};
         }
@@ -260,12 +261,10 @@ public class OAuthProxyFactory implements StreamFactory
             final OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
                     acceptReplyId, connectReplyId, expiresAtMillis, grant, isCorsPreflight);
-            initialStream.grant.acquire();
 
             final OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
                     acceptReplyId, connectReplyId, expiresAtMillis, grant, isCorsPreflight);
-            replyStream.grant.acquire();
 
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
@@ -516,6 +515,7 @@ public class OAuthProxyFactory implements StreamFactory
                 final long delay = expiresAtMillis - System.currentTimeMillis();
 
                 this.expiryFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId, TOKEN_EXPIRED_SIGNAL);
+                this.grant.acquire();
             }
         }
 
@@ -600,6 +600,7 @@ public class OAuthProxyFactory implements StreamFactory
             final long traceId = end.trace();
             final OctetsFW extension = end.extension();
 
+            // TODO: avoid sending request END when CORS response defaulted after request RESET
             writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, extension);
 
             cancelTimerIfNecessary();
@@ -636,6 +637,8 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (isCorsPreflight && sourceStreamId != connectReplyId && replyNotStarted)
             {
+                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, 0L, 0, 0, 0);
+
                 final HttpBeginExFW.Builder httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                         .typeId(httpTypeId);
 
@@ -911,21 +914,5 @@ public class OAuthProxyFactory implements StreamFactory
         ListFW.Builder<HttpHeaderFW.Builder, HttpHeaderFW> headers)
     {
         headers.item(h -> h.name(HEADER_NAME_STATUS).value(HEADER_VALUE_STATUS_204));
-    }
-
-    private static StringFW initStringFW(
-        String value)
-    {
-        return new StringFW.Builder().wrap(new UnsafeBuffer(new byte[256]), 0, 256)
-                .set(value, UTF_8)
-                .build();
-    }
-
-    private static String16FW initString16FW(
-        String value)
-    {
-        return new String16FW.Builder().wrap(new UnsafeBuffer(new byte[256]), 0, 256)
-                .set(value, UTF_8)
-                .build();
     }
 }

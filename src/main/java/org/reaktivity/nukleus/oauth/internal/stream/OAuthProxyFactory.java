@@ -229,7 +229,7 @@ public class OAuthProxyFactory implements StreamFactory
 
         if (isChallengeResponseRequest(httpBeginEx))
         {
-            final long traceId = supplyTrace.getAsLong();
+            final long newTraceId = supplyTrace.getAsLong();
             final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
             final long challengeDelta = resolveChallengeDelta(verified, begin.capabilities(), expiresAtMillis);
             final OAuthAccessGrant grant = lookupGrant(realmId, affinity, subject);
@@ -238,13 +238,15 @@ public class OAuthProxyFactory implements StreamFactory
                 grant.reauthorize(subject, connectAuthorization, expiresAtMillis, challengeDelta);
             }
 
+            writer.doWindow(acceptReply, acceptRouteId, acceptInitialId, newTraceId, 0L, 0, 0, 0);
+
             final HttpBeginExFW newHttpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .typeId(httpTypeId)
                     .headers(OAuthProxyFactory::setChallengeResponseHeaders)
                     .build();
 
-            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, traceId, 0L, newHttpBeginEx);
-            writer.doEnd(acceptReply, acceptRouteId, acceptReplyId, traceId, 0L, octetsRO);
+            writer.doBegin(acceptReply, acceptRouteId, acceptReplyId, newTraceId, 0L, newHttpBeginEx);
+            writer.doEnd(acceptReply, acceptRouteId, acceptReplyId, newTraceId, 0L, octetsRO);
 
             newStream = (t, b, i, l) -> {};
         }
@@ -691,6 +693,7 @@ public class OAuthProxyFactory implements StreamFactory
             final long traceId = end.trace();
             final OctetsFW extension = end.extension();
 
+            // TODO: avoid sending request END when CORS response defaulted after request RESET
             writer.doEnd(target, targetRouteId, targetStreamId, traceId, targetAuthorization, extension);
 
             cancelTimerIfNecessary();
@@ -730,6 +733,8 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (isCorsPreflight && sourceStreamId != connectReplyId && replyNotStarted)
             {
+                writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, 0L, 0, 0, 0);
+
                 final HttpBeginExFW.Builder httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                         .typeId(httpTypeId);
 

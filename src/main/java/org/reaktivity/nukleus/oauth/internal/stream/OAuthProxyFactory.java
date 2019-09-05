@@ -340,7 +340,7 @@ public class OAuthProxyFactory implements StreamFactory
     {
         OAuthAccessGrant grant;
 
-        if (subject != null)
+        if (affinityId != 0L && subject != null)
         {
             final Map<String, OAuthAccessGrant> grantsBySubject = supplyGrantsBySubject(realmIndex, affinityId);
             final String subjectKey = subject.intern();
@@ -370,7 +370,7 @@ public class OAuthProxyFactory implements StreamFactory
     {
         OAuthAccessGrant grant = null;
 
-        if (subject != null)
+        if (affinityId != 0L && subject != null)
         {
             final Map<String, OAuthAccessGrant> grantsBySubject = lookupGrantsBySubject(realmIndex, affinityId);
             if (grantsBySubject != null)

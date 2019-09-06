@@ -63,7 +63,7 @@ import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.HttpBeginExFW;
-import org.reaktivity.nukleus.oauth.internal.types.stream.HttpSignalExFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.HttpChallengeExFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.ResetFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
@@ -123,7 +123,7 @@ public class OAuthProxyFactory implements StreamFactory
     private final HttpBeginExFW httpBeginExRO = new HttpBeginExFW();
     private final HttpBeginExFW.Builder httpBeginExRW = new HttpBeginExFW.Builder();
 
-    private final HttpSignalExFW.Builder httpSignalExRW = new HttpSignalExFW.Builder();
+    private final HttpChallengeExFW.Builder httpChallengeExRW = new HttpChallengeExFW.Builder();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -231,7 +231,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final long newTraceId = supplyTrace.getAsLong();
             final long acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
-            final long challengeDelta = resolveChallengeDelta(verified, begin.capabilities(), expiresAtMillis);
+            final long challengeDelta = resolveChallengeDelta(verified, expiresAtMillis);
             final OAuthAccessGrant grant = lookupGrant(realmId, affinity, subject);
             if (grant != null)
             {
@@ -262,19 +262,18 @@ public class OAuthProxyFactory implements StreamFactory
 
             final boolean isCorsPreflight = isCorsPreflightRequest(extension.get(httpBeginExRO::tryWrap));
 
-            final int capabilities = begin.capabilities();
-            final long challengeDelta = resolveChallengeDelta(verified, capabilities, expiresAtMillis);
+            final long challengeDelta = resolveChallengeDelta(verified, expiresAtMillis);
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis, challengeDelta);
 
             final OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
                     connectInitial, connectRouteId, connectInitialId, connectAuthorization,
-                    acceptReplyId, connectReplyId, expiresAtMillis, 0, capabilities, grant, isCorsPreflight);
+                    acceptReplyId, connectReplyId, expiresAtMillis, 0, grant, isCorsPreflight);
             initialStream.grant.acquire();
 
             final OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
                     acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
-                    acceptReplyId, connectReplyId, expiresAtMillis, challengeDelta, capabilities, grant, isCorsPreflight);
+                    acceptReplyId, connectReplyId, expiresAtMillis, challengeDelta, grant, isCorsPreflight);
             replyStream.grant.acquire();
 
             correlations.put(connectReplyId, replyStream);
@@ -344,32 +343,30 @@ public class OAuthProxyFactory implements StreamFactory
         return routeRO.wrap(buffer, index, index + length);
     }
 
+    // TODO: REMOVE CAPABILITIES FROM BEGIN
+    //       Change HttpSignalExFW -> HttpChallengeExFW
     private long resolveChallengeDelta(
-        JsonWebSignature verified,
-        int capabilities,
-        long expiresAtMillis)
+            JsonWebSignature verified,
+            long expiresAtMillis)
     {
         long challengeDelta = 0;
 
-        if (Capabilities.canChallenge(capabilities))
+        try
         {
-            try
+            if (verified != null)
             {
-                if (verified != null)
+                final JwtClaims claims = JwtClaims.parse(verified.getPayload());
+                final NumericDate challengeAfterDate = claims.getNumericDateClaimValue(
+                        config.geClaimNamespace() + config.getClaimNameChallengeResponseTimeout());
+                if (challengeAfterDate != null)
                 {
-                    final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                    final NumericDate challengeAfterDate = claims.getNumericDateClaimValue(
-                            config.geClaimNamespace() + config.getClaimNameChallengeResponseTimeout());
-                    if (challengeAfterDate != null)
-                    {
-                        challengeDelta = expiresAtMillis - challengeAfterDate.getValueInMillis();
-                    }
+                    challengeDelta = expiresAtMillis - challengeAfterDate.getValueInMillis();
                 }
             }
-            catch (InvalidJwtException | JoseException | MalformedClaimException e)
-            {
-                // invalid token
-            }
+        }
+        catch (InvalidJwtException | JoseException | MalformedClaimException e)
+        {
+            // invalid token
         }
         return challengeDelta;
     }
@@ -548,7 +545,6 @@ public class OAuthProxyFactory implements StreamFactory
             long connectReplyId,
             long expiresAtMillis,
             long challengeDelta,
-            int capabilities,
             OAuthAccessGrant grant,
             boolean isCorsPreflight)
         {
@@ -563,12 +559,11 @@ public class OAuthProxyFactory implements StreamFactory
             this.acceptReplyId = acceptReplyId;
             this.connectReplyId = connectReplyId;
             this.grant = Objects.requireNonNull(grant);
-            this.capabilities = capabilities;
             this.isCorsPreflight = isCorsPreflight;
 
-            final boolean canChallenge = Capabilities.canChallenge(capabilities);
+//            final boolean canChallenge = Capabilities.canChallenge(capabilities);
             final long delay;
-            if (canChallenge && challengeDelta > 0)
+            if (challengeDelta > 0)
             {
                 delay = expiresAtMillis - challengeDelta;
 
@@ -833,14 +828,14 @@ public class OAuthProxyFactory implements StreamFactory
             this.grantValidationFuture = executor.schedule(finalDelay, MILLISECONDS, targetRouteId, targetStreamId,
                     GRANT_VALIDATION_SIGNAL);
 
-            final HttpSignalExFW httpSignalEx = httpSignalExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
+            final HttpChallengeExFW httpChallengeEx = httpChallengeExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .typeId(httpTypeId)
                     .headersItem(h -> h.name(":method").value("post"))
                     .headersItem(h -> h.name("content-type").value(END_CHALLENGE_TYPE))
                     .build();
             final long traceId = signal.trace();
 
-            writer.doSignal(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, httpSignalEx);
+            writer.doSignal(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, httpChallengeEx);
         }
 
         private boolean withinChallengeBuffer(

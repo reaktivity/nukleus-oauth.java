@@ -332,6 +332,28 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/later.expiring.authorization.with.different.affinity.does.not.reauthorize.inflight.request/accept/client",
+        "${streams}/later.expiring.authorization.with.different.affinity.does.not.reauthorize.inflight.request/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithLaterExpiringTokenWithDifferentAffinity() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
+        "${streams}/later.expiring.authorization.without.affinity.does.not.reauthorize.inflight.request/accept/client",
+        "${streams}/later.expiring.authorization.without.affinity.does.not.reauthorize.inflight.request/connect/server"
+    })
+    public void shouldNotReauthorizeInFlightRequestWithLaterExpiringTokenWithoutAffinity() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.multiple.routes.then.route.proxy/controller",
         "${streams}/later.expiring.authorization.with.different.subject.does.not.reauthorize.inflight.request/accept/client",
         "${streams}/later.expiring.authorization.with.different.subject.does.not.reauthorize.inflight.request/connect/server"
     })

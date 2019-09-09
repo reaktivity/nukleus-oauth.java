@@ -15,8 +15,6 @@
  */
 package org.reaktivity.nukleus.oauth.internal;
 
-import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS_NAME;
@@ -26,6 +24,8 @@ import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAM
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT_NAME;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
+
+import org.junit.Test;
 
 public class OAuthConfigurationTest
 {

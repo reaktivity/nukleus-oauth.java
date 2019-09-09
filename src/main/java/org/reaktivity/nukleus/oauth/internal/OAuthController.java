@@ -31,11 +31,11 @@ import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.FreezeFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.OAuthResolveExFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.Role;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
-import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.UnresolveFW;
+import org.reaktivity.nukleus.oauth.internal.types.control.UnrouteFW;
 import org.reaktivity.nukleus.route.RouteKind;
 
 import com.google.gson.Gson;

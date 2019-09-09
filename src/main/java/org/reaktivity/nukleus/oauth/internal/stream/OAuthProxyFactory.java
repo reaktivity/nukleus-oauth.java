@@ -477,13 +477,13 @@ public class OAuthProxyFactory implements StreamFactory
 
         private void acquire()
         {
-            assert (cleaner != null);
+            assert cleaner != null;
             referenceCount++;
         }
 
         private void release()
         {
-            assert (cleaner != null && referenceCount > 0);
+            assert cleaner != null && referenceCount > 0;
             referenceCount--;
             if (referenceCount == 0)
             {
@@ -501,8 +501,8 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         private boolean withinChallengeBuffer(
-            long currentTimeMillis,
-            long challengeAfter)
+                long currentTimeMillis,
+                long challengeAfter)
         {
             return currentTimeMillis >= challengeAfter && currentTimeMillis < expiresAt;
         }

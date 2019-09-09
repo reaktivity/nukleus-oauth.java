@@ -391,7 +391,7 @@ public class StreamsIT
         "${streams}/request.with.scopes.and.multiple.audiences.and.no.issuer.with.signed.jwt.rs256.forwarded/connect/server"
     })
     public void shouldForwardRequestWithSetScopesAndMultipleAudiencesWithNoIssuerWithValidJwtRS256OnSecuredRoute()
-    throws Exception
+        throws Exception
     {
         k3po.finish();
     }

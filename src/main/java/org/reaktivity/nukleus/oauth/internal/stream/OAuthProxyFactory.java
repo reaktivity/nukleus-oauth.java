@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
@@ -499,6 +500,29 @@ public class OAuthProxyFactory implements StreamFactory
             }
         }
 
+        private long challenge(
+            long now,
+            long traceId,
+            long delay,
+            LongConsumer doChallenge)
+        {
+            if (withinChallengeResponseTimeout(now))
+            {
+                // Check if a challenge hasn't been sent yet. If not, update challenged at and send the challenge
+                if (lastChallengedAt < challengeAfter())
+                {
+                    lastChallengedAt = now;
+                    doChallenge.accept(traceId);
+                }
+            }
+            else if (now < challengeAfter())
+            {
+                // Stream must have gotten reauthorized before sending a challenge, so must update the challenge future
+                delay = challengeAfter() - now;
+            }
+            return delay;
+        }
+
         private long challengeAfter()
         {
             return this.expiresAtMillis - this.challengeResponseTimeoutMillis;
@@ -567,17 +591,13 @@ public class OAuthProxyFactory implements StreamFactory
             this.grant = Objects.requireNonNull(grant);
             this.isCorsPreflight = isCorsPreflight;
 
-            long delay = 0;
-            if (challengeResponseTimeout > 0)
+            assert challengeResponseTimeout >= 0;
+            if (expiresAtMillis != EXPIRES_NEVER)
             {
-                delay = expiresAtMillis - challengeResponseTimeout - System.currentTimeMillis();
-            }
-            else if (expiresAtMillis != EXPIRES_NEVER && challengeResponseTimeout == 0)
-            {
-                delay = expiresAtMillis - System.currentTimeMillis();
-            }
-            this.signalFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                final long challengeDelay = expiresAtMillis - challengeResponseTimeout - System.currentTimeMillis();
+                this.signalFuture = executor.schedule(challengeDelay, MILLISECONDS, targetRouteId, targetStreamId,
                     GRANT_VALIDATION_SIGNAL);
+            }
         }
 
         private void onStreamMessage(
@@ -744,27 +764,12 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (delay > 0)
             {
-                final long challengeAfter = grant.challengeAfter();
-
+                long nextSignalDelay = 0;
                 if (canChallenge(capabilities))
                 {
-                    if (grant.withinChallengeResponseTimeout(now))
-                    {
-                        // Check if a challenge hasn't been sent yet. If not, update challenged at and send the challenge
-                        if (grant.lastChallengedAt < challengeAfter)
-                        {
-                            grant.lastChallengedAt = now;
-                            doChallenge(signal.trace());
-                            delay = grant.expiresAtMillis - now;
-                        }
-                    }
-                    else if (now < challengeAfter)
-                    {
-                        // Stream must have gotten reauthorized before sending a challenge, so must update the challenge future
-                        delay = challengeAfter - now;
-                    }
+                    nextSignalDelay = grant.challenge(now, signal.trace(), delay, this::doChallenge);
                 }
-                this.signalFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
+                this.signalFuture = executor.schedule(nextSignalDelay, MILLISECONDS, targetRouteId, targetStreamId,
                         GRANT_VALIDATION_SIGNAL);
             }
             else

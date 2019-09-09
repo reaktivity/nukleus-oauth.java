@@ -439,13 +439,13 @@ public class OAuthProxyFactory implements StreamFactory
 
         private void acquire()
         {
-            assert (cleaner != null);
+            assert cleaner != null;
             referenceCount++;
         }
 
         private void release()
         {
-            assert (cleaner != null && referenceCount > 0);
+            assert cleaner != null && referenceCount > 0;
             referenceCount--;
             if (referenceCount == 0)
             {
@@ -663,11 +663,11 @@ public class OAuthProxyFactory implements StreamFactory
 
             switch ((int) signalId)
             {
-                case TOKEN_EXPIRED_SIGNAL:
-                    onTokenExpiredSignal(signal);
-                    break;
-                default:
-                    break;
+            case TOKEN_EXPIRED_SIGNAL:
+                onTokenExpiredSignal(signal);
+                break;
+            default:
+                break;
             }
         }
 

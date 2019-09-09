@@ -186,22 +186,22 @@ public class OAuthRealms
             keysByKid = new LinkedHashMap<>();
             for (JsonWebKey key : keys.getJsonWebKeys())
             {
-               String kid = key.getKeyId();
-               if (kid == null)
-               {
-                   throw new IllegalArgumentException("Key without kid");
-               }
+                String kid = key.getKeyId();
+                if (kid == null)
+                {
+                    throw new IllegalArgumentException("Key without kid");
+                }
 
-               if (key.getAlgorithm() == null)
-               {
-                   throw new IllegalArgumentException("Key without alg");
-               }
+                if (key.getAlgorithm() == null)
+                {
+                    throw new IllegalArgumentException("Key without alg");
+                }
 
-               final JsonWebKey existingKey = keysByKid.putIfAbsent(kid, key);
-               if (existingKey != null)
-               {
-                   throw new IllegalArgumentException("Key with duplicate kid");
-               }
+                final JsonWebKey existingKey = keysByKid.putIfAbsent(kid, key);
+                if (existingKey != null)
+                {
+                    throw new IllegalArgumentException("Key with duplicate kid");
+                }
             }
             keysByKid = unmodifiableMap(keysByKid);
         }

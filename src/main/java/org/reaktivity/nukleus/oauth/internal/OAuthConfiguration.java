@@ -64,7 +64,7 @@ public class OAuthConfiguration extends Configuration
         return AUTO_DISCOVER_REALMS.getAsBoolean(this);
     }
 
-    public String geClaimNamespace()
+    public String getClaimNamespace()
     {
         return CLAIM_NAMESPACE.get(this);
     }

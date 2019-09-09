@@ -146,6 +146,8 @@ public class OAuthProxyFactory implements StreamFactory
     private final UnsafeBuffer extensionBuffer;
     private final int httpTypeId;
 
+    private final String challengeResponseTimeoutClaimName;
+
     public OAuthProxyFactory(
         OAuthConfiguration config,
         MutableDirectBuffer writeBuffer,
@@ -171,6 +173,8 @@ public class OAuthProxyFactory implements StreamFactory
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
         this.grantsBySubjectByAffinityPerRealm = initGrantsBySubjectByAffinityPerRealm();
+        this.challengeResponseTimeoutClaimName = String.format("%s%s", config.getClaimNamespace(),
+            config.getClaimNameChallengeResponseTimeout());
     }
 
     @Override
@@ -352,11 +356,10 @@ public class OAuthProxyFactory implements StreamFactory
             if (verified != null)
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                final NumericDate challengeAfterDate = claims.getNumericDateClaimValue(
-                        config.geClaimNamespace() + config.getClaimNameChallengeResponseTimeout());
-                if (challengeAfterDate != null)
+                final NumericDate claimValue = claims.getNumericDateClaimValue(challengeResponseTimeoutClaimName);
+                if (claimValue != null)
                 {
-                    challengeResponseTimeout = challengeAfterDate.getValueInMillis();
+                    challengeResponseTimeout = claimValue.getValueInMillis();
                 }
             }
         }
@@ -430,9 +433,9 @@ public class OAuthProxyFactory implements StreamFactory
     {
         private String subject;
         private long authorization;
-        private long expiresAt;
-        private long challengeResponseTimeout;
-        private long challengedAt;
+        private long expiresAtMillis;
+        private long challengeResponseTimeoutMillis;
+        private long lastChallengedAt;
         private int referenceCount;
         private Consumer<String> cleaner;
 
@@ -451,27 +454,27 @@ public class OAuthProxyFactory implements StreamFactory
             String subject,
             long connectAuthorization,
             long expiresAtMillis,
-            long challengeResponseTimeout)
+            long challengeResponseTimeoutMillis)
         {
-            final boolean reauthorized;
+            boolean reauthorized = false;
             if (referenceCount > 0)
             {
                 final long grantAuthorization = authorization;
-                reauthorized = (grantAuthorization & connectAuthorization) == grantAuthorization && expiresAtMillis > expiresAt;
+                reauthorized = (grantAuthorization & connectAuthorization) == grantAuthorization &&
+                    expiresAtMillis > this.expiresAtMillis;
 
                 if (reauthorized)
                 {
-                    this.expiresAt = expiresAtMillis;
-                    this.challengeResponseTimeout = challengeResponseTimeout;
+                    this.expiresAtMillis = expiresAtMillis;
+                    this.challengeResponseTimeoutMillis = challengeResponseTimeoutMillis;
                 }
             }
             else
             {
                 this.subject = subject != null ? subject.intern() : null;
                 this.authorization = connectAuthorization;
-                this.expiresAt = expiresAtMillis;
-                this.challengeResponseTimeout = challengeResponseTimeout;
-                reauthorized = false;
+                this.expiresAtMillis = expiresAtMillis;
+                this.challengeResponseTimeoutMillis = challengeResponseTimeoutMillis;
             }
             return reauthorized;
         }
@@ -498,14 +501,13 @@ public class OAuthProxyFactory implements StreamFactory
 
         private long challengeAfter()
         {
-            return this.expiresAt - this.challengeResponseTimeout;
+            return this.expiresAtMillis - this.challengeResponseTimeoutMillis;
         }
 
-        private boolean withinChallengeBuffer(
-            long currentTimeMillis,
-            long challengeAfter)
+        private boolean withinChallengeResponseTimeout(
+            long currentTimeMillis)
         {
-            return currentTimeMillis >= challengeAfter && currentTimeMillis < expiresAt;
+            return currentTimeMillis >= challengeAfter() && currentTimeMillis < expiresAtMillis;
         }
 
         @Override
@@ -513,7 +515,7 @@ public class OAuthProxyFactory implements StreamFactory
         {
             return String.format(
                 "OAuthAccessGrant=[subject=%s, authorization=%d, expiresAt=%d, challengeResponseTimeout=%d, referenceCount=%d]",
-                subject, authorization, expiresAt, challengeResponseTimeout, referenceCount);
+                subject, authorization, expiresAtMillis, challengeResponseTimeoutMillis, referenceCount);
         }
     }
 
@@ -626,7 +628,7 @@ public class OAuthProxyFactory implements StreamFactory
                 break;
             case SignalFW.TYPE_ID:
                 final SignalFW signal = signalRO.wrap(buffer, index, index + length);
-                onGrantValidationSignal(signal);
+                onSignal(signal);
                 break;
             default:
                 // ignore
@@ -719,7 +721,7 @@ public class OAuthProxyFactory implements StreamFactory
             cancelTimerIfNecessary();
         }
 
-        private void onGrantValidationSignal(
+        private void onSignal(
             SignalFW signal)
         {
             final long signalId = signal.signalId();
@@ -727,17 +729,18 @@ public class OAuthProxyFactory implements StreamFactory
             switch ((int) signalId)
             {
             case GRANT_VALIDATION_SIGNAL:
-                onTokenExpiredSignal(signal);
+                onGrantValidationSignal(signal);
                 break;
             default:
                 break;
             }
         }
 
-        private void onTokenExpiredSignal(
+        private void onGrantValidationSignal(
             SignalFW signal)
         {
-            long delay = grant.expiresAt - System.currentTimeMillis();
+            final long now = System.currentTimeMillis();
+            long delay = grant.expiresAtMillis - now;
 
             if (delay > 0)
             {
@@ -745,20 +748,20 @@ public class OAuthProxyFactory implements StreamFactory
 
                 if (canChallenge(capabilities))
                 {
-                    if (grant.withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))
+                    if (grant.withinChallengeResponseTimeout(now))
                     {
                         // Check if a challenge hasn't been sent yet. If not, update challenged at and send the challenge
-                        if (grant.challengedAt < challengeAfter)
+                        if (grant.lastChallengedAt < challengeAfter)
                         {
-                            grant.challengedAt = System.currentTimeMillis();
+                            grant.lastChallengedAt = now;
                             doChallenge(signal.trace());
-                            delay = grant.expiresAt - System.currentTimeMillis();
+                            delay = grant.expiresAtMillis - now;
                         }
                     }
-                    else if (System.currentTimeMillis() < challengeAfter)
+                    else if (now < challengeAfter)
                     {
                         // Stream must have gotten reauthorized before sending a challenge, so must update the challenge future
-                        delay = challengeAfter;
+                        delay = challengeAfter - now;
                     }
                 }
                 this.signalFuture = executor.schedule(delay, MILLISECONDS, targetRouteId, targetStreamId,
@@ -775,7 +778,7 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     final HttpBeginExFW httpBeginEx = httpBeginExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                             .typeId(httpTypeId)
-                            .headersItem(h -> h.name(":status").value("401"))
+                            .headersItem(h -> h.name(HEADER_NAME_STATUS).value("401"))
                             .build();
 
                     writer.doBegin(target, targetRouteId, targetStreamId, traceId, targetAuthorization, httpBeginEx);
@@ -795,12 +798,10 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final HttpChallengeExFW httpChallengeEx = httpChallengeExRW.wrap(extensionBuffer, 0, extensionBuffer.capacity())
                     .typeId(httpTypeId)
-                    .headersItem(h -> h.name(":method").value("post"))
-                    .headersItem(h -> h.name("content-type").value(END_CHALLENGE_TYPE))
+                    .headersItem(h -> h.name(HEADER_NAME_METHOD).value(HEADER_VALUE_METHOD_POST))
+                    .headersItem(h -> h.name(HEADER_NAME_CONTENT_TYPE).value(END_CHALLENGE_TYPE))
                     .build();
 
-            // TODO - prevent multiple challenges from same group from being sent
-            //      - could keep track of when most recent challenge was sent to prevent
             writer.doChallenge(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, httpChallengeEx);
         }
 

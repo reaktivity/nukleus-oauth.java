@@ -19,7 +19,7 @@ import org.reaktivity.nukleus.oauth.internal.types.control.Capability;
 
 public final class Capabilities
 {
-    private static final int CHALLENGE_MASK = 1 << Capability.valueOf("CHALLENGE").ordinal();
+    private static final int CHALLENGE_MASK = 1 << Capability.CHALLENGE.ordinal();
 
     public static boolean canChallenge(
         int capabilities)

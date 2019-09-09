@@ -432,6 +432,7 @@ public class OAuthProxyFactory implements StreamFactory
         private long authorization;
         private long expiresAt;
         private long challengeResponseTimeout;
+        private long challengedAt;
         private int referenceCount;
         private Consumer<String> cleaner;
 
@@ -501,8 +502,8 @@ public class OAuthProxyFactory implements StreamFactory
         }
 
         private boolean withinChallengeBuffer(
-                long currentTimeMillis,
-                long challengeAfter)
+            long currentTimeMillis,
+            long challengeAfter)
         {
             return currentTimeMillis >= challengeAfter && currentTimeMillis < expiresAt;
         }
@@ -511,8 +512,8 @@ public class OAuthProxyFactory implements StreamFactory
         public String toString()
         {
             return String.format(
-                    "OAuthAccessGrant=[subject=%s, authorization=%d, expiresAt=%d, challengeResponseTimeout=%d, referenceCount=%d]",
-                    subject, authorization, expiresAt, challengeResponseTimeout, referenceCount);
+                "OAuthAccessGrant=[subject=%s, authorization=%d, expiresAt=%d, challengeResponseTimeout=%d, referenceCount=%d]",
+                subject, authorization, expiresAt, challengeResponseTimeout, referenceCount);
         }
     }
 
@@ -725,11 +726,11 @@ public class OAuthProxyFactory implements StreamFactory
 
             switch ((int) signalId)
             {
-                case GRANT_VALIDATION_SIGNAL:
-                    onTokenExpiredSignal(signal);
-                    break;
-                default:
-                    break;
+            case GRANT_VALIDATION_SIGNAL:
+                onTokenExpiredSignal(signal);
+                break;
+            default:
+                break;
             }
         }
 
@@ -746,11 +747,17 @@ public class OAuthProxyFactory implements StreamFactory
                 {
                     if (grant.withinChallengeBuffer(System.currentTimeMillis(), challengeAfter))
                     {
-                        doChallenge(signal.trace());
-                        delay = grant.expiresAt - System.currentTimeMillis();
+                        // Check if a challenge hasn't been sent yet. If not, update challenged at and send the challenge
+                        if (grant.challengedAt < challengeAfter)
+                        {
+                            grant.challengedAt = System.currentTimeMillis();
+                            doChallenge(signal.trace());
+                            delay = grant.expiresAt - System.currentTimeMillis();
+                        }
                     }
                     else if (System.currentTimeMillis() < challengeAfter)
                     {
+                        // Stream must have gotten reauthorized before sending a challenge, so must update the challenge future
                         delay = challengeAfter;
                     }
                 }

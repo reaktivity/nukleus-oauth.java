@@ -15,9 +15,11 @@
  */
 package org.reaktivity.nukleus.oauth.internal;
 
+import org.reaktivity.nukleus.oauth.internal.types.control.Capability;
+
 public class Capabilities
 {
-    private static final int CHALLENGE_MASK = 0x01;
+    private static final int CHALLENGE_MASK = 1 << Capability.valueOf("CHALLENGE").ordinal();
 
     public static boolean canChallenge(
         int capabilities)

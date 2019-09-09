@@ -21,10 +21,10 @@ import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
+import org.reaktivity.nukleus.oauth.internal.types.stream.ChallengeFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.DataFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.EndFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.ResetFW;
-import org.reaktivity.nukleus.oauth.internal.types.stream.SignalFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.WindowFW;
 
 public class Writer
@@ -35,7 +35,7 @@ public class Writer
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
-    private final SignalFW.Builder signalRW = new SignalFW.Builder();
+    private final ChallengeFW.Builder challengeRW = new ChallengeFW.Builder();
 
     private final MutableDirectBuffer writeBuffer;
 
@@ -157,7 +157,7 @@ public class Writer
         final int credit,
         final int padding,
         final long groupId,
-        Flyweight extension)
+        final int capabilities)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
@@ -167,7 +167,7 @@ public class Writer
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
-                .extension(extension.buffer(), extension.offset(), extension.sizeof())
+                .capabilities(capabilities)
                 .build();
 
         sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -190,7 +190,7 @@ public class Writer
         sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
-    public void doSignal(
+    public void doChallenge(
         MessageConsumer receiver,
         long routeId,
         long streamId,
@@ -198,15 +198,14 @@ public class Writer
         long authorization,
         Flyweight extension)
     {
-        final SignalFW signal = signalRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+        final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .trace(traceId)
                 .authorization(authorization)
-                //.signalId()
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
-        receiver.accept(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        receiver.accept(challenge.typeId(), challenge.buffer(), challenge.offset(), challenge.sizeof());
     }
 }

@@ -54,8 +54,8 @@ public final class BufferUtil
         int limit,
         byte[] value)
     {
-        return (limit - offset == value.length &&
-                limit == limitOfBytes(buffer, offset, limit, value));
+        return limit - offset == value.length &&
+               limit == limitOfBytes(buffer, offset, limit, value);
     }
 
     public static int limitOfBytes(

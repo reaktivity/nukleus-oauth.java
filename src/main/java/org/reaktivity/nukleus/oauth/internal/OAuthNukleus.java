@@ -110,11 +110,11 @@ final class OAuthNukleus implements Nukleus
 
         String issuer = null;
         String audience = null;
-        if(resolve.extension().sizeof() > 0)
+        if (resolve.extension().sizeof() > 0)
         {
             final OAuthResolveExFW resolveEx =
                     resolveExRO.tryWrap(buffer, resolve.extension().offset(), resolve.extension().limit());
-            if(resolveEx != null)
+            if (resolveEx != null)
             {
                 issuer = resolveEx.issuer().asString();
                 audience = resolveEx.audience().asString();

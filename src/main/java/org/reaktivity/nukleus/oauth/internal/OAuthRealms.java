@@ -77,7 +77,7 @@ public class OAuthRealms
         List<String> scopeNames)
     {
         long authorization = NO_AUTHORIZATION;
-        if(nextRealmBit < MAX_REALMS)
+        if (nextRealmBit < MAX_REALMS)
         {
             final OAuthRealm realm = realmsByName.computeIfAbsent(realmName, OAuthRealm::new);
             authorization = realm.resolve(issuerName, audienceName, scopeNames);
@@ -186,22 +186,22 @@ public class OAuthRealms
             keysByKid = new LinkedHashMap<>();
             for (JsonWebKey key : keys.getJsonWebKeys())
             {
-               String kid = key.getKeyId();
-               if (kid == null)
-               {
-                   throw new IllegalArgumentException("Key without kid");
-               }
+                String kid = key.getKeyId();
+                if (kid == null)
+                {
+                    throw new IllegalArgumentException("Key without kid");
+                }
 
-               if (key.getAlgorithm() == null)
-               {
-                   throw new IllegalArgumentException("Key without alg");
-               }
+                if (key.getAlgorithm() == null)
+                {
+                    throw new IllegalArgumentException("Key without alg");
+                }
 
-               final JsonWebKey existingKey = keysByKid.putIfAbsent(kid, key);
-               if (existingKey != null)
-               {
-                   throw new IllegalArgumentException("Key with duplicate kid");
-               }
+                final JsonWebKey existingKey = keysByKid.putIfAbsent(kid, key);
+                if (existingKey != null)
+                {
+                    throw new IllegalArgumentException("Key with duplicate kid");
+                }
             }
             keysByKid = unmodifiableMap(keysByKid);
         }
@@ -263,7 +263,7 @@ public class OAuthRealms
                                                        .findFirst()
                                                        .orElse(null);
             long authorization = NO_AUTHORIZATION;
-            if(realmInfo != null)
+            if (realmInfo != null)
             {
                 authorization = realmInfo.realmId;
                 for (int i = 0; i < scopeNames.size(); i++)

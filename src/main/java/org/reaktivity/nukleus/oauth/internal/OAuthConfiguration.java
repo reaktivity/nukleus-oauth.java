@@ -22,14 +22,14 @@ public class OAuthConfiguration extends Configuration
     public static final String KEYS_NAME = "nukleus.oauth.keys";
     public static final String AUTO_DISCOVER_REALMS_NAME = "nukleus.oauth.auto.discover.realms";
     public static final String CLAIM_NAMESPACE_NAME = "nukleus.oauth.claim.namespace";
-    public static final String CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT_NAME = "nukleus.oauth.claim.name.challenge.response.timeout";
+    public static final String CLAIM_NAME_CHALLENGE_TIMEOUT_NAME = "nukleus.oauth.claim.name.challenge.timeout";
 
     static final ConfigurationDef OAUTH_CONFIG;
     static final BooleanPropertyDef EXPIRE_IN_FLIGHT_REQUESTS;
     static final PropertyDef<String> KEYS;
     static final BooleanPropertyDef AUTO_DISCOVER_REALMS;
     static final PropertyDef<String> CLAIM_NAMESPACE;
-    static final PropertyDef<String> CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT;
+    static final PropertyDef<String> CLAIM_NAME_CHALLENGE_TIMEOUT;
 
     static
     {
@@ -38,8 +38,8 @@ public class OAuthConfiguration extends Configuration
         EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
         AUTO_DISCOVER_REALMS = config.property("auto.discover.realms", false);
         CLAIM_NAMESPACE = config.property("claim.namespace", "https://reaktivity.org/");
-        CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT = config.property("claim.name.challenge.response.timeout",
-                "challenge_response_timeout");
+        CLAIM_NAME_CHALLENGE_TIMEOUT = config.property("claim.name.challenge.timeout",
+                "challenge_timeout");
         OAUTH_CONFIG = config;
     }
 
@@ -69,8 +69,8 @@ public class OAuthConfiguration extends Configuration
         return CLAIM_NAMESPACE.get(this);
     }
 
-    public String getClaimNameChallengeResponseTimeout()
+    public String getClaimNameChallengeTimeout()
     {
-        return CLAIM_NAME_CHALLENGE_RESPONSE_TIMEOUT.get(this);
+        return CLAIM_NAME_CHALLENGE_TIMEOUT.get(this);
     }
 }

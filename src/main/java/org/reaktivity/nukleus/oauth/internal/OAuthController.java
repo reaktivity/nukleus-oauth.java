@@ -118,11 +118,11 @@ public class OAuthController implements Controller
     {
         String issuerName = null;
         String audienceName = null;
-        if(extension != null)
+        if (extension != null)
         {
             final JsonParser parser = new JsonParser();
             final JsonElement element = parser.parse(extension);
-            if(element.isJsonObject())
+            if (element.isJsonObject())
             {
                 final JsonObject object = (JsonObject) element;
                 issuerName = gson.fromJson(object.get("issuer"), String.class);

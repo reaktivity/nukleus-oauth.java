@@ -501,22 +501,23 @@ public class OAuthProxyFactory implements StreamFactory
         private long challenge(
             long now,
             long traceId,
-            long delay,
             LongConsumer doChallenge)
         {
+            long delay = expiresAtMillis - now;
             final long challengeAfter = this.expiresAtMillis - this.challengeTimeoutMillis;
-            if (now >= challengeAfter && now < expiresAtMillis)
+            if (challengeAfter <= now && now < expiresAtMillis)
             {
-                // Check if a challenge hasn't been sent yet. If not, update challenged at and send the challenge
+                // Challenge now if not already sent
                 if (lastChallengedAt < challengeAfter)
                 {
                     lastChallengedAt = now;
                     doChallenge.accept(traceId);
                 }
+                assert lastChallengedAt >= challengeAfter;
             }
             else if (now < challengeAfter)
             {
-                // Stream must have gotten reauthorized before sending a challenge, so must update the challenge future
+                // reassess at challenge-after
                 delay = challengeAfter - now;
             }
             return delay;
@@ -756,7 +757,7 @@ public class OAuthProxyFactory implements StreamFactory
             {
                 if (canChallenge(capabilities))
                 {
-                    nextSignalDelay = grant.challenge(now, signal.trace(), nextSignalDelay, this::doChallenge);
+                    nextSignalDelay = grant.challenge(now, signal.trace(), this::doChallenge);
                 }
                 this.signalFuture = executor.schedule(nextSignalDelay, MILLISECONDS, targetRouteId, targetStreamId,
                         GRANT_VALIDATION_SIGNAL);

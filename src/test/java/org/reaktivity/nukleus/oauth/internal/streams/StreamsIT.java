@@ -514,4 +514,17 @@ public class StreamsIT
         k3po.finish();
     }
 
+    @Test
+    @Specification({
+        "${route}/resolve.one.realm.with.set.roles.issuer.and.audience.then.route.proxy/controller",
+        "${streams}/challenge.before.expiration/accept/client",
+        "${streams}/challenge.before.expiration/connect/server"
+        })
+    public void shouldChallengeBeforeExpiration() throws Exception
+    {
+        k3po.start();
+        Thread.sleep(5000); // first token would expire if expiration is not updated.
+        k3po.finish();
+    }
+
 }

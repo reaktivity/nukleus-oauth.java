@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jws.JsonWebSignature;
@@ -270,13 +271,18 @@ public class OAuthProxyFactory implements StreamFactory
             final OAuthAccessGrant grant = supplyGrant(realmId, affinity, subject);
             grant.reauthorize(subject, connectAuthorization, expiresAtMillis, challengeTimeout);
 
-            final OAuthProxy initialStream = new OAuthProxy(acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization,
-                    connectInitial, connectRouteId, connectInitialId, connectAuthorization,
-                    acceptReplyId, connectReplyId, expiresAtMillis, 0, grant, isCorsPreflight);
+            final MutableInteger acceptCapabilities = new MutableInteger();
+            final MutableInteger connectCapabilities = new MutableInteger();
 
-            final OAuthProxy replyStream = new OAuthProxy(connectInitial, connectRouteId, connectReplyId, connectAuthorization,
-                    acceptReply, acceptRouteId, acceptReplyId, acceptAuthorization,
-                    acceptReplyId, connectReplyId, expiresAtMillis, challengeTimeout, grant, isCorsPreflight);
+            final OAuthProxy initialStream = new OAuthProxy(
+                    acceptReply, acceptRouteId, acceptInitialId, acceptAuthorization, acceptCapabilities,
+                    connectRouteId, connectInitialId, connectAuthorization, connectCapabilities,
+                    connectReplyId, expiresAtMillis, 0, grant, isCorsPreflight, connectInitial, acceptReplyId);
+
+            final OAuthProxy replyStream = new OAuthProxy(
+                    connectInitial, connectRouteId, connectReplyId, connectAuthorization, connectCapabilities,
+                    acceptRouteId, acceptReplyId, acceptAuthorization, acceptCapabilities,
+                    connectReplyId, expiresAtMillis, challengeTimeout, grant, isCorsPreflight, acceptReply, acceptReplyId);
 
             correlations.put(connectReplyId, replyStream);
             router.setThrottle(acceptReplyId, replyStream::onThrottleMessage);
@@ -538,16 +544,16 @@ public class OAuthProxyFactory implements StreamFactory
         private final long sourceRouteId;
         private final long sourceStreamId;
         private final long sourceAuthorization;
+        private final MutableInteger sourceCapabailities;
         private final MessageConsumer target;
         private final long targetRouteId;
         private final long targetStreamId;
         private final long targetAuthorization;
+        private final MutableInteger targetCapabailities;
         private final long acceptReplyId;
         private final long connectReplyId;
         private final OAuthAccessGrant grant;
         private final boolean isCorsPreflight;
-
-        private int capabilities;
 
         private Future<?> signalFuture;
 
@@ -556,25 +562,29 @@ public class OAuthProxyFactory implements StreamFactory
             long sourceRouteId,
             long sourceId,
             long sourceAuthorization,
-            MessageConsumer target,
+            MutableInteger sourceCapabilities,
             long targetRouteId,
             long targetId,
             long targetAuthorization,
-            long acceptReplyId,
+            MutableInteger targetCapabilities,
             long connectReplyId,
             long expiresAtMillis,
             long challengeTimeout,
             OAuthAccessGrant grant,
-            boolean isCorsPreflight)
+            boolean isCorsPreflight,
+            MessageConsumer target,
+            long acceptReplyId)
         {
             this.source = source;
             this.sourceRouteId = sourceRouteId;
             this.sourceStreamId = sourceId;
             this.sourceAuthorization = sourceAuthorization;
+            this.sourceCapabailities = sourceCapabilities;
             this.target = target;
             this.targetRouteId = targetRouteId;
             this.targetStreamId = targetId;
             this.targetAuthorization = targetAuthorization;
+            this.targetCapabailities = targetCapabilities;
             this.acceptReplyId = acceptReplyId;
             this.connectReplyId = connectReplyId;
             this.grant = Objects.requireNonNull(grant);
@@ -698,10 +708,10 @@ public class OAuthProxyFactory implements StreamFactory
             final long groupId = window.groupId();
 
             // whatever capabilities you get, set this streams capabilities to that
-            this.capabilities = window.capabilities();
+            this.targetCapabailities.value = window.capabilities();
 
             writer.doWindow(source, sourceRouteId, sourceStreamId, traceId, sourceAuthorization, credit, padding, groupId,
-                    this.capabilities);
+                    this.targetCapabailities.value);
         }
 
         private void onReset(
@@ -755,7 +765,7 @@ public class OAuthProxyFactory implements StreamFactory
 
             if (nextSignalDelay > 0)
             {
-                if (canChallenge(capabilities))
+                if (canChallenge(sourceCapabailities.value))
                 {
                     nextSignalDelay = grant.challenge(now, signal.trace(), this::doChallenge);
                 }
@@ -825,10 +835,10 @@ public class OAuthProxyFactory implements StreamFactory
         public String toString()
         {
             return String.format("OAuthProxy - {sourceRouteId=%d, sourceStreamId=%d, sourceAuthorization=%d, targetRouteId=%d, " +
-                    "targetStreamId=%d, targetAuthorization=%d, acceptReplyId=%d, connectReplyId=%d, capabilities=%d, " +
+                    "targetStreamId=%d, targetAuthorization=%d, acceptReplyId=%d, connectReplyId=%d, TODO=%d, " +
                             "grant=%s}",
                     sourceRouteId, sourceStreamId, sourceAuthorization, targetRouteId, targetStreamId, targetAuthorization,
-                    acceptReplyId, connectReplyId, capabilities, grant);
+                    acceptReplyId, connectReplyId, sourceCapabailities.value, grant);
         }
     }
 

@@ -528,14 +528,6 @@ public class OAuthProxyFactory implements StreamFactory
             }
             return delay;
         }
-
-        @Override
-        public String toString()
-        {
-            return String.format(
-                "OAuthAccessGrant=[subject=%s, authorization=%d, expiresAt=%d, challengeTimeout=%d, referenceCount=%d]",
-                subject, authorization, expiresAtMillis, challengeTimeoutMillis, referenceCount);
-        }
     }
 
     private final class OAuthProxy
@@ -829,16 +821,6 @@ public class OAuthProxyFactory implements StreamFactory
                 signalFuture = null;
                 grant.release();
             }
-        }
-
-        @Override
-        public String toString()
-        {
-            return String.format("OAuthProxy - {sourceRouteId=%d, sourceStreamId=%d, sourceAuthorization=%d, targetRouteId=%d, " +
-                    "targetStreamId=%d, targetAuthorization=%d, acceptReplyId=%d, connectReplyId=%d, TODO=%d, " +
-                            "grant=%s}",
-                    sourceRouteId, sourceStreamId, sourceAuthorization, targetRouteId, targetStreamId, targetAuthorization,
-                    acceptReplyId, connectReplyId, sourceCapabailities.value, grant);
         }
     }
 

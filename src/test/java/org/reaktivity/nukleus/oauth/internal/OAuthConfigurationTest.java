@@ -18,6 +18,10 @@ package org.reaktivity.nukleus.oauth.internal;
 import static org.junit.Assert.assertEquals;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.AUTO_DISCOVER_REALMS_NAME;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAMESPACE;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAMESPACE_NAME;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAME_CHALLENGE_TIMEOUT;
+import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAME_CHALLENGE_TIMEOUT_NAME;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
@@ -36,6 +40,18 @@ public class OAuthConfigurationTest
     public void shouldMatchAutoDiscoverRealmsConfigName()
     {
         assertEquals(AUTO_DISCOVER_REALMS_NAME, AUTO_DISCOVER_REALMS.name());
+    }
+
+    @Test
+    public void shouldMatchClaimNamespaceConfigName()
+    {
+        assertEquals(CLAIM_NAMESPACE_NAME, CLAIM_NAMESPACE.name());
+    }
+
+    @Test
+    public void shouldMatchClaimNameChallengeTimeoutConfigName()
+    {
+        assertEquals(CLAIM_NAME_CHALLENGE_TIMEOUT_NAME, CLAIM_NAME_CHALLENGE_TIMEOUT.name());
     }
 
 }

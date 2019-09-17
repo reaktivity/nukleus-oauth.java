@@ -15,9 +15,11 @@
  */
 package org.reaktivity.nukleus.oauth.internal.stream;
 
+import static java.lang.Integer.parseInt;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.reaktivity.nukleus.oauth.internal.Capabilities.canChallenge;
 import static org.reaktivity.nukleus.oauth.internal.util.BufferUtil.indexOfBytes;
 
@@ -175,7 +177,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
         this.grantsBySubjectByAffinityPerRealm = initGrantsBySubjectByAffinityPerRealm();
-        this.challengeTimeoutClaimName = String.format("%s%s", config.getClaimNamespace(),
+        this.challengeTimeoutClaimName = String.format("%s%s", config.getCanonicalClaimNamespace(),
             config.getClaimNameChallengeTimeout());
     }
 
@@ -361,14 +363,14 @@ public class OAuthProxyFactory implements StreamFactory
             if (verified != null)
             {
                 final JwtClaims claims = JwtClaims.parse(verified.getPayload());
-                final NumericDate claimValue = claims.getNumericDateClaimValue(challengeTimeoutClaimName);
+                final Object claimValue = claims.getClaimValue(challengeTimeoutClaimName);
                 if (claimValue != null)
                 {
-                    challengeTimeout = claimValue.getValueInMillis();
+                    challengeTimeout = SECONDS.toMillis(parseInt(claimValue.toString()));
                 }
             }
         }
-        catch (InvalidJwtException | JoseException | MalformedClaimException e)
+        catch (InvalidJwtException | JoseException | NumberFormatException e)
         {
             // invalid token
         }

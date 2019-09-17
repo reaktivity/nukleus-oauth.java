@@ -34,7 +34,7 @@ public class OAuthRealmsTest
     public void shouldAddUpToMaximumRealms() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        for (int i=0; i < Short.SIZE; i++)
+        for (int i = 0; i < Short.SIZE; i++)
         {
             realms.resolve("realm" + i);
         }
@@ -44,7 +44,7 @@ public class OAuthRealmsTest
     public void shouldNotAddTooManyRealms() throws Exception
     {
         OAuthRealms realms = new OAuthRealms();
-        for (int i=0; i < Short.SIZE; i++)
+        for (int i = 0; i < Short.SIZE; i++)
         {
             realms.resolve("realm" + i);
         }
@@ -227,11 +227,11 @@ public class OAuthRealmsTest
         OAuthRealms realms = new OAuthRealms();
         JwtClaims claims = new JwtClaims();
         String payload = claims.toJson();
-        for (int i=0; i < Short.SIZE; i++)
+        for (int i = 0; i < Short.SIZE; i++)
         {
             realms.resolve("realm" + i);
         }
-        for (int i=0; i < Short.SIZE; i++)
+        for (int i = 0; i < Short.SIZE; i++)
         {
             final JsonWebSignature signature = newSignedSignature("realm" + i, "RS256", payload, RFC7515_RS256);
             assertTrue(realms.unresolve(realms.lookup(signature)));

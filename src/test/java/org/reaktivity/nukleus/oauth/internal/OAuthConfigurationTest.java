@@ -25,11 +25,13 @@ import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.CLAIM_NAM
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS;
 import static org.reaktivity.nukleus.oauth.internal.OAuthConfiguration.KEYS_NAME;
 
+import java.util.Properties;
+
 import org.junit.Test;
+import org.reaktivity.nukleus.Configuration;
 
 public class OAuthConfigurationTest
 {
-
     @Test
     public void shouldMatchKeysConfigName()
     {
@@ -54,4 +56,43 @@ public class OAuthConfigurationTest
         assertEquals(CLAIM_NAME_CHALLENGE_TIMEOUT_NAME, CLAIM_NAME_CHALLENGE_TIMEOUT.name());
     }
 
+    @Test
+    public void shouldCanonicalizeNamespaceWithTrailingSlash()
+    {
+        final Properties properties = new Properties();
+        properties.setProperty(CLAIM_NAMESPACE_NAME, "http://example.com/");
+        final OAuthConfiguration config = new OAuthConfiguration(new Configuration(properties));
+
+        assertEquals("http://example.com/", config.getCanonicalClaimNamespace());
+    }
+
+    @Test
+    public void shouldCanonicalizeNamespaceWithoutTrailingSlash()
+    {
+        final Properties properties = new Properties();
+        properties.setProperty(CLAIM_NAMESPACE_NAME, "http://example.com");
+        final OAuthConfiguration config = new OAuthConfiguration(new Configuration(properties));
+
+        assertEquals("http://example.com/", config.getCanonicalClaimNamespace());
+    }
+
+    @Test
+    public void shouldCanonicalizeNamespaceWithPathWithTrailingSlash()
+    {
+        final Properties properties = new Properties();
+        properties.setProperty(CLAIM_NAMESPACE_NAME, "http://example.com/path/");
+        final OAuthConfiguration config = new OAuthConfiguration(new Configuration(properties));
+
+        assertEquals("http://example.com/path/", config.getCanonicalClaimNamespace());
+    }
+
+    @Test
+    public void shouldCanonicalizeNamespaceWithPathWithoutTrailingSlash()
+    {
+        final Properties properties = new Properties();
+        properties.setProperty(CLAIM_NAMESPACE_NAME, "http://example.com/path");
+        final OAuthConfiguration config = new OAuthConfiguration(new Configuration(properties));
+
+        assertEquals("http://example.com/path/", config.getCanonicalClaimNamespace());
+    }
 }

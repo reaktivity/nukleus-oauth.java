@@ -37,7 +37,7 @@ public class OAuthConfiguration extends Configuration
         KEYS = config.property("keys", "keys.jwk");
         EXPIRE_IN_FLIGHT_REQUESTS = config.property("expire.in.flight.requests", true);
         AUTO_DISCOVER_REALMS = config.property("auto.discover.realms", false);
-        CLAIM_NAMESPACE = config.property("claim.namespace", "https://reaktivity.org/");
+        CLAIM_NAMESPACE = config.property("claim.namespace", "https://reaktivity.org");
         CLAIM_NAME_CHALLENGE_TIMEOUT = config.property("claim.name.challenge.timeout",
                 "challenge_timeout");
         OAUTH_CONFIG = config;
@@ -72,5 +72,11 @@ public class OAuthConfiguration extends Configuration
     public String getClaimNameChallengeTimeout()
     {
         return CLAIM_NAME_CHALLENGE_TIMEOUT.get(this);
+    }
+
+    public String getCanonicalClaimNamespace()
+    {
+        final String namespace = getClaimNamespace();
+        return namespace.endsWith("/") ? namespace : String.format("%s/", namespace);
     }
 }

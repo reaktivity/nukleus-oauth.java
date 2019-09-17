@@ -177,7 +177,7 @@ public class OAuthProxyFactory implements StreamFactory
         this.executor = executor;
         this.httpTypeId = supplyTypeId.applyAsInt("http");
         this.grantsBySubjectByAffinityPerRealm = initGrantsBySubjectByAffinityPerRealm();
-        this.challengeTimeoutClaimName = String.format("%s%s", config.getClaimNamespace(),
+        this.challengeTimeoutClaimName = String.format("%s%s", config.getCanonicalClaimNamespace(),
             config.getClaimNameChallengeTimeout());
     }
 

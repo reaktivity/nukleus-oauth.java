@@ -54,9 +54,9 @@ import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
+import org.reaktivity.nukleus.oauth.internal.types.ArrayFW;
 import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
-import org.reaktivity.nukleus.oauth.internal.types.ListFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
 import org.reaktivity.nukleus.oauth.internal.types.StringFW;
@@ -875,7 +875,7 @@ public class OAuthProxyFactory implements StreamFactory
 
         if (httpBeginEx != null)
         {
-            final ListFW<HttpHeaderFW> headers = httpBeginEx.headers();
+            final ArrayFW<HttpHeaderFW> headers = httpBeginEx.headers();
 
             final HttpHeaderFW path = headers.matchFirst(h -> BufferUtil.equals(h.name(), PATH));
             if (path != null)
@@ -999,7 +999,7 @@ public class OAuthProxyFactory implements StreamFactory
     }
 
     private static void setChallengeResponseHeaders(
-        ListFW.Builder<HttpHeaderFW.Builder, HttpHeaderFW> headers)
+        ArrayFW.Builder<HttpHeaderFW.Builder, HttpHeaderFW> headers)
     {
         headers.item(h -> h.name(HEADER_NAME_STATUS).value(HEADER_VALUE_STATUS_204));
     }

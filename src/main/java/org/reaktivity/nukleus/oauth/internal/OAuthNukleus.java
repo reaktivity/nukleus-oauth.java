@@ -27,7 +27,7 @@ import org.jose4j.jwk.JsonWebKey;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.oauth.internal.types.ListFW;
+import org.reaktivity.nukleus.oauth.internal.types.ArrayFW;
 import org.reaktivity.nukleus.oauth.internal.types.StringFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.OAuthResolveExFW;
@@ -121,7 +121,7 @@ final class OAuthNukleus implements Nukleus
             }
         }
 
-        final ListFW<StringFW> roles = resolve.roles();
+        final ArrayFW<StringFW> roles = resolve.roles();
         final List<String> collectedRoles = new LinkedList<>();
         roles.forEach(r -> collectedRoles.add(r.asString()));
         final long authorization = realms.resolve(realm, issuer, audience, collectedRoles);

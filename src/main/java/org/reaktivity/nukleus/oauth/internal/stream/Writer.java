@@ -71,7 +71,7 @@ public class Writer
         long traceId,
         long authorization,
         long groupId,
-        int padding,
+        int reserved,
         OctetsFW payload,
         Flyweight extension)
     {
@@ -81,7 +81,7 @@ public class Writer
                 .trace(traceId)
                 .authorization(authorization)
                 .groupId(groupId)
-                .padding(padding)
+                .reserved(reserved)
                 .payload(payload)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();

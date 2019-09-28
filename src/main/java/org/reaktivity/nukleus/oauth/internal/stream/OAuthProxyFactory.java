@@ -660,14 +660,14 @@ public class OAuthProxyFactory implements StreamFactory
             DataFW data)
         {
             final long traceId = data.trace();
-            final int padding = data.padding();
+            final int reserved = data.reserved();
             final long authorization = data.authorization();
             final long groupId = data.groupId();
             final OctetsFW payload = data.payload();
             final OctetsFW extension = data.extension();
 
             writer.doData(target, targetRouteId, targetStreamId, traceId,
-                          authorization, groupId, padding, payload, extension);
+                          authorization, groupId, reserved, payload, extension);
         }
 
         private void onEnd(

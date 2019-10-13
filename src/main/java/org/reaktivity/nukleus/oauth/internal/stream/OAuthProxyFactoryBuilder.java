@@ -26,7 +26,7 @@ import org.agrona.MutableDirectBuffer;
 import org.jose4j.jwk.JsonWebKey;
 import org.jose4j.jws.JsonWebSignature;
 import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.concurrent.SignalingExecutor;
+import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -43,8 +43,8 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     private LongUnaryOperator supplyInitialId;
     private LongUnaryOperator supplyReplyId;
     private ToIntFunction<String> supplyTypeId;
-    private LongSupplier supplyTrace;
-    private SignalingExecutor executor;
+    private LongSupplier supplyTraceId;
+    private Signaler signaler;
 
     public OAuthProxyFactoryBuilder(
         OAuthConfiguration config,
@@ -58,17 +58,17 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
 
     @Override
     public OAuthProxyFactoryBuilder setRouteManager(
-            RouteManager router)
+        RouteManager router)
     {
         this.router = router;
         return this;
     }
 
     @Override
-    public StreamFactoryBuilder setTraceSupplier(
-        LongSupplier supplyTrace)
+    public StreamFactoryBuilder setTraceIdSupplier(
+        LongSupplier supplyTraceId)
     {
-        this.supplyTrace = supplyTrace;
+        this.supplyTraceId = supplyTraceId;
         return this;
     }
 
@@ -112,10 +112,10 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
     }
 
     @Override
-    public StreamFactoryBuilder setExecutor(
-        SignalingExecutor executor)
+    public StreamFactoryBuilder setSignaler(
+        Signaler signaler)
     {
-        this.executor = executor;
+        this.signaler = signaler;
         return this;
     }
 
@@ -126,12 +126,12 @@ public class OAuthProxyFactoryBuilder implements StreamFactoryBuilder
             config,
             writeBuffer,
             supplyInitialId,
-            supplyTrace,
+            supplyTraceId,
             supplyTypeId,
             supplyReplyId,
             lookupKey,
             lookupAuthorization,
-            executor,
+            signaler,
             router
         );
     }

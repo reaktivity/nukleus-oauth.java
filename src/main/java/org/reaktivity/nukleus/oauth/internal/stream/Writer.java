@@ -51,13 +51,15 @@ public class Writer
         long streamId,
         long traceId,
         long authorization,
+        long affinity,
         Flyweight extension)
     {
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
+                .affinity(affinity)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
 
@@ -70,7 +72,7 @@ public class Writer
         long streamId,
         long traceId,
         long authorization,
-        long groupId,
+        long budgetId,
         int reserved,
         OctetsFW payload,
         Flyweight extension)
@@ -78,9 +80,9 @@ public class Writer
         final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
-                .groupId(groupId)
+                .budgetId(budgetId)
                 .reserved(reserved)
                 .payload(payload)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
@@ -100,7 +102,7 @@ public class Writer
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();
@@ -118,7 +120,7 @@ public class Writer
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
                 .build();
 
@@ -131,18 +133,18 @@ public class Writer
         final long streamId,
         final long traceId,
         final long authorization,
+        final long budgetId,
         final int credit,
-        final int padding,
-        final long groupId)
+        final int padding)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
+                .budgetId(budgetId)
                 .credit(credit)
                 .padding(padding)
-                .groupId(groupId)
                 .build();
 
         sender.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -154,19 +156,19 @@ public class Writer
         final long streamId,
         final long traceId,
         final long authorization,
+        final long budgetId,
         final int credit,
         final int padding,
-        final long groupId,
         final int capabilities)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
+                .budgetId(budgetId)
                 .credit(credit)
                 .padding(padding)
-                .groupId(groupId)
                 .capabilities(capabilities)
                 .build();
 
@@ -183,7 +185,7 @@ public class Writer
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
                 .build();
 
@@ -201,7 +203,7 @@ public class Writer
         final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
-                .trace(traceId)
+                .traceId(traceId)
                 .authorization(authorization)
                 .extension(extension.buffer(), extension.offset(), extension.sizeof())
                 .build();

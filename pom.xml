@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-oauth</artifactId>
-  <version>0.57</version>
+  <version>0.58</version>
   <name>OAuth Nukleus Implementation</name>
   <description>OAuth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-oauth.java</url>
@@ -47,12 +47,12 @@
 
     <junit.version>4.12</junit.version>
 
-    <k3po.version>3.0.0-alpha-103</k3po.version>
+    <k3po.version>3.0.0-alpha-104</k3po.version>
 
     <nukleus.plugin.version>0.42</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>0.37</nukleus.oauth.spec.version>
-    <reaktor.version>0.104</reaktor.version>
+    <nukleus.oauth.spec.version>0.38</nukleus.oauth.spec.version>
+    <reaktor.version>0.115</reaktor.version>
   </properties>
 
   <dependencies>
@@ -270,6 +270,11 @@
             <artifactId>reaktor</artifactId>
             <version>${reaktor.version}</version>
             <type>test-jar</type>
+          </dependency>
+          <dependency>
+            <groupId>org.reaktivity</groupId>
+            <artifactId>reaktor</artifactId>
+            <version>${reaktor.version}</version>
           </dependency>
         </dependencies>
       </plugin>

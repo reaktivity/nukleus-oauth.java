@@ -881,22 +881,6 @@ public class OAuthProxyFactory implements StreamFactory
         {
             final ArrayFW<HttpHeaderFW> headers = httpBeginEx.headers();
 
-            final HttpHeaderFW path = headers.matchFirst(h -> BufferUtil.equals(h.name(), PATH));
-            if (path != null)
-            {
-                final String16FW value = path.value();
-                final int queryAt = indexOfBytes(value, QUERY_PREFIX);
-                if (queryAt != -1)
-                {
-                    final String query = path.value().asString().substring(queryAt);
-                    final Matcher matcher = QUERY_PARAMS.matcher(query);
-                    if (matcher.matches())
-                    {
-                        token = matcher.group(1);
-                    }
-                }
-            }
-
             final HttpHeaderFW authorization = headers.matchFirst(h -> BufferUtil.equals(h.name(), AUTHORIZATION));
             if (authorization != null)
             {
@@ -909,6 +893,25 @@ public class OAuthProxyFactory implements StreamFactory
                     final DirectBuffer buffer = value.buffer();
                     final int limit = value.limit();
                     token = buffer.getStringWithoutLengthUtf8(tokenAt, limit - tokenAt);
+                }
+            }
+
+            if (token == null)
+            {
+                final HttpHeaderFW path = headers.matchFirst(h -> BufferUtil.equals(h.name(), PATH));
+                if (path != null)
+                {
+                    final String16FW value = path.value();
+                    final int queryAt = indexOfBytes(value, QUERY_PREFIX);
+                    if (queryAt != -1)
+                    {
+                        final String query = path.value().asString().substring(queryAt);
+                        final Matcher matcher = QUERY_PARAMS.matcher(query);
+                        if (matcher.matches())
+                        {
+                            token = matcher.group(1);
+                        }
+                    }
                 }
             }
         }

@@ -49,10 +49,10 @@
 
     <k3po.version>3.0.0-alpha-104</k3po.version>
 
-    <nukleus.plugin.version>develop-SNAPSHOT</nukleus.plugin.version>
+    <nukleus.plugin.version>0.46</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>develop-SNAPSHOT</nukleus.oauth.spec.version>
-    <reaktor.version>develop-SNAPSHOT</reaktor.version>
+    <nukleus.oauth.spec.version>0.39</nukleus.oauth.spec.version>
+    <reaktor.version>0.130</reaktor.version>
   </properties>
 
   <dependencies>

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2019 The Reaktivity Project
+ * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -53,12 +53,12 @@ import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.oauth.internal.OAuthConfiguration;
-import org.reaktivity.nukleus.oauth.internal.types.ArrayFW;
+import org.reaktivity.nukleus.oauth.internal.types.Array32FW;
 import org.reaktivity.nukleus.oauth.internal.types.Flyweight;
 import org.reaktivity.nukleus.oauth.internal.types.HttpHeaderFW;
 import org.reaktivity.nukleus.oauth.internal.types.OctetsFW;
 import org.reaktivity.nukleus.oauth.internal.types.String16FW;
-import org.reaktivity.nukleus.oauth.internal.types.StringFW;
+import org.reaktivity.nukleus.oauth.internal.types.String8FW;
 import org.reaktivity.nukleus.oauth.internal.types.control.RouteFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.AbortFW;
 import org.reaktivity.nukleus.oauth.internal.types.stream.BeginFW;
@@ -95,13 +95,13 @@ public class OAuthProxyFactory implements StreamFactory
     private static final byte[] AUTHORIZATION = "authorization".getBytes(US_ASCII);
     private static final byte[] PATH = ":path".getBytes(US_ASCII);
 
-    private static final StringFW HEADER_NAME_METHOD = new StringFW(":method");
-    private static final StringFW HEADER_NAME_CONTENT_TYPE = new StringFW("content-type");
-    private static final StringFW HEADER_NAME_STATUS = new StringFW(":status");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_METHODS = new StringFW("access-control-allow-methods");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_ALLOW_HEADERS = new StringFW("access-control-allow-headers");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_METHOD = new StringFW("access-control-request-method");
-    private static final StringFW HEADER_NAME_ACCESS_CONTROL_REQUEST_HEADERS = new StringFW("access-control-request-headers");
+    private static final String8FW HEADER_NAME_METHOD = new String8FW(":method");
+    private static final String8FW HEADER_NAME_CONTENT_TYPE = new String8FW("content-type");
+    private static final String8FW HEADER_NAME_STATUS = new String8FW(":status");
+    private static final String8FW HEADER_NAME_ACCESS_CONTROL_ALLOW_METHODS = new String8FW("access-control-allow-methods");
+    private static final String8FW HEADER_NAME_ACCESS_CONTROL_ALLOW_HEADERS = new String8FW("access-control-allow-headers");
+    private static final String8FW HEADER_NAME_ACCESS_CONTROL_REQUEST_METHOD = new String8FW("access-control-request-method");
+    private static final String8FW HEADER_NAME_ACCESS_CONTROL_REQUEST_HEADERS = new String8FW("access-control-request-headers");
 
     private static final String16FW HEADER_VALUE_STATUS_204 = new String16FW("204");
     private static final String16FW HEADER_VALUE_METHOD_OPTIONS = new String16FW("OPTIONS");
@@ -879,7 +879,7 @@ public class OAuthProxyFactory implements StreamFactory
 
         if (httpBeginEx != null)
         {
-            final ArrayFW<HttpHeaderFW> headers = httpBeginEx.headers();
+            final Array32FW<HttpHeaderFW> headers = httpBeginEx.headers();
 
             final HttpHeaderFW authorization = headers.matchFirst(h -> BufferUtil.equals(h.name(), AUTHORIZATION));
             if (authorization != null)
@@ -1006,7 +1006,7 @@ public class OAuthProxyFactory implements StreamFactory
     }
 
     private static void setChallengeResponseHeaders(
-        ArrayFW.Builder<HttpHeaderFW.Builder, HttpHeaderFW> headers)
+        Array32FW.Builder<HttpHeaderFW.Builder, HttpHeaderFW> headers)
     {
         headers.item(h -> h.name(HEADER_NAME_STATUS).value(HEADER_VALUE_STATUS_204));
     }

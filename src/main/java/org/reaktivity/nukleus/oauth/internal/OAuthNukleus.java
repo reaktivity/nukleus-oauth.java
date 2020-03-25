@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2019 The Reaktivity Project
+ * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -27,8 +27,8 @@ import org.jose4j.jwk.JsonWebKey;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.oauth.internal.types.ArrayFW;
-import org.reaktivity.nukleus.oauth.internal.types.StringFW;
+import org.reaktivity.nukleus.oauth.internal.types.Array32FW;
+import org.reaktivity.nukleus.oauth.internal.types.String8FW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ErrorFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.OAuthResolveExFW;
 import org.reaktivity.nukleus.oauth.internal.types.control.ResolveFW;
@@ -121,7 +121,7 @@ final class OAuthNukleus implements Nukleus
             }
         }
 
-        final ArrayFW<StringFW> roles = resolve.roles();
+        final Array32FW<String8FW> roles = resolve.roles();
         final List<String> collectedRoles = new LinkedList<>();
         roles.forEach(r -> collectedRoles.add(r.asString()));
         final long authorization = realms.resolve(realm, issuer, audience, collectedRoles);

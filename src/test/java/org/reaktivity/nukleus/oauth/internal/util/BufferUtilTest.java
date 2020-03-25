@@ -24,7 +24,7 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.Test;
-import org.reaktivity.nukleus.oauth.internal.types.StringFW;
+import org.reaktivity.nukleus.oauth.internal.types.String8FW;
 
 public class BufferUtilTest
 {
@@ -43,10 +43,10 @@ public class BufferUtilTest
     }
 
     @Test
-    public void shouldEqualStringFW()
+    public void shouldEqualString8FW()
     {
         MutableDirectBuffer buffer = new UnsafeBuffer("1234567890123456789012345678901234567890".getBytes());
-        StringFW value = new StringFW.Builder().wrap(buffer, 5, 40)
+        String8FW value = new String8FW.Builder().wrap(buffer, 5, 40)
                 .set("cookie", US_ASCII)
                 .build();
         assertTrue(BufferUtil.equals(value, "cookie".getBytes()));
@@ -60,10 +60,10 @@ public class BufferUtilTest
     }
 
     @Test
-    public void shouldReportUnequalStringFW()
+    public void shouldReportUnequalString8FW()
     {
         MutableDirectBuffer buffer = new UnsafeBuffer("1234567890".getBytes());
-        StringFW value = new StringFW.Builder().wrap(buffer, 0, 10)
+        String8FW value = new String8FW.Builder().wrap(buffer, 0, 10)
                 .set("cookie", US_ASCII)
                 .build();
         assertFalse(BufferUtil.equals(value, "cookie890".getBytes()));
@@ -77,10 +77,10 @@ public class BufferUtilTest
     }
 
     @Test
-    public void shouldReportUnequalStringFWValueLongerThanBuffer()
+    public void shouldReportUnequalString8FWValueLongerThanBuffer()
     {
         MutableDirectBuffer buffer = new UnsafeBuffer("1234567890".getBytes());
-        StringFW value = new StringFW.Builder().wrap(buffer, 0, 10)
+        String8FW value = new String8FW.Builder().wrap(buffer, 0, 10)
                 .set("cookie", US_ASCII)
                 .build();
         assertFalse(BufferUtil.equals(value, "cookies and cream".getBytes()));

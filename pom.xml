@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-oauth</artifactId>
-  <version>develop-SNAPSHOT</version>
+  <version>0.62</version>
   <name>OAuth Nukleus Implementation</name>
   <description>OAuth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-oauth.java</url>

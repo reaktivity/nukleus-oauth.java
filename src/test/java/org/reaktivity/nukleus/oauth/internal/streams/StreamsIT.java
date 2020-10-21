@@ -142,6 +142,17 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/controller",
+        "${streams}/proxy.accept.flush/accept/client",
+        "${streams}/proxy.accept.flush/connect/server"
+        })
+    public void shouldFlushClientConnectWhenAcceptFlushes() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
         "${streams}/proxy.accept.reply.is.reset/accept/client",
         "${streams}/proxy.accept.reply.is.reset/connect/server"
         })
@@ -179,6 +190,17 @@ public class StreamsIT
         "${streams}/proxy.connect.reply.aborts/connect/server"
         })
     public void shouldAbortAcceptReplyWhenConnectReplyAborts() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/controller",
+        "${streams}/proxy.connect.reply.flush/accept/client",
+        "${streams}/proxy.connect.reply.flush/connect/server"
+        })
+    public void shouldFlushAcceptReplyWhenConnectReplyFlushes() throws Exception
     {
         k3po.finish();
     }

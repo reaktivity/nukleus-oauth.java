@@ -56,10 +56,10 @@
 
     <k3po.version>3.1.0</k3po.version>
 
-    <nukleus.plugin.version>0.64</nukleus.plugin.version>
+    <nukleus.plugin.version>0.83</nukleus.plugin.version>
 
-    <nukleus.oauth.spec.version>0.43</nukleus.oauth.spec.version>
-    <reaktor.version>0.155</reaktor.version>
+    <nukleus.oauth.spec.version>0.44</nukleus.oauth.spec.version>
+    <reaktor.version>0.159</reaktor.version>
   </properties>
 
   <dependencies>

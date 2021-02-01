@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>nukleus-oauth</artifactId>
-  <version>0.66</version>
+  <version>0.67</version>
   <name>OAuth Nukleus Implementation</name>
   <description>OAuth Nukleus Implementation</description>
   <url>https://github.com/reaktivity/nukleus-oauth.java</url>
@@ -349,13 +349,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>2.4</version>
-        <configuration>
-          <archive>
-            <manifestEntries>
-              <Automatic-Module-Name>org.reaktivity.nukleus.auth.jwt</Automatic-Module-Name>
-          </manifestEntries>
-        </archive>
-        </configuration>
         <executions>
           <execution>
             <goals>

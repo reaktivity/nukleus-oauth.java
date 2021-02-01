@@ -40,7 +40,7 @@ import org.jose4j.jws.JsonWebSignature;
 import org.jose4j.jwt.JwtClaims;
 import org.jose4j.jwt.consumer.InvalidJwtException;
 import org.jose4j.lang.JoseException;
-import org.reaktivity.nukleus.internal.CopyOnWriteHashMap;
+import org.reaktivity.nukleus.oauth.internal.util.CopyOnWriteHashMap;
 
 public class OAuthRealms
 {

@@ -13,10 +13,11 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.nukleus.auth.jwt
+module org.reaktivity.nukleus.oauth
 {
-    requires org.reaktivity.nukleus;
-    requires org.jose4j;
+    requires org.reaktivity.reaktor;
+    requires jose4j;
+    requires gson;
 
     provides org.reaktivity.nukleus.NukleusFactorySpi
         with org.reaktivity.nukleus.oauth.internal.OAuthNukleusFactorySpi;
